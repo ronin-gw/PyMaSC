@@ -185,6 +185,7 @@ class CCCalculator(object):
     def finishup_calculation(self):
         self._flush()
 
+        #
         if self.forward_sum == 0:
             logger.error("There is no forward read.")
             raise ReadsTooFew
@@ -192,6 +193,7 @@ class CCCalculator(object):
             logger.error("There is no reverse read.")
             raise ReadsTooFew
 
+        # Chi2 test
         self.read_count = self.forward_sum + self.reverse_sum
         self.chi2 = (((self.forward_sum - self.read_count / 2.) ** 2) / self.read_count +
                      ((self.reverse_sum - self.read_count / 2.) ** 2) / self.read_count)
@@ -207,6 +209,7 @@ class CCCalculator(object):
                 self.forward_sum, self.reverse_sum, self.chi2_p, self.chi2_p_thresh
             ))
 
+        # calc cc
         self.forward_read_mean_len = self.forward_read_len_sum / float(self.forward_sum)
         self.reverse_read_mean_len = self.reverse_read_len_sum / float(self.reverse_sum)
         self.read_mean_len = (
@@ -231,6 +234,7 @@ class CCCalculator(object):
             self._ccbins / (self.genomelen - numpy.array(range(self.max_shift)) - 1.) - sum_prod
         ) / var_geomean
 
+        # calc other stats
         self.cc_min = min(self.cc)
 
         self.ccrl_x = int(round(self.read_mean_len))

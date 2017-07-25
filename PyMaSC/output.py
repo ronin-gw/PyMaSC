@@ -1,28 +1,9 @@
-import os.path
 import logging
 
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
-PLOTFILE_SUFFIX = ".pdf"
-CCOUTPUT_SUFFIX = "_cc.tab"
-STATSFILE_SUFFIX = "_stats.tab"
-EXPECT_OUTFILE_SUFFIXES = (PLOTFILE_SUFFIX, CCOUTPUT_SUFFIX, STATSFILE_SUFFIX)
-
 logger = logging.getLogger(__name__)
-
-
-def get_output_basename(dirpath, filepath):
-    return os.path.join(dirpath, os.path.splitext(os.path.basename(filepath))[0])
-
-
-def output_result(sourcepath, ccc, outdir):
-    outfile_prefix = get_output_basename(outdir, sourcepath)
-    logger.info("Output results to '{}'".format(outfile_prefix))
-
-    output_cc(outfile_prefix + CCOUTPUT_SUFFIX, ccc)
-    output_stats(outfile_prefix + STATSFILE_SUFFIX, ccc)
-    plot_figures(outfile_prefix + PLOTFILE_SUFFIX, ccc, os.path.basename(sourcepath))
 
 
 def output_cc(outfile, ccc):

@@ -19,12 +19,12 @@ def get_parser():
                         help="Set verbosity. (Default: INFO)")
     parser.add_argument("--progress", action="store_true",
                         help="Show progress bar.")
-    parser.add_argument("--bleach", action="store_true",
-                        help="Prevent colorize log")
+    parser.add_argument("--color", nargs='?', type=_make_upper, default=None, choices=("TRUE", "FALSE"),
+                        help="Coloring log. (Default: auto)")
 
     input_args = parser.add_argument_group("Input file arguments")
     input_args.add_argument("reads", nargs="+",
-                            help="SAM/BAM format mapped reads.")
+                            help="SAM/BAM format mapped reads. Input must be sorted.")
     input_args.add_argument("-f", "--format", nargs='?', type=_make_upper, default=None, choices=("BAM", "SAM"),
                             help="Specify input file type. (Default: auto)")
     input_args.add_argument("-m", "--mappable", nargs="+",

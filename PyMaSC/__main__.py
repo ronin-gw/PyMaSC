@@ -6,10 +6,20 @@ from logfmt import ColorfulFormatter
 from parsearg import get_parser
 from reader import get_read_generator_and_init_target, InputUnseekable
 from model import CCCalculator, ReadUnsortedError, ReadsTooFew
-from output import EXPECT_OUTFILE_SUFFIXES, get_output_basename, output_result
+from output import output_cc, output_stats, plot_figures
+
+logger = logging.getLogger(__name__)
 
 LOGGING_FORMAT = "[%(asctime)s | %(levelname)s] %(name)10s : %(message)s"
-logger = logging.getLogger(__name__)
+
+PLOTFILE_SUFFIX = ".pdf"
+CCOUTPUT_SUFFIX = "_cc.tab"
+STATSFILE_SUFFIX = "_stats.tab"
+EXPECT_OUTFILE_SUFFIXES = (PLOTFILE_SUFFIX, CCOUTPUT_SUFFIX, STATSFILE_SUFFIX)
+
+
+def _get_output_basename(dirpath, filepath):
+    return os.path.join(dirpath, os.path.splitext(os.path.basename(filepath))[0])
 
 
 def _main():
@@ -18,16 +28,26 @@ def _main():
     args = parser.parse_args()
 
     # set up logging
+    if args.color == "TRUE":
+        colorize = True
+    elif args.color == "FALSE":
+        colorize = False
+    else:
+        colorize = sys.stderr.isatty()
+
     rl = logging.getLogger('')
     h = logging.StreamHandler()
-    h.setFormatter(ColorfulFormatter(fmt=LOGGING_FORMAT, colorize=not args.bleach))
+    h.setFormatter(ColorfulFormatter(fmt=LOGGING_FORMAT, colorize=colorize))
     rl.addHandler(h)
     rl.setLevel(args.log_level)
 
     # set up CCCalculator
     CCCalculator.chi2_p_thresh = args.chi2_pval
     if args.progress:
-        CCCalculator.need_progress_bar = True
+        if sys.stderr.isatty():
+            CCCalculator.need_progress_bar = True
+        else:
+            logger.warning("`--progress` specified but stderr seems not to be attached to terminal. ignored.")
 
     #
     prepare_output(args)
@@ -68,7 +88,7 @@ def prepare_output(args):
 
     for f in args.reads:
         for suffix in EXPECT_OUTFILE_SUFFIXES:
-            expect_outfile = get_output_basename(args.outdir, f) + suffix
+            expect_outfile = _get_output_basename(args.outdir, f) + suffix
             if os.path.exists(expect_outfile):
                 logger.warning("Existing file '{}' will be overwritten.".format(expect_outfile))
 
@@ -102,6 +122,29 @@ def compute_cc(path, fmt, max_shift, mapq_criteria):
         return None
 
     return ccc
+
+
+def output_result(sourcepath, ccc, outdir):
+    outfile_prefix = _get_output_basename(outdir, sourcepath)
+    logger.info("Output results to '{}'".format(outfile_prefix))
+
+    try:
+        output_cc(outfile_prefix + CCOUTPUT_SUFFIX, ccc)
+    except IOError as e:
+        logger.error("Faild to output cc table: {}:\n[Errno {}] {}".format(
+                     e.filename, e.errno, e.message))
+
+    try:
+        output_stats(outfile_prefix + STATSFILE_SUFFIX, ccc)
+    except IOError as e:
+        logger.error("Faild to output stats: {}:\n[Errno {}] {}".format(
+                     e.filename, e.errno, e.message))
+
+    try:
+        plot_figures(outfile_prefix + PLOTFILE_SUFFIX, ccc, os.path.basename(sourcepath))
+    except IOError as e:
+        logger.error("Faild to output figure: {}:\n[Errno {}] {}".format(
+                     e.filename, e.errno, e.message))
 
 
 try:

@@ -22,13 +22,21 @@ class ColorfulFormatter(logging.Formatter):
     DEFAULT_COLOR = 39
     LOGLEVEL2COLOR = {20: 36, 30: 33, 40: 35, 50: 31}
 
-    def __init__(self, fmt=None, datefmt=None):
+    @classmethod
+    def bleach(cls):
+        cls._fmt = cls._monofmt
+
+    def __init__(self, fmt=None, datefmt=None, colorize=True):
         super(ColorfulFormatter, self).__init__(fmt=fmt, datefmt=datefmt)
-        self._fmt = self._fmt.replace(
-            "%(levelname)s", "\033[{col}m%(levelname)8s\033[0m"
-        ).replace(
-            "%(message)s", "\033[{msg}m%(message)s\033[0m"
-        )
+        self.colorize = colorize
+        if colorize:
+            self._fmt = self._fmt.replace(
+                "%(levelname)s", "\033[{col}m%(levelname)8s\033[0m"
+            ).replace(
+                "%(message)s", "\033[{msg}m%(message)s\033[0m"
+            )
+        else:
+            self._fmt = self._fmt.replace("%(levelname)s", "%(levelname)8s")
 
     def fill_format(self, record):
         fmt = self._fmt.format(

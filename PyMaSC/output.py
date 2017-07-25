@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
 PLOTFILE_SUFFIX = ".pdf"
-CCOUTPUT_SUFFIX = "_cc.txt"
+CCOUTPUT_SUFFIX = "_cc.tab"
 STATSFILE_SUFFIX = "_stats.tab"
 EXPECT_OUTFILE_SUFFIXES = (PLOTFILE_SUFFIX, CCOUTPUT_SUFFIX, STATSFILE_SUFFIX)
 
@@ -27,8 +27,9 @@ def output_result(sourcepath, ccc, outdir):
 
 def output_cc(outfile, ccc):
     with open(outfile, 'w') as f:
-        for cc in ccc.cc:
-            print >>f, cc
+        print >>f, "shift\tcc"
+        for i, cc in enumerate(ccc.cc):
+            print >>f, "{}\t{}".format(i + 1, cc)
 
 
 def output_stats(outfile, ccc):
@@ -56,9 +57,9 @@ def plot_naive_cc(ccc, name=None):
     plt.text(ccc.read_mean_len, 0, 'mean read length: {:.1f}'.format(ccc.read_mean_len))
 
     plt.axhline(min(ccc.cc), linestyle="dashed", linewidth=0.5)
-    plt.text(0, min(ccc.cc), 'min(cc): {:.3f}'.format(min(ccc.cc)))
+    plt.text(0, min(ccc.cc), 'min(cc) = {:.3f}'.format(min(ccc.cc)))
 
     ccrl_x = int(round(ccc.read_mean_len))
     ccrl_y = ccc.cc[ccrl_x - 1]
     plt.scatter(ccrl_x, ccrl_y, facecolors="none", edgecolors="red")
-    plt.annotate(" cc(read length): {:.3f}".format(ccrl_y), (ccrl_x, ccrl_y))
+    plt.annotate(" cc(read length) = {:.3f}".format(ccrl_y), (ccrl_x, ccrl_y))

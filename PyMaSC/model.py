@@ -2,6 +2,7 @@ import logging
 import sys
 
 import numpy
+from scipy.stats.distributions import chi2
 
 logger = logging.getLogger(__name__)
 
@@ -10,7 +11,13 @@ class ReadUnsortedError(IndexError):
     pass
 
 
+class ReadsTooFew(IndexError):
+    pass
+
+
 class CCCalculator(object):
+    chi2_p_thresh = 0.05
+
     need_progress_bar = False
     PROGRESS_FORMAT = "\r>{:<72}<"
     PROGRESS_BAR = "<1II1>" * 12
@@ -177,6 +184,28 @@ class CCCalculator(object):
 
     def finishup_calculation(self):
         self._flush()
+
+        if self.forward_sum == 0:
+            logger.error("There is no forward read.")
+            raise ReadsTooFew
+        elif self.reverse_sum == 0:
+            logger.error("There is no reverse read.")
+            raise ReadsTooFew
+
+        self.read_count = self.forward_sum + self.reverse_sum
+        self.chi2 = (((self.forward_sum - self.read_count / 2.) ** 2) / self.read_count +
+                     ((self.reverse_sum - self.read_count / 2.) ** 2) / self.read_count)
+
+        self.chi2_p = chi2.sf(self.chi2, 1)
+        if self.chi2_p < self.chi2_p_thresh:
+            logger.warning("Forward/Reverse read count imbalance.")
+            logger.warning("+/- = {} / {}, Chi-squared test p-val = {} < {}".format(
+                self.forward_sum, self.reverse_sum, self.chi2_p, self.chi2_p_thresh
+            ))
+        else:
+            logger.info("Read counts: +/- = {} / {}, Chi-squared test p-val = {} > {}".format(
+                self.forward_sum, self.reverse_sum, self.chi2_p, self.chi2_p_thresh
+            ))
 
         self.forward_read_mean_len = self.forward_read_len_sum / float(self.forward_sum)
         self.reverse_read_mean_len = self.reverse_read_len_sum / float(self.reverse_sum)

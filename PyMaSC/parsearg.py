@@ -19,6 +19,8 @@ def get_parser():
                         help="Set verbosity. (Default: INFO)")
     parser.add_argument("--progress", action="store_true",
                         help="Show progress bar.")
+    parser.add_argument("--bleach", action="store_true",
+                        help="Prevent colorize log")
 
     input_args = parser.add_argument_group("Input file arguments")
     input_args.add_argument("reads", nargs="+",
@@ -32,6 +34,8 @@ def get_parser():
     params.add_argument("-d", "--max-shift", nargs='?', type=int, default=1000)
     params.add_argument("-q", "--mapq", nargs='?', type=int, default=1,
                         help="Filter out reads which have less than specified MAPQ. (Default: 1)")
+    params.add_argument("-p", "--chi2-pval", nargs='?', type=float, default=0.05,
+                        help="Chi-squared test p-value threshold to check strand specificity. (Default: 0.05)")
 
     output = parser.add_argument_group("Output file arguments")
     output.add_argument("--outdir", nargs='?', default='.',

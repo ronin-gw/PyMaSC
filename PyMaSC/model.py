@@ -1,11 +1,12 @@
-#!/usr/bin/env python
 import logging
-import argparse
 
-from pysam import AlignmentFile
 import numpy
 
 logger = logging.getLogger(__name__)
+
+
+class ReadUnsortedError(IndexError):
+    pass
 
 
 class CCCalculator(object):
@@ -28,6 +29,7 @@ class CCCalculator(object):
         self._reverse_buff = numpy.array([], dtype=numpy.int64)
         self._init_pos_buff()
 
+        self.forward_read_len_sum = self.reverse_read_len_sum = 0
         self.forward_sum = self.reverse_sum = 0
         self.cc = []
 
@@ -49,13 +51,13 @@ class CCCalculator(object):
             if self._chr is not None:
                 self._flush()
             self._chr = chrom
-            logger.info("Process {}...".format(chrom))
+            logger.info("Sum up {}...".format(chrom))
 
         if pos < self._last_pos:
-            raise IndexError("Input read must be sorted.")
+            raise ReadUnsortedError
         self._last_pos = pos
 
-    def feed_forward_read(self, chrom, pos):
+    def feed_forward_read(self, chrom, pos, readlen):
         logger.debug("Got forward read {}".format(pos))
         self._check_pos(chrom, pos)
         if self._last_forward_pos == pos:
@@ -67,6 +69,7 @@ class CCCalculator(object):
         logger.debug(self._forward_buff)
 
         self.forward_sum += 1
+        self.forward_read_len_sum += readlen
         offset = pos - self._deq_tail_pos - 1
         if offset < 0:
             logger.debug("Update buff {}".format(offset))
@@ -90,6 +93,7 @@ class CCCalculator(object):
         logger.debug(self._forward_buff)
 
         self.reverse_sum += 1
+        self.reverse_read_len_sum += readlen
         offset = pos - self._deq_tail_pos - 1
         rev_pos = pos + readlen - 1
         rev_offset = rev_pos - self._deq_tail_pos
@@ -104,7 +108,9 @@ class CCCalculator(object):
             try:
                 self._reverse_buff[rev_offset - 1] = 1
             except IndexError:
-                self._reverse_buff = numpy.append(self._reverse_buff, [0] * (rev_offset - len(self._reverse_buff) - 1) + [1])
+                self._reverse_buff = numpy.append(
+                    self._reverse_buff, [0] * (rev_offset - len(self._reverse_buff) - 1) + [1]
+                )
 
         logger.debug(self._reverse_buff)
         logger.debug(self._forward_buff)
@@ -146,8 +152,15 @@ class CCCalculator(object):
         else:
             self._ccbins += self._forward_buff[::-1]
 
-    def calc_cc(self):
+    def finishup_calculation(self):
         self._flush()
+
+        self.forward_read_mean_len = self.forward_read_len_sum / float(self.forward_sum)
+        self.reverse_read_mean_len = self.reverse_read_len_sum / float(self.reverse_sum)
+        self.read_mean_len = (
+            (self.forward_read_len_sum + self.reverse_read_len_sum) /
+            (float(self.forward_sum) / self.reverse_sum)
+        )
 
         self.forward_mean = float(self.forward_sum) / self.genomelen
         self.reverse_mean = float(self.reverse_sum) / self.genomelen
@@ -162,62 +175,6 @@ class CCCalculator(object):
         #     self.cc.append(
         #         ((self._ccbins[i] / float(self.genomelen - i - 1)) - sum_prod) / var_geomean
         #     )
-        self.cc = (self._ccbins / (self.genomelen - numpy.array(range(self.max_shift)) - 1.) - sum_prod) / var_geomean
-
-        return self.cc
-
-
-def _main():
-    parser = argparse.ArgumentParser(description="Mappability-sensitive cross-correlation calculator for NGS data")
-    parser.add_argument("reads", nargs="+", help="SAM/BAM format mapped reads.")
-    parser.add_argument("-d", "--max-shift", nargs='?', type=int, default=1000)
-    parser.add_argument("-m", "--mappable", nargs="+", help="BED format mappable regions. Use auto detection if not specified.")
-    parser.add_argument("-q", "--mapq", nargs='?', type=int, default=1, help="Filter out reads which have less than specified MAPQ. (default: 1)")
-    parser.add_argument("-n", "--name", nargs=1, help="Basename for output files. (default: for each read file name)")
-    parser.add_argument("--outdir", nargs='?', default='.', help="Output directory. (default: the current directory)")
-
-    args = parser.parse_args()
-    chrom = None
-
-    with AlignmentFile(args.reads[0]) as f:
-        ccc = CCCalculator(args.max_shift, sum(f.lengths))
-        # ccc = CCCalculator(args.max_shift, f.lengths[0])
-
-        for i, read in enumerate(f):
-            if read.mapping_quality < args.mapq or read.is_duplicate:
-                continue
-
-            if read.is_reverse:
-                ccc.feed_reverse_read(read.reference_name, read.pos+1, read.query_length)
-            else:
-                ccc.feed_forward_read(read.reference_name, read.pos+1)
-
-            if chrom != read.reference_name:
-                if chrom is not None:
-                    break
-                chrom = read.reference_name
-            # elif not (i % 10000):
-            #     sys.stderr.write("\r{}".format(i))
-
-    # ccc = CCCalculator(args.max_shift, 12789634)
-    # for i, read in enumerate(sys.stdin):
-    #     _, flag, chrom, pos, mapq, _, _, _, seq, _ = read.split('\t', 9)
-    #     flag = int(flag)
-    #
-    #     if int(mapq) < args.mapq or flag & 1024:
-    #         continue
-    #     if flag & 16:
-    #         ccc.feed_reverse_read(chrom, int(pos), len(seq))
-    #     else:
-    #         ccc.feed_forward_read(chrom, int(pos))f
-
-    # print ccc.calc_cc()
-    # for i in tuple(ccc.calc_cc()):
-    #     print i
-
-
-if __name__ == "__main__":
-    # logger.setLevel(logging.DEBUG)
-    logger.setLevel(logging.INFO)
-    logger.addHandler(logging.StreamHandler())
-    _main()
+        self.cc = (
+            self._ccbins / (self.genomelen - numpy.array(range(self.max_shift)) - 1.) - sum_prod
+        ) / var_geomean

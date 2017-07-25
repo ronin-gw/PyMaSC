@@ -1,4 +1,5 @@
 import logging
+import sys
 
 import numpy
 
@@ -10,7 +11,11 @@ class ReadUnsortedError(IndexError):
 
 
 class CCCalculator(object):
-    def __init__(self, max_shift, genomelen):
+    need_progress_bar = False
+    PROGRESS_FORMAT = "\r>{:<72}<"
+    PROGRESS_BAR = "<1II1>" * 12
+
+    def __init__(self, max_shift, references, lengths):
         """
         self._ccbins: summation bins to calc cc
         self._forward_buff: forward strand read mappability buff.
@@ -20,7 +25,8 @@ class CCCalculator(object):
                             The first base points `self._deq_tail_pos + 1`
         """
         self.max_shift = max_shift
-        self.genomelen = genomelen
+        self.ref2genomelen = dict(zip(references, lengths))
+        self.genomelen = sum(lengths)
 
         self._chr = None
         # self._ccbins = [0] * max_shift
@@ -45,16 +51,33 @@ class CCCalculator(object):
     def _flush(self):
         self._shift_with_update(len(self._reverse_buff) - 1)
         self._init_pos_buff()
+        if self.need_progress_bar:
+            sys.stderr.write("\r\033[K")
+            sys.stderr.flush()
 
     def _check_pos(self, chrom, pos):
         if chrom != self._chr:
             if self._chr is not None:
                 self._flush()
             self._chr = chrom
+
             logger.info("Sum up {}...".format(chrom))
+
+            if self.need_progress_bar:
+                self._unit = self.ref2genomelen[chrom] / len(self.PROGRESS_BAR)
+                self._pg_pos = 0
+                self._pg_base_pos = self._unit
+                sys.stderr.write(self.PROGRESS_FORMAT.format(''))
 
         if pos < self._last_pos:
             raise ReadUnsortedError
+
+        if self.need_progress_bar and pos > self._pg_base_pos:
+            while pos > self._pg_base_pos:
+                self._pg_pos += 1
+                self._pg_base_pos += self._unit
+            sys.stderr.write(self.PROGRESS_FORMAT.format(self.PROGRESS_BAR[:self._pg_pos]))
+
         self._last_pos = pos
 
     def feed_forward_read(self, chrom, pos, readlen):
@@ -159,7 +182,7 @@ class CCCalculator(object):
         self.reverse_read_mean_len = self.reverse_read_len_sum / float(self.reverse_sum)
         self.read_mean_len = (
             (self.forward_read_len_sum + self.reverse_read_len_sum) /
-            (float(self.forward_sum) / self.reverse_sum)
+            (float(self.forward_sum) + self.reverse_sum)
         )
 
         self.forward_mean = float(self.forward_sum) / self.genomelen
@@ -178,3 +201,8 @@ class CCCalculator(object):
         self.cc = (
             self._ccbins / (self.genomelen - numpy.array(range(self.max_shift)) - 1.) - sum_prod
         ) / var_geomean
+
+        self.cc_min = min(self.cc)
+
+        self.ccrl_x = int(round(self.read_mean_len))
+        self.ccrl_y = self.cc[self.ccrl_x - 1]

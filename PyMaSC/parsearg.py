@@ -17,6 +17,8 @@ def get_parser():
     parser.add_argument("-v", "--log-level", nargs='?', type=_make_upper, default=logging.INFO, action=StoreLoggingLevel,
                         choices=("INFO", "WARNING", "ERROR", "CRITICAL"),
                         help="Set verbosity. (Default: INFO)")
+    parser.add_argument("--progress", action="store_true",
+                        help="Show progress bar.")
 
     input_args = parser.add_argument_group("Input file arguments")
     input_args.add_argument("reads", nargs="+",
@@ -32,9 +34,7 @@ def get_parser():
                         help="Filter out reads which have less than specified MAPQ. (Default: 1)")
 
     output = parser.add_argument_group("Output file arguments")
-    output.add_argument("-n", "--name", nargs=1,
-                        help="Basename for output files. (Default: for each read file name)")
     output.add_argument("--outdir", nargs='?', default='.',
-                        help="Output directory. (Default: the current directory)")
+                        help="Output directory. (Default: current directory)")
 
     return parser

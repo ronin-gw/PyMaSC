@@ -40,8 +40,11 @@ def _main():
     h.setFormatter(ColorfulFormatter(fmt=LOGGING_FORMAT, colorize=colorize))
     rl.addHandler(h)
     rl.setLevel(args.log_level)
+    # rl.setLevel(logging.DEBUG)
 
     # set up CCCalculator
+    if args.mappable:
+        CCCalculator.set_mappable_region(args.mappable[0])
     CCCalculator.chi2_p_thresh = args.chi2_pval
     if args.progress:
         if sys.stderr.isatty():
@@ -65,6 +68,8 @@ def _main():
         output_result(f, ccc, args.outdir)
 
     #
+    if args.mappable:
+        CCCalculator.close_region_file()
     logger.info("PyMASC finished.")
 
 
@@ -97,7 +102,7 @@ def compute_cc(path, fmt, max_shift, mapq_criteria):
     try:
         parser, stream = get_read_generator_and_init_target(path, fmt)
     except InputUnseekable:
-        logger.error("Specify input file format using `-f` option if your input is a stream.")
+        logger.error("Specify input file format using `-f` option if your input can't seek back.")
         return None
 
     with parser(stream) as alignfile:
@@ -115,6 +120,9 @@ def compute_cc(path, fmt, max_shift, mapq_criteria):
             except ReadUnsortedError:
                 logger.error("Input read must be sorted.")
                 return None
+
+            if i > 1000:
+                break
 
     try:
         ccc.finishup_calculation()

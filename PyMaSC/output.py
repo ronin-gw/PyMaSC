@@ -40,7 +40,5 @@ def plot_naive_cc(ccc, name=None):
     plt.axhline(min(ccc.cc), linestyle="dashed", linewidth=0.5)
     plt.text(0, min(ccc.cc), 'min(cc) = {:.3f}'.format(min(ccc.cc)))
 
-    ccrl_x = int(round(ccc.read_mean_len))
-    ccrl_y = ccc.cc[ccrl_x - 1]
-    plt.scatter(ccrl_x, ccrl_y, facecolors="none", edgecolors="red")
-    plt.annotate(" cc(read length) = {:.3f}".format(ccrl_y), (ccrl_x, ccrl_y))
+    plt.scatter(ccc.ccrl_x, ccc.ccrl_y, facecolors="none", edgecolors="red")
+    plt.annotate(" cc(read length) = {:.3f}".format(ccc.ccrl_y), (ccc.ccrl_x, ccc.ccrl_y))

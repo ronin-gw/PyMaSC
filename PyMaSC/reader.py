@@ -110,7 +110,7 @@ def _guess_format(path):
             f.seek(0)
         except IOError as e:
             if e.errno == 29:
-                logger.error("Faild to file seek after format prediction.")
+                logger.error("Faild to file seek back after format prediction.")
                 raise InputUnseekable
             else:
                 raise e

@@ -27,8 +27,8 @@ def get_parser():
                             help="SAM/BAM format mapped reads. Input must be sorted.")
     input_args.add_argument("-f", "--format", nargs='?', type=_make_upper, default=None, choices=("BAM", "SAM"),
                             help="Specify input file type. (Default: auto)")
-    input_args.add_argument("-m", "--mappable", nargs="+",
-                            help="BED format mappable regions. Use auto detection if not specified.")
+    input_args.add_argument("-m", "--mappable", nargs=1,
+                            help="BigWig/BigBed format mappable region file.")
 
     params = parser.add_argument_group("Parameters")
     params.add_argument("-d", "--max-shift", nargs='?', type=int, default=1000)

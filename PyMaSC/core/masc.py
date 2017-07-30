@@ -47,49 +47,37 @@ class CCCalculator(object):
         cls.is_region_file_closed = True
 
     @staticmethod
-    def _get_shift_update_fun(obj, forward_buff_attr_name, reverse_buff_attr_name, update_cc_func):
+    def _get_shift_update_fun(obj, forward_buff_attr_name, reverse_buff_attr_name, ccbins_attr_name):
         def update_func(self, offset, update_forward=False):
             forward_buff = getattr(self, forward_buff_attr_name)
             reverse_buff = getattr(self, reverse_buff_attr_name)
-
-            remain_buff_len = len(reverse_buff) - offset - 1
-            if remain_buff_len > 0:
-                for rev_state in reverse_buff[:offset + (1 if update_forward else 0)]:
-                    if rev_state:
-                        update_cc_func()
-                    setattr(self, forward_buff_attr_name, np.concatenate((getattr(self, forward_buff_attr_name)[1:], [0])))
-                if update_forward:
-                    if reverse_buff[offset]:
-                        update_cc_func()
-                    setattr(self, forward_buff_attr_name, np.concatenate((getattr(self, forward_buff_attr_name)[1:], [1])))
-
-                setattr(self, reverse_buff_attr_name, reverse_buff[offset+1:])
-            else:
-                for rev_state in reverse_buff:
-                    if rev_state:
-                        update_cc_func()
-                    setattr(self, forward_buff_attr_name, np.concatenate((getattr(self, forward_buff_attr_name)[1:], [0])))
-
-                forward_buff.fill(0)
-                if update_forward:
-                    forward_buff[0] = 1
-
-                setattr(self, forward_buff_attr_name, forward_buff)
-                setattr(self, reverse_buff_attr_name, np.array([], dtype=np.int64))
-
-        return types.MethodType(update_func, obj)
-
-    @staticmethod
-    def _get_update_cc_func(obj, forward_buff_attr_name, ccbins_attr_name):
-        def update_func(self, offset=0):
-            forward_buff = getattr(self, forward_buff_attr_name)
             ccbins = getattr(self, ccbins_attr_name)
 
-            if offset:
-                target = forward_buff[offset-1::-1]
-                ccbins[0:offset] += target
+            remain_buff_len = forward_buff.size - offset - 1
+            if remain_buff_len > 0:
+                rotate = offset + (0 if update_forward else 1)
+                i = -1
+                for i, rev_state in enumerate(reverse_buff[:rotate]):
+                    if rev_state:
+                        ccbins[i:] += forward_buff[i:][::-1]
+                forward_buff = np.concatenate((forward_buff[rotate:], np.repeat(0, rotate)))
+
+                if update_forward:
+                    if reverse_buff[offset:offset+1]:
+                        ccbins += forward_buff[::-1]
+                    forward_buff = np.concatenate((forward_buff[1:], [1]))
             else:
-                ccbins += forward_buff[::-1]
+                for i, rev_state in enumerate(reverse_buff[:forward_buff.size]):
+                    if rev_state:
+                        ccbins[i:] += forward_buff[i:][::-1]
+                forward_buff.fill(0)
+
+                if update_forward:
+                    forward_buff[-1] = 1
+
+            setattr(self, forward_buff_attr_name, forward_buff)
+            setattr(self, reverse_buff_attr_name, reverse_buff[offset+1:])
+            setattr(self, ccbins_attr_name, ccbins)
 
         return types.MethodType(update_func, obj)
 
@@ -121,8 +109,8 @@ class CCCalculator(object):
 
         self._chr = None
         # self._ccbins = [0] * max_shift
-        self._ccbins = np.array([0] * max_shift)
-        self._forward_buff = np.array([0] * self.max_shift)
+        self._ccbins = np.repeat(0, max_shift)
+        self._forward_buff = np.repeat(0, self.max_shift)
         self._reverse_buff = np.array([], dtype=np.int64)
 
         self.forward_sum = self.reverse_sum = 0
@@ -130,16 +118,13 @@ class CCCalculator(object):
 
         self.cc = []
 
-        self._update_ncc = self._get_update_cc_func(
-            self, "_forward_buff", "_ccbins"
-        )
         self._shift_with_update_ncc = self._get_shift_update_fun(
-            self, "_forward_buff", "_reverse_buff", self._update_ncc
+            self, "_forward_buff", "_reverse_buff", "_ccbins"
         )
 
         if self.region_file:
-            self._m_ccbins = np.array([0] * max_shift)
-            self._m_forward_buff = np.array([0] * self.max_shift)
+            self._m_ccbins = np.repeat(0, max_shift)
+            self._m_forward_buff = np.repeat(0, self.max_shift)
             self._m_reverse_buff = np.array([], dtype=np.int64)
 
             self.mappable_forward_sum = self.mappable_reverse_sum = 0
@@ -147,11 +132,8 @@ class CCCalculator(object):
 
             self.mappable_cc = []
 
-            self._update_mscc = self._get_update_cc_func(
-                self, "_m_forward_buff", "_m_ccbins"
-            )
             self._shift_with_update_mscc = self._get_shift_update_fun(
-                self, "_m_forward_buff", "_m_reverse_buff", self._update_mscc
+                self, "_m_forward_buff", "_m_reverse_buff", "_m_ccbins"
             )
         else:
             self._update_cc_mscc = self._get_pass_func()
@@ -173,8 +155,8 @@ class CCCalculator(object):
 
     def _flush(self):
         if self.region_file:
-            self._shift_with_update_mscc(len(self._m_reverse_buff) - 1)
-        self._shift_with_update_ncc(len(self._reverse_buff) - 1)
+            self._shift_with_update_mscc(self._m_reverse_buff.size - 1)
+        self._shift_with_update_ncc(self._reverse_buff.size - 1)
         self._init_pos_buff()
         if self.need_progress_bar:
             sys.stderr.write("\r\033[K")
@@ -271,7 +253,9 @@ class CCCalculator(object):
         rev_offset = rev_pos - self._deq_tail_pos
         if rev_offset < 1:
             logger.debug("Update immediately {}".format(offset))
-            self._update_cc(rev_offset, is_mappabile)
+            self._ccbins[:rev_offset-1] += self._forward_buff[rev_offset-2::-1]
+            if is_mappabile:
+                self._m_ccbins[:rev_offset-1] += self._m_forward_buff[rev_offset-2::-1]
         else:
             if offset > 0:
                 logger.debug("Shift buff {}".format(offset))
@@ -283,11 +267,11 @@ class CCCalculator(object):
                     self._m_reverse_buff[rev_offset - 1] = 1
             except IndexError:
                 self._reverse_buff = np.append(
-                    self._reverse_buff, [0] * (rev_offset - len(self._reverse_buff) - 1) + [1]
+                    self._reverse_buff, [0] * (rev_offset - self._reverse_buff.size - 1) + [1]
                 )
                 if is_mappabile:
                     self._m_reverse_buff = np.append(
-                        self._m_reverse_buff, [0] * (rev_offset - len(self._m_reverse_buff) - 1) + [1]
+                        self._m_reverse_buff, [0] * (rev_offset - self._m_reverse_buff.size - 1) + [1]
                     )
 
         logger.debug(self._reverse_buff)

@@ -21,6 +21,7 @@ def plot_figures(outfile, ccc, name):
     with PdfPages(outfile) as pp:
         plot_naive_cc(ccc, name)
         pp.savefig()
+    plt.clf()
 
 
 def plot_naive_cc(ccc, name=None):

@@ -4,8 +4,8 @@ import sys
 
 from logfmt import ColorfulFormatter
 from parsearg import get_parser
-from reader import get_read_generator_and_init_target, InputUnseekable
-from model import CCCalculator, ReadUnsortedError, ReadsTooFew
+from reader.align import get_read_generator_and_init_target, InputUnseekable
+from core.masc import CCCalculator, ReadUnsortedError, ReadsTooFew
 from output import output_cc, output_stats, plot_figures
 
 logger = logging.getLogger(__name__)
@@ -46,11 +46,8 @@ def _main():
     if args.mappable:
         CCCalculator.set_mappable_region(args.mappable[0])
     CCCalculator.chi2_p_thresh = args.chi2_pval
-    if args.progress:
-        if sys.stderr.isatty():
-            CCCalculator.need_progress_bar = True
-        else:
-            logger.warning("`--progress` specified but stderr seems not to be attached to terminal. ignored.")
+    if sys.stderr.isatty():
+        CCCalculator.need_progress_bar = True
 
     #
     prepare_output(args)

@@ -17,8 +17,6 @@ def get_parser():
     parser.add_argument("-v", "--log-level", nargs='?', type=_make_upper, default=logging.INFO, action=StoreLoggingLevel,
                         choices=("INFO", "WARNING", "ERROR", "CRITICAL"),
                         help="Set verbosity. (Default: INFO)")
-    parser.add_argument("--progress", action="store_true",
-                        help="Show progress bar.")
     parser.add_argument("--color", nargs='?', type=_make_upper, default=None, choices=("TRUE", "FALSE"),
                         help="Coloring log. (Default: auto)")
 

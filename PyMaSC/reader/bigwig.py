@@ -13,12 +13,14 @@ class BigWigFile(object):
         wWigIO.bigWigToWig(bwfile, wigfile)
 
     def __init__(self, path, chrom_size=None):
+        self.path = self.closed = None
+
         if not os.path.exists(path) and path != '-':
             raise IOError("input file '{0}' dose not exist.".format(path))
         elif path == '-':
             path = "stdin"
 
-        prefix, ext = os.path.splitext(path)[0]
+        prefix, ext = os.path.splitext(path)
         if ext == "wig":
             bwfile = prefix + ".bw"
             if os.path.exists(bwfile):
@@ -32,9 +34,9 @@ class BigWigFile(object):
             self.path = path
 
         wWigIO.open(self.path)
-        self.set_chromsizes()
-
         self.closed = False
+
+        self.set_chromsizes()
 
     def set_chromsizes(self):
         self.chromsizes = wWigIO.getChromSize(self.path)
@@ -60,12 +62,16 @@ class BigWigFile(object):
             end = 0
 
         for chrom in chroms:
-            for wig in self._getIntervals(chrom, begin, end):
-                yield chrom, wig[0], wig[1], wig[2]
+            wigs = self._getIntervals(chrom, begin, end)
+            try:
+                for wig in wigs:
+                    yield chrom, wig[0], wig[1], wig[2]
+            finally:
+                del wigs
 
     def close(self):
         if not self.closed:
-            wWigIO.close(self.infile)
+            wWigIO.close(self.path)
             self.closed = True
 
     def __enter__(self):

@@ -7,7 +7,6 @@ from PyMaSC.utils.parsearg import get_parser
 from PyMaSC.utils.progress import ProgressBar
 from PyMaSC.reader.align import get_read_generator_and_init_target, InputUnseekable
 from PyMaSC.core.masc import CCCalculator, ReadUnsortedError, ReadsTooFew
-from PyMaSC.core.alignability import BWFeederWithAlignableRegionSum
 from PyMaSC.output import output_cc, output_stats, plot_figures
 
 logger = logging.getLogger(__name__)
@@ -35,8 +34,7 @@ def _main():
     else:
         colorize = sys.stderr.isatty()
 
-    rl = set_rootlogger(colorize, args.log_level)
-    # rl.setLevel(logging.DEBUG)
+    set_rootlogger(colorize, args.log_level)
 
     # set up CCCalculator
     if args.mappable:
@@ -155,13 +153,7 @@ def output_result(sourcepath, ccc, outdir):
 
 def exec_entrypoint():
     try:
-        # _main()
-        if sys.stderr.isatty():
-            ProgressBar.enable = True
-        set_rootlogger(True, logging.INFO)
-        bwf = BWFeederWithAlignableRegionSum(sys.argv[1], 100)
-        print bwf.get_alignable_len()
-
+        _main()
     except KeyboardInterrupt:
         sys.stderr.write("\r\033[K")
         sys.stderr.flush()

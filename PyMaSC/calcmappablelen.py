@@ -31,8 +31,7 @@ def _main():
     else:
         colorize = sys.stderr.isatty()
 
-    rl = set_rootlogger(colorize, args.log_level)
-    # rl.setLevel(logging.DEBUG)
+    set_rootlogger(colorize, args.log_level)
 
     # check args
     args.mappable = args.mappable[0]

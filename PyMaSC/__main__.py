@@ -2,8 +2,8 @@ import logging
 import os
 import sys
 
-from logfmt import ColorfulFormatter
-from parsearg import get_parser
+from utils.logfmt import ColorfulFormatter
+from utils.parsearg import get_parser
 from reader.align import get_read_generator_and_init_target, InputUnseekable
 from core.masc import CCCalculator, ReadUnsortedError, ReadsTooFew
 from output import output_cc, output_stats, plot_figures
@@ -64,6 +64,9 @@ def _main():
 
         output_result(f, ccc, args.outdir)
 
+        # import pickle
+        # with open("test.pyobj", 'w') as f:
+        #     pickle.dump([ccc.cc, ccc.max_shift, ccc.read_mean_len, ccc.ccrl_x, ccc.ccrl_y], f)
     #
     if args.mappable:
         CCCalculator.close_region_file()
@@ -118,8 +121,10 @@ def compute_cc(path, fmt, max_shift, mapq_criteria):
                 logger.error("Input read must be sorted.")
                 return None
 
-            if i > 1000:
-                break
+            # if i > 10000:
+            #     break
+            # if chrom == "chr2":
+            #     break
 
     try:
         ccc.finishup_calculation()
@@ -158,3 +163,21 @@ except KeyboardInterrupt:
     sys.stderr.write("\r\033[K")
     sys.stderr.flush()
     logger.info("Got KeyboardInterrupt. bye")
+
+# @profile
+# def _test():
+#     rl = logging.getLogger('')
+#     h = logging.StreamHandler()
+#     h.setFormatter(ColorfulFormatter(fmt=LOGGING_FORMAT, colorize=True))
+#     rl.addHandler(h)
+#     rl.setLevel(logging.DEBUG)
+#     from core.alignability import BWFeederWithAlignableRegoinSum
+#     bwf = BWFeederWithAlignableRegoinSum(sys.argv[1], 999)
+#     print bwf.get_alignable_len("chrY", force=True)
+#     bwf._test_del()
+#     del bwf
+#     time.sleep(5)
+#     return None
+#
+#
+# _test()

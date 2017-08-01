@@ -100,7 +100,7 @@ class BWFeederWithAlignableRegoinSum(BigWigFile):
             self._flush()
 
     def _feed_track(self, begin, end):
-        gap_len = begin - self._buff_tail_pos - 1
+        gap_len = begin - self._buff_tail_pos
         remain_buff_len = self.max_shift - gap_len
         track_len = end - begin
 

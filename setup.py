@@ -44,10 +44,23 @@ def _setup():
         },
         ext_modules=[
             Extension(
-                'wWigIO', [_basedir("external/KentLib/wWigIO/wWigIO.c")],
-                extra_link_args=["-DMACHTYPE_x86_64", "-lz", "-lm", _basedir("external/KentLib/lib/jkweb.a")],
-                extra_compile_args=["-w", "-shared", "-fPIC", "-p", "-I" + _basedir("external/KentLib/inc")]
+                "PyMaSC.reader.bigwig.bigwig",
+                sources=[_basedir("PyMaSC/reader/bigwig/bigwig.pyx")],
+                include_dirs=[_basedir("external/KentLib/inc")],
+                extra_link_args=[_basedir("external/KentLib/lib/jkweb.a")]
+            ),
+            Extension(
+                "PyMaSC.reader.bigwig.interval",
+                sources=[_basedir("PyMaSC/reader/bigwig/interval.pyx")],
+                include_dirs=[_basedir("external/KentLib/inc")],
+                extra_link_args=[_basedir("external/KentLib/lib/jkweb.a")]
             )
+            # Extension(
+            #     'wWigIO',
+            #     sources=[_basedir("external/KentLib/wWigIO/wWigIO.c")],
+            #     extra_link_args=["-DMACHTYPE_x86_64", "-lz", "-lm", _basedir("external/KentLib/lib/jkweb.a")],
+            #     extra_compile_args=["-w", "-shared", "-fPIC", "-p", "-I" + _basedir("external/KentLib/inc")]
+            # )
         ]
     )
 

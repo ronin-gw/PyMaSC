@@ -5,6 +5,7 @@ import sys
 
 from PyMaSC.utils.logfmt import ColorfulFormatter
 from PyMaSC.utils.parsearg import get_parser
+from PyMaSC.utils.progress import ProgressBar
 from PyMaSC.reader.align import get_read_generator_and_init_target, InputUnseekable
 from PyMaSC.core.masc import CCCalculator, ReadUnsortedError, ReadsTooFew
 from PyMaSC.core.alignability import BWFeederWithAlignableRegoinSum
@@ -49,7 +50,7 @@ def _main():
         CCCalculator.set_mappable_region(args.mappable[0])
     CCCalculator.chi2_p_thresh = args.chi2_pval
     if sys.stderr.isatty():
-        CCCalculator.need_progress_bar = True
+        ProgressBar.enable = True
 
     #
     prepare_output(args)

@@ -1,10 +1,11 @@
 import logging
-import sys
 import types
 
 import pyBigWig
 import numpy as np
 from scipy.stats.distributions import chi2
+
+from PyMaSC.utils.progress import ProgressBar
 
 logger = logging.getLogger(__name__)
 
@@ -22,10 +23,6 @@ class CCCalculator(object):
     region_file_path = None
     region_file = None
     is_region_file_closed = False
-
-    need_progress_bar = False
-    PROGRESS_FORMAT = "\r>{:<72}<"
-    PROGRESS_BAR = "<1II1>" * 12
 
     @classmethod
     def set_mappable_region(cls, region_file_path):
@@ -45,6 +42,9 @@ class CCCalculator(object):
         logger.info("Cose mappable region file.")
         cls.region_file.close()
         cls.is_region_file_closed = True
+
+    def next(self):
+        pass
 
     @staticmethod
     def _get_shift_update_fun(obj, forward_buff_attr_name, reverse_buff_attr_name, ccbins_attr_name):
@@ -86,9 +86,6 @@ class CCCalculator(object):
             pass
 
         return types.MethodType(pass_func, self)
-
-    def next(self):
-        pass
 
     def __init__(self, max_shift, references, lengths):
         """
@@ -140,6 +137,7 @@ class CCCalculator(object):
             self._shift_with_update_mscc = self._get_pass_func()
 
         self._init_pos_buff()
+        self._progress = ProgressBar()
 
     def _init_pos_buff(self):
         # self._forward_buff = [0] * self.max_shift
@@ -158,9 +156,7 @@ class CCCalculator(object):
             self._shift_with_update_mscc(self._m_reverse_buff.size - 1)
         self._shift_with_update_ncc(self._reverse_buff.size - 1)
         self._init_pos_buff()
-        if self.need_progress_bar:
-            sys.stderr.write("\r\033[K")
-            sys.stderr.flush()
+        self._progress.clean()
 
     def get_mappability(self, pos):
         try:
@@ -176,20 +172,12 @@ class CCCalculator(object):
 
             logger.info("Sum up {}...".format(chrom))
 
-            if self.need_progress_bar:
-                self._unit = self.ref2genomelen[chrom] / len(self.PROGRESS_BAR)
-                self._pg_pos = 0
-                self._pg_base_pos = self._unit
-                sys.stderr.write(self.PROGRESS_FORMAT.format(''))
+            self._progress.set(self.ref2genomelen[chrom])
 
         if pos < self._last_pos:
             raise ReadUnsortedError
 
-        if self.need_progress_bar and pos > self._pg_base_pos:
-            while pos > self._pg_base_pos:
-                self._pg_pos += 1
-                self._pg_base_pos += self._unit
-            sys.stderr.write(self.PROGRESS_FORMAT.format(self.PROGRESS_BAR[:self._pg_pos]))
+        self._progress.update(pos)
 
         self._last_pos = pos
 

@@ -80,10 +80,12 @@ cdef extern from "zlibFace.h":
 
 
 cdef class BWIntervalGenerator:
-    cdef init(self, bbiFile *bigwig, char *chrom, bits32 start, bits32 end):
+    cdef init(self, bbiFile *bigwig, float valfilter, char *chrom, bits32 start, bits32 end):
         self.file = bigwig
         if (self.file.typeSig != bigWigSig):
             raise IOError("Trying to do bigWigIntervalQuery on a non big-wig file.")
+
+        self.valfilter = valfilter
 
         self.chrom = chrom
         self.start = start
@@ -137,9 +139,7 @@ cdef class BWIntervalGenerator:
         return 0
 
     cdef Interval _iter_block(self):
-        cdef Interval el
-        el.start = 0
-        el.end = 0
+        cdef Interval el = Interval(0, 0, 0.)
 
         if self.head.type == bwgTypeBedGraph:
             while self.yield_count < self.head.itemCount:
@@ -228,9 +228,12 @@ cdef class BWIntervalGenerator:
         cdef Interval result
 
         while True:
-            result = self._iter_block()
-            if not (result.start == 0 and result.end == 0):
-                return self.chrom, result.start, result.end, result.val
+            while True:
+                result = self._iter_block()
+                if result.start == 0 and result.end == 0:
+                    break
+                elif result.val >= self.valfilter:
+                    return self.chrom, result.start, result.end, result.val
             self._update_block()
             while True:
                 if self._init_block() == 0:

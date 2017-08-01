@@ -60,19 +60,14 @@ class BWFeederWithAlignableRegoinSum(BigWigFile):
             return self._yield_with_calc(chrom)
 
     def _yield(self, chrom):
-        for wig in self.fetch(chrom):
-            if wig[3] < self.MAPPABILITY_THRESHOLD:
-                continue
+        for wig in self.fetch(self.MAPPABILITY_THRESHOLD, chrom):
             yield wig
 
     def _yield_with_calc_alignability(self, chrom):
         stop_yield = False
 
         self._init_buff(chrom)
-        for wig in self.fetch(chrom):
-            if wig[3] < self.MAPPABILITY_THRESHOLD:
-                continue
-
+        for wig in self.fetch(self.MAPPABILITY_THRESHOLD, chrom):
             self._feed_track(wig[1], wig[2])
 
             if not stop_yield:
@@ -91,10 +86,8 @@ class BWFeederWithAlignableRegoinSum(BigWigFile):
 
         for c in chroms:
             self._init_buff(c)
-            for wig in self.fetch(c):
+            for wig in self.fetch(self.MAPPABILITY_THRESHOLD, c):
                 self._progress.update(wig[2])
-                if wig[3] < self.MAPPABILITY_THRESHOLD:
-                    continue
                 self._feed_track(wig[1], wig[2])
 
             self._flush()

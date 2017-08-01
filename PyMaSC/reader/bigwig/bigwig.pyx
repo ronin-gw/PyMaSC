@@ -151,7 +151,7 @@ cdef class BigWigFile:
             self.chromsizes[chrom.name] = chrom.size
             chrom = chrom.next
 
-    def fetch(self, chrom=None, begin=None, end=None):
+    def fetch(self, valfilter, chrom=None, begin=None, end=None):
         if chrom is None:
             chroms = self.chromsizes.keys()
         else:
@@ -168,7 +168,7 @@ cdef class BigWigFile:
                 _end = self.chromsizes[chrom]
 
             i = BWIntervalGenerator()
-            i.init(self.file, chrom, _begin, _end)
+            i.init(self.file, valfilter, chrom, _begin, _end, )
             iters.append(i)
 
         return itertools.chain.from_iterable(iters)

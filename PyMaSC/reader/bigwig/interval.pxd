@@ -22,6 +22,7 @@ cdef extern from "bwgInternal.h":
 cdef class BWIntervalGenerator:
     cdef:
         bbiFile *file
+        float valfilter
         char chrom[256]
         bits32 start
         bits32 end
@@ -49,7 +50,7 @@ cdef class BWIntervalGenerator:
         int yield_count
         bits32 s, e, clippedS, clippedE
 
-    cdef init(self, bbiFile *bigwig, char *chrom, bits32 start, bits32 end)
+    cdef init(self, bbiFile *bigwig, float valfilter, char *chrom, bits32 start, bits32 end)
     cdef _init_contigblocks(self)
     cdef int _init_block(self)
 

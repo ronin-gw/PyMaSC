@@ -1,4 +1,4 @@
-from PyMaSC.reader.bigwig.kentlib.types cimport bits64
+from .types cimport bits64
 
 
 cdef extern from "common.h":

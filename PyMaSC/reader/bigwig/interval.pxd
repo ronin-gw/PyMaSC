@@ -1,6 +1,6 @@
-from PyMaSC.reader.bigwig.kentlib.types cimport bits32, bits16, boolean, UBYTE
-from PyMaSC.reader.bigwig.kentlib.structs cimport fileOffsetSize
-from PyMaSC.reader.bigwig.kentlib.files cimport bbiFile, udcFile
+from .kentlib.types cimport bits32, bits16, boolean, UBYTE
+from .kentlib.structs cimport fileOffsetSize
+from .kentlib.files cimport bbiFile, udcFile
 
 
 cdef struct Interval:
@@ -22,7 +22,7 @@ cdef extern from "bwgInternal.h":
 cdef class BWIntervalGenerator:
     cdef:
         bbiFile *file
-        char *chrom
+        char chrom[256]
         bits32 start
         bits32 end
 

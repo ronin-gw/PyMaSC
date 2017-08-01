@@ -1,12 +1,14 @@
+#!/usr/bin/env python
 import logging
 import os
 import sys
 
-from utils.logfmt import ColorfulFormatter
-from utils.parsearg import get_parser
-from reader.align import get_read_generator_and_init_target, InputUnseekable
-from core.masc import CCCalculator, ReadUnsortedError, ReadsTooFew
-from output import output_cc, output_stats, plot_figures
+from PyMaSC.utils.logfmt import ColorfulFormatter
+from PyMaSC.utils.parsearg import get_parser
+from PyMaSC.reader.align import get_read_generator_and_init_target, InputUnseekable
+from PyMaSC.core.masc import CCCalculator, ReadUnsortedError, ReadsTooFew
+from PyMaSC.core.alignability import BWFeederWithAlignableRegoinSum
+from PyMaSC.output import output_cc, output_stats, plot_figures
 
 logger = logging.getLogger(__name__)
 
@@ -157,27 +159,10 @@ def output_result(sourcepath, ccc, outdir):
                      e.filename, e.errno, e.message))
 
 
-try:
-    _main()
-except KeyboardInterrupt:
-    sys.stderr.write("\r\033[K")
-    sys.stderr.flush()
-    logger.info("Got KeyboardInterrupt. bye")
-
-# @profile
-# def _test():
-#     rl = logging.getLogger('')
-#     h = logging.StreamHandler()
-#     h.setFormatter(ColorfulFormatter(fmt=LOGGING_FORMAT, colorize=True))
-#     rl.addHandler(h)
-#     rl.setLevel(logging.DEBUG)
-#     from core.alignability import BWFeederWithAlignableRegoinSum
-#     bwf = BWFeederWithAlignableRegoinSum(sys.argv[1], 999)
-#     print bwf.get_alignable_len("chrY", force=True)
-#     bwf._test_del()
-#     del bwf
-#     time.sleep(5)
-#     return None
-#
-#
-# _test()
+def exec_entrypoint():
+    try:
+        _main()
+    except KeyboardInterrupt:
+        sys.stderr.write("\r\033[K")
+        sys.stderr.flush()
+        logger.info("Got KeyboardInterrupt. bye")

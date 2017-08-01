@@ -1,8 +1,8 @@
 import logging
 import sys
 
-from reader.sam import SamReadGenerator, SamStreamReadGenerator
-from reader.bam import BamReadGenerator
+from PyMaSC.reader.sam import SamReadGenerator, SamStreamReadGenerator
+from PyMaSC.reader.bam import BamReadGenerator
 
 
 logger = logging.getLogger(__name__)

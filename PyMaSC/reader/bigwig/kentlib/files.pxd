@@ -1,6 +1,6 @@
 from libc.time cimport time_t
 
-from PyMaSC.reader.bigwig.kentlib.types cimport boolean, bits16, bits32, bits64
+from .types cimport boolean, bits16, bits32, bits64
 
 
 # from udc.c

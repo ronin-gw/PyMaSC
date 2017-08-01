@@ -1,9 +1,8 @@
-import logging, sys, time
+import logging
 
-from memory_profiler import profile
 import numpy as np
 
-from reader.bigwig import BigWigFile
+from PyMaSC.reader.bigwig.bigwig import BigWigFile
 
 logger = logging.getLogger(__name__)
 
@@ -145,15 +144,3 @@ class BWFeederWithAlignableRegoinSum(BigWigFile):
 
         self._calc_alignability()
         return self.alignable_len[shift_from:shift_to]
-
-    @profile
-    def _test_del(self):
-        del self._sumbins
-        time.sleep(5)
-        del self._buff
-        time.sleep(5)
-        del self.chrom2alignable_len
-        time.sleep(5)
-        del self.alignable_len
-        time.sleep(5)
-        return None

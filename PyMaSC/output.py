@@ -25,7 +25,7 @@ def plot_figures(outfile, ccc, name):
 
 
 def plot_naive_cc(ccc, name=None):
-    title = "Genome Wide Cross-Correlation"
+    title = "Whole Genome Cross-Correlation"
     if name:
         title += " for " + name
 

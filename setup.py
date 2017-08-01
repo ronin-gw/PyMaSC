@@ -55,12 +55,6 @@ def _setup():
                 include_dirs=[_basedir("external/KentLib/inc")],
                 extra_link_args=[_basedir("external/KentLib/lib/jkweb.a")]
             )
-            # Extension(
-            #     'wWigIO',
-            #     sources=[_basedir("external/KentLib/wWigIO/wWigIO.c")],
-            #     extra_link_args=["-DMACHTYPE_x86_64", "-lz", "-lm", _basedir("external/KentLib/lib/jkweb.a")],
-            #     extra_compile_args=["-w", "-shared", "-fPIC", "-p", "-I" + _basedir("external/KentLib/inc")]
-            # )
         ]
     )
 

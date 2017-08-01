@@ -3,8 +3,8 @@
 #
 from libc.stdlib cimport free
 
-from PyMaSC.reader.bigwig.kentlib.types cimport bits32, bits64
-from PyMaSC.reader.bigwig.kentlib.files cimport bbiFile, cirTreeFile
+from .kentlib.types cimport bits32, bits64
+from .kentlib.files cimport bbiFile, cirTreeFile
 
 
 cdef extern from "sig.h":
@@ -81,11 +81,11 @@ cdef extern from "zlibFace.h":
 
 cdef class BWIntervalGenerator:
     cdef init(self, bbiFile *bigwig, char *chrom, bits32 start, bits32 end):
-
         self.file = bigwig
         if (self.file.typeSig != bigWigSig):
             raise IOError("Trying to do bigWigIntervalQuery on a non big-wig file.")
 
+        self.chrom = chrom
         self.start = start
         self.end = end
 
@@ -210,7 +210,7 @@ cdef class BWIntervalGenerator:
 
     cdef _clean_contig(self):
         if self.mergedBuf != NULL:
-            free(self.mergedBuf)
+            freeMem(self.mergedBuf)
             self.mergedBuf = NULL
 
     cdef _clean_up(self):
@@ -230,7 +230,7 @@ cdef class BWIntervalGenerator:
         while True:
             result = self._iter_block()
             if not (result.start == 0 and result.end == 0):
-                return result.start, result.end, result.val
+                return self.chrom, result.start, result.end, result.val
             self._update_block()
             while True:
                 if self._init_block() == 0:

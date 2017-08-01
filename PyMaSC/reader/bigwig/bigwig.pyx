@@ -4,10 +4,10 @@ import itertools
 from libc.stdio cimport FILE
 from libc.string cimport strcpy
 
-from PyMaSC.reader.bigwig.kentlib.types cimport bits32, bits64, boolean
-from PyMaSC.reader.bigwig.kentlib.structs cimport fileOffsetSize
-from PyMaSC.reader.bigwig.kentlib.files cimport udcFile, cirTreeFile, bbiFile
-from PyMaSC.reader.bigwig.interval cimport BWIntervalGenerator
+from .kentlib.types cimport bits32, bits64, boolean
+from .kentlib.structs cimport fileOffsetSize
+from .kentlib.files cimport udcFile, cirTreeFile, bbiFile
+from .interval cimport BWIntervalGenerator
 
 cdef extern from "common.h":
     int FALSE
@@ -105,7 +105,7 @@ def bigwig2wig(path, output):
     bbiFileClose(&bigwig)
 
 
-cdef class BigWig:
+cdef class BigWigFile:
     cdef:
         readonly char path[1024]
         readonly bint closed

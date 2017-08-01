@@ -1,19 +1,16 @@
-#!/usr/bin/env python
 import logging
 import os
 import sys
 
-from PyMaSC.utils.logfmt import ColorfulFormatter
+from PyMaSC.utils.logfmt import set_rootlogger
 from PyMaSC.utils.parsearg import get_parser
 from PyMaSC.utils.progress import ProgressBar
 from PyMaSC.reader.align import get_read_generator_and_init_target, InputUnseekable
 from PyMaSC.core.masc import CCCalculator, ReadUnsortedError, ReadsTooFew
-from PyMaSC.core.alignability import BWFeederWithAlignableRegoinSum
+from PyMaSC.core.alignability import BWFeederWithAlignableRegionSum
 from PyMaSC.output import output_cc, output_stats, plot_figures
 
 logger = logging.getLogger(__name__)
-
-LOGGING_FORMAT = "[%(asctime)s | %(levelname)s] %(name)10s : %(message)s"
 
 PLOTFILE_SUFFIX = ".pdf"
 CCOUTPUT_SUFFIX = "_cc.tab"
@@ -38,11 +35,7 @@ def _main():
     else:
         colorize = sys.stderr.isatty()
 
-    rl = logging.getLogger('')
-    h = logging.StreamHandler()
-    h.setFormatter(ColorfulFormatter(fmt=LOGGING_FORMAT, colorize=colorize))
-    rl.addHandler(h)
-    rl.setLevel(args.log_level)
+    rl = set_rootlogger(colorize, args.log_level)
     # rl.setLevel(logging.DEBUG)
 
     # set up CCCalculator
@@ -162,7 +155,13 @@ def output_result(sourcepath, ccc, outdir):
 
 def exec_entrypoint():
     try:
-        _main()
+        # _main()
+        if sys.stderr.isatty():
+            ProgressBar.enable = True
+        set_rootlogger(True, logging.INFO)
+        bwf = BWFeederWithAlignableRegionSum(sys.argv[1], 100)
+        print bwf.get_alignable_len()
+
     except KeyboardInterrupt:
         sys.stderr.write("\r\033[K")
         sys.stderr.flush()

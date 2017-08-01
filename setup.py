@@ -55,7 +55,13 @@ def _setup():
                 include_dirs=[_basedir("external/KentLib/inc")],
                 extra_link_args=[_basedir("external/KentLib/lib/jkweb.a")]
             )
-        ]
+        ],
+        entry_points={
+            "console_scripts": [
+                "pymasc = PyMaSC.pymasc:exec_entrypoints",
+                "calcmappablelen = PyMaSC.calcmappablelen:exec_entrypoints"
+            ],
+        }
     )
 
 

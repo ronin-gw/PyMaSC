@@ -8,13 +8,13 @@ from PyMaSC.utils.progress import ProgressBar
 logger = logging.getLogger(__name__)
 
 
-class BWFeederWithAlignableRegoinSum(BigWigFile):
+class AlignableLengthCalculator(BigWigFile):
     MAPPABILITY_THRESHOLD = 1
     allow_progress_bar = True
     # allow_progress_bar = False
 
     def __init__(self, path, max_shift=0, chrom_size=None):
-        super(BWFeederWithAlignableRegoinSum, self).__init__(path, chrom_size)
+        super(AlignableLengthCalculator, self).__init__(path, chrom_size)
         self.max_shift = max_shift
         self.chrom2is_called = {c: False for c in self.chromsizes}
         self.chrom2alignable_len = {}
@@ -52,31 +52,6 @@ class BWFeederWithAlignableRegoinSum(BigWigFile):
                 self.is_called = True
 
             self._progress.clean()
-
-    def feed(self, chrom):
-        if self.chrom2is_called[chrom]:
-            return self._yield(chrom)
-        else:
-            return self._yield_with_calc(chrom)
-
-    def _yield(self, chrom):
-        for wig in self.fetch(self.MAPPABILITY_THRESHOLD, chrom):
-            yield wig
-
-    def _yield_with_calc_alignability(self, chrom):
-        stop_yield = False
-
-        self._init_buff(chrom)
-        for wig in self.fetch(self.MAPPABILITY_THRESHOLD, chrom):
-            self._feed_track(wig[1], wig[2])
-
-            if not stop_yield:
-                try:
-                    yield wig
-                except GeneratorExit:
-                    stop_yield = True
-
-        self._flush()
 
     def _calc_alignability(self, chrom=None):
         if chrom is None:
@@ -148,3 +123,30 @@ class BWFeederWithAlignableRegoinSum(BigWigFile):
 
         self._calc_alignability()
         return self.alignable_len[shift_from:shift_to]
+
+
+class BWFeederWithAlignableRegionSum(AlignableLengthCalculator):
+    def feed(self, chrom):
+        if self.chrom2is_called[chrom]:
+            return self._yield(chrom)
+        else:
+            return self._yield_with_calc(chrom)
+
+    def _yield(self, chrom):
+        for wig in self.fetch(self.MAPPABILITY_THRESHOLD, chrom):
+            yield wig
+
+    def _yield_with_calc_alignability(self, chrom):
+        stop_yield = False
+
+        self._init_buff(chrom)
+        for wig in self.fetch(self.MAPPABILITY_THRESHOLD, chrom):
+            self._feed_track(wig[1], wig[2])
+
+            if not stop_yield:
+                try:
+                    yield wig
+                except GeneratorExit:
+                    stop_yield = True
+
+        self._flush()

@@ -1,6 +1,20 @@
 import logging
 import sys
 
+LOGGING_FORMAT = "[%(asctime)s | %(levelname)s] %(name)10s : %(message)s"
+
+
+def set_rootlogger(colorize, log_level):
+    rl = logging.getLogger('')
+
+    h = logging.StreamHandler()
+    h.setFormatter(ColorfulFormatter(fmt=LOGGING_FORMAT, colorize=colorize))
+
+    rl.addHandler(h)
+    rl.setLevel(log_level)
+
+    return rl
+
 
 class StrFormatStyle(object):
     default_format = '{message}'

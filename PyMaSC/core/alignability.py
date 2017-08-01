@@ -3,12 +3,15 @@ import logging
 import numpy as np
 
 from PyMaSC.reader.bigwig.bigwig import BigWigFile
+from PyMaSC.utils.progress import ProgressBar
 
 logger = logging.getLogger(__name__)
 
 
 class BWFeederWithAlignableRegoinSum(BigWigFile):
     MAPPABILITY_THRESHOLD = 1
+    allow_progress_bar = True
+    # allow_progress_bar = False
 
     def __init__(self, path, max_shift=0, chrom_size=None):
         super(BWFeederWithAlignableRegoinSum, self).__init__(path, chrom_size)
@@ -25,6 +28,10 @@ class BWFeederWithAlignableRegoinSum(BigWigFile):
         self._buff_tail_pos = 0
         self._buff = np.repeat(0, self.max_shift)
 
+        self._progress = ProgressBar()
+        if not self.allow_progress_bar:
+            self._progress.disable()
+
     def _init_buff(self, chrom):
         self._sumbins.fill(0)
         self._buff_tail_pos = 0
@@ -32,6 +39,7 @@ class BWFeederWithAlignableRegoinSum(BigWigFile):
 
         logger.info("Process {}...".format(chrom))
         self._chr = chrom
+        self._progress.set(self.chromsizes[chrom])
 
     def _flush(self):
         if self._chr:
@@ -43,6 +51,8 @@ class BWFeederWithAlignableRegoinSum(BigWigFile):
             if all(self.chrom2is_called.values()):
                 self.is_called = True
 
+            self._progress.clean()
+
     def feed(self, chrom):
         if self.chrom2is_called[chrom]:
             return self._yield(chrom)
@@ -50,7 +60,7 @@ class BWFeederWithAlignableRegoinSum(BigWigFile):
             return self._yield_with_calc(chrom)
 
     def _yield(self, chrom):
-        for wig in super(BWFeederWithAlignableRegoinSum, self).fetch(chrom):
+        for wig in self.fetch(chrom):
             if wig[3] < self.MAPPABILITY_THRESHOLD:
                 continue
             yield wig
@@ -59,7 +69,7 @@ class BWFeederWithAlignableRegoinSum(BigWigFile):
         stop_yield = False
 
         self._init_buff(chrom)
-        for wig in super(BWFeederWithAlignableRegoinSum, self).fetch(chrom):
+        for wig in self.fetch(chrom):
             if wig[3] < self.MAPPABILITY_THRESHOLD:
                 continue
 
@@ -81,7 +91,8 @@ class BWFeederWithAlignableRegoinSum(BigWigFile):
 
         for c in chroms:
             self._init_buff(c)
-            for wig in super(BWFeederWithAlignableRegoinSum, self).fetch(c):
+            for wig in self.fetch(c):
+                self._progress.update(wig[2])
                 if wig[3] < self.MAPPABILITY_THRESHOLD:
                     continue
                 self._feed_track(wig[1], wig[2])

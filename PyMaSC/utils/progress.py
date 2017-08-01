@@ -14,7 +14,10 @@ class ProgressBar(object):
         self.output = output
 
         if not self.enable:
-            self.format = self.clean = self.set = self.update = self._pass
+            self.disable()
+
+    def disable(self):
+        self.format = self.clean = self.set = self.update = self._pass
 
     def format(self, s):
         self.output.write(self.fmt.format(s))

@@ -10,8 +10,6 @@ logger = logging.getLogger(__name__)
 
 class AlignableLengthCalculator(BigWigFile):
     MAPPABILITY_THRESHOLD = 1
-    allow_progress_bar = True
-    # allow_progress_bar = False
 
     def __init__(self, path, max_shift=0, chrom_size=None):
         super(AlignableLengthCalculator, self).__init__(path, chrom_size)
@@ -29,15 +27,16 @@ class AlignableLengthCalculator(BigWigFile):
         self._buff = np.repeat(0, self.max_shift)
 
         self._progress = ProgressBar()
-        if not self.allow_progress_bar:
-            self._progress.disable()
+
+    def disable_progress_bar(self):
+        self._progress.disable()
 
     def _init_buff(self, chrom):
         self._sumbins.fill(0)
         self._buff_tail_pos = 0
         self._buff.fill(0)
 
-        logger.info("Process {}...".format(chrom))
+        logger.info("Calculate mappable length for {}...".format(chrom))
         self._chr = chrom
         self._progress.set(self.chromsizes[chrom])
 

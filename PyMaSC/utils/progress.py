@@ -13,16 +13,23 @@ class ProgressBar(object):
         self.fmt = "\r" + prefix + "{:<" + str(len(body)) + "}" + suffix
         self.output = output
 
-        if not self.enable:
-            self.disable()
+        if self.enable:
+            self.enable_bar()
+        else:
+            self.disable_bar()
 
-    def disable(self):
-        self.format = self.clean = self.set = self.update = self._pass
+    def enable_bar(self):
+        self.format = self._format
+        self.clean = self._clean
+        self.update = self._update
 
-    def format(self, s):
+    def disable_bar(self):
+        self.format = self.clean = self.update = self._pass
+
+    def _format(self, s):
         self.output.write(self.fmt.format(s))
 
-    def clean(self):
+    def _clean(self):
         self.output.write("\r\033[K")
         self.output.flush()
 
@@ -32,7 +39,7 @@ class ProgressBar(object):
         self._next_update = self._unit
         self.format('')
 
-    def update(self, val):
+    def _update(self, val):
         if val > self._next_update:
             while val > self._next_update:
                 self.pos += 1

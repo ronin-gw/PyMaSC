@@ -29,7 +29,7 @@ def add_common_args(parser):
 def add_mappability_args(group):
     group.add_argument("-m", "--mappable", nargs=1,
                        help="BigWig/BigBed format mappable region file.")
-    group.add_argument("--map-path", nargs=1,
+    group.add_argument("--map-path", nargs='?',
                        help="Read/Save path for mappability stats. (Default: <region file>.json)")
 
 

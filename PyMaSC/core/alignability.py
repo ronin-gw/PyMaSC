@@ -28,8 +28,11 @@ class AlignableLengthCalculator(BigWigFile):
 
         self._progress = ProgressBar()
 
+    def enable_progress_bar(self):
+        self._progress.enable_bar()
+
     def disable_progress_bar(self):
-        self._progress.disable()
+        self._progress.disable_bar()
 
     def _init_buff(self, chrom):
         self._sumbins.fill(0)
@@ -55,6 +58,8 @@ class AlignableLengthCalculator(BigWigFile):
     def _calc_alignability(self, chrom=None):
         if chrom is None:
             chroms = [c for c, b in self.chrom2is_called.items() if b is False]
+        elif self.chrom2is_called[chrom]:
+            return None
         else:
             chroms = [chrom]
 
@@ -129,23 +134,28 @@ class BWFeederWithAlignableRegionSum(AlignableLengthCalculator):
         if self.chrom2is_called[chrom]:
             return self._yield(chrom)
         else:
-            return self._yield_with_calc(chrom)
+            return self._yield_with_calc_alignability(chrom)
 
     def _yield(self, chrom):
         for wig in self.fetch(self.MAPPABILITY_THRESHOLD, chrom):
-            yield wig
+            try:
+                yield wig
+            except GeneratorExit:
+                break
 
     def _yield_with_calc_alignability(self, chrom):
         stop_yield = False
 
         self._init_buff(chrom)
         for wig in self.fetch(self.MAPPABILITY_THRESHOLD, chrom):
+            self._progress.update(wig[2])
             self._feed_track(wig[1], wig[2])
 
             if not stop_yield:
                 try:
                     yield wig
                 except GeneratorExit:
+                    logger.info("Continue calc alignability for {}...".format(chrom))
                     stop_yield = True
 
         self._flush()

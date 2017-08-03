@@ -21,6 +21,13 @@ class NeedUpdate(Exception):
 
 class AlignabilityHandler(BWFeederWithAlignableRegionSum):
     def __init__(self, path, max_shift=0, map_path=None, chrom_size=None):
+        if not os.path.isfile(path):
+            logger.critical("Failed to open '{}': no such file.".format(path))
+            raise BWIOError
+        elif not os.access(path, os.R_OK):
+            logger.critical("Failed to open '{}': file is unreadable.".format(path))
+            raise BWIOError
+
         super(AlignabilityHandler, self).__init__(path, max_shift, chrom_size)
         self.need_save_stats = True
 
@@ -28,13 +35,6 @@ class AlignabilityHandler(BWFeederWithAlignableRegionSum):
             self.map_path = map_path
         else:
             self.map_path = os.path.splitext(path)[0] + "_mappability.json"
-
-        if not os.path.isfile(path):
-            logger.critical("Failed to open '{}': no such file.".format(path))
-            raise BWIOError
-        elif not os.access(path, os.R_OK):
-            logger.critical("Failed to open '{}': file is unreadable.".format(path))
-            raise BWIOError
 
         if not os.path.exists(self.map_path):
             dirname = os.path.dirname(self.map_path)
@@ -78,8 +78,7 @@ class AlignabilityHandler(BWFeederWithAlignableRegionSum):
                 raise KeyError(k)
 
         if stats["max_shift"] < self.max_shift:
-            logger.info("Specified shift length longer than former analysis.\n"
-                        "'{}' will be updated.".format(self.map_path))
+            logger.info("Specified shift length longer than former analysis. The stats will be updated.")
             raise NeedUpdate
 
         if stats["max_shift"] != len(stats["__whole__"]) - 1:
@@ -105,6 +104,8 @@ class AlignabilityHandler(BWFeederWithAlignableRegionSum):
         if not self.need_save_stats:
             return logger.info("Update mappability stats is not required.")
 
+        self._calc_alignability()
+
         logger.info("Save mappable length to '{}'".format(self.map_path))
         try:
             with open(self.map_path, 'w') as f:
@@ -116,3 +117,5 @@ class AlignabilityHandler(BWFeederWithAlignableRegionSum):
         except IOError as e:
             logger.error("Faild to output: {}\n[Errno {}] {}".format(
                          e.filename, e.errno, e.message))
+
+        self.need_save_stats = False

@@ -5,8 +5,9 @@ import sys
 from PyMaSC.utils.logfmt import set_rootlogger
 from PyMaSC.utils.parsearg import get_parser
 from PyMaSC.utils.progress import ProgressBar
-from PyMaSC.reader.align import get_read_generator_and_init_target, InputUnseekable
-from PyMaSC.core.masc import CCCalculator, ReadUnsortedError, ReadsTooFew
+from PyMaSC.reader.align import InputUnseekable
+from PyMaSC.handler.alignability import AlignabilityHandler, BWIOError, JSONIOError
+from PyMaSC.handler.masc import CCCalcHandler
 from PyMaSC.output import output_cc, output_stats, plot_figures
 
 logger = logging.getLogger(__name__)
@@ -36,10 +37,13 @@ def _main():
 
     set_rootlogger(colorize, args.log_level)
 
-    # set up CCCalculator
+    # check args
     if args.mappable:
-        CCCalculator.set_mappable_region(args.mappable[0])
-    CCCalculator.chi2_p_thresh = args.chi2_pval
+        args.mappable = args.mappable[0]
+    if args.map_path and args.map_path == args.mappable:
+        args.map_path = None
+
+    #
     if sys.stderr.isatty():
         ProgressBar.enable = True
 
@@ -47,23 +51,38 @@ def _main():
     prepare_output(args)
 
     #
+    if args.mappable:
+        try:
+            alh = AlignabilityHandler(args.mappable, args.max_shift, args.map_path)
+        except (BWIOError, JSONIOError):
+            sys.exit(1)
+    else:
+        alh = None
+
+    #
     logger.info("Calculate cross-correlation between 1 to {} base shift with reads MAOQ >= {}".format(args.max_shift, args.mapq))
     for f in args.reads:
         logger.info("Process {}".format(f))
 
-        ccc = compute_cc(f, args.format, args.max_shift, args.mapq)
-        if ccc is None:
+        try:
+            cch = CCCalcHandler(f, args.format, args.max_shift, args.mapq, alh, args.chi2_pval)
+        except InputUnseekable:
+            logger.error("Specify input file format using `-f` option if your input can't seek back.")
+            ccr = None
+
+        ccr = cch.run_calcuration()
+
+        if ccr is None:
             logger.warning("Faild to process {}. Skip this file.".format(f))
             continue
 
         output_result(f, ccc, args.outdir)
 
-        # import pickle
-        # with open("test.pyobj", 'w') as f:
-        #     pickle.dump([ccc.cc, ccc.max_shift, ccc.read_mean_len, ccc.ccrl_x, ccc.ccrl_y], f)
     #
-    if args.mappable:
-        CCCalculator.close_region_file()
+    if alh:
+        if alh.need_save_stats:
+            alh.save_mappability_stats()
+        alh.close()
     logger.info("PyMASC finished.")
 
 
@@ -92,42 +111,6 @@ def prepare_output(args):
                 logger.warning("Existing file '{}' will be overwritten.".format(expect_outfile))
 
 
-def compute_cc(path, fmt, max_shift, mapq_criteria):
-    try:
-        parser, stream = get_read_generator_and_init_target(path, fmt)
-    except InputUnseekable:
-        logger.error("Specify input file format using `-f` option if your input can't seek back.")
-        return None
-
-    with parser(stream) as alignfile:
-        ccc = CCCalculator(max_shift, alignfile.references, alignfile.lengths)
-
-        for i, (is_reverse, is_duplicate, chrom, pos, mapq, readlen) in enumerate(alignfile):
-            if mapq < mapq_criteria or is_duplicate:
-                continue
-
-            try:
-                if is_reverse:
-                    ccc.feed_reverse_read(chrom, pos, readlen)
-                else:
-                    ccc.feed_forward_read(chrom, pos, readlen)
-            except ReadUnsortedError:
-                logger.error("Input read must be sorted.")
-                return None
-
-            # if i > 10000:
-            #     break
-            # if chrom == "chr2":
-            #     break
-
-    try:
-        ccc.finishup_calculation()
-    except ReadsTooFew:
-        return None
-
-    return ccc
-
-
 def output_result(sourcepath, ccc, outdir):
     outfile_prefix = _get_output_basename(outdir, sourcepath)
     logger.info("Output results to '{}'".format(outfile_prefix))
@@ -135,19 +118,19 @@ def output_result(sourcepath, ccc, outdir):
     try:
         output_cc(outfile_prefix + CCOUTPUT_SUFFIX, ccc)
     except IOError as e:
-        logger.error("Faild to output cc table: {}:\n[Errno {}] {}".format(
+        logger.error("Faild to output cc table: {}\n[Errno {}] {}".format(
                      e.filename, e.errno, e.message))
 
     try:
         output_stats(outfile_prefix + STATSFILE_SUFFIX, ccc)
     except IOError as e:
-        logger.error("Faild to output stats: {}:\n[Errno {}] {}".format(
+        logger.error("Faild to output stats: {}\n[Errno {}] {}".format(
                      e.filename, e.errno, e.message))
 
     try:
         plot_figures(outfile_prefix + PLOTFILE_SUFFIX, ccc, os.path.basename(sourcepath))
     except IOError as e:
-        logger.error("Faild to output figure: {}:\n[Errno {}] {}".format(
+        logger.error("Faild to output figure: {}\n[Errno {}] {}".format(
                      e.filename, e.errno, e.message))
 
 

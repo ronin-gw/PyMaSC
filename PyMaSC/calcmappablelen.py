@@ -5,7 +5,7 @@ import sys
 from PyMaSC.utils.parsearg import add_common_args, add_mappability_args, add_shift_arg
 from PyMaSC.utils.logfmt import set_rootlogger
 from PyMaSC.utils.progress import ProgressBar
-from PyMaSC.core.handler import AlignabilityHandler
+from PyMaSC.handler.alignability import AlignabilityHandler
 
 logger = logging.getLogger(__name__)
 
@@ -33,11 +33,8 @@ def _main():
 
     # check args
     args.mappable = args.mappable[0]
-    if args.map_path:
-        if args.map_path[0] == args.mappable:
-            args.map_path = None
-        else:
-            args.map_path = args.map_path[0]
+    if args.map_path and args.map_path == args.mappable:
+        args.map_path = None
 
     #
     if sys.stderr.isatty():

@@ -17,13 +17,13 @@ class CCResult(object):
         "max_shift", "calc_masc", "chi2_p_thresh",
         "genomelen", "ref2genomelen",
 
-        "forward_sum", "reference2forward_sum", "forward_read_len_sum",
-        "reverse_sum", "reference2reverse_sum", "reverse_read_len_sum",
-        "ccbins", "reference2ccbins",
+        "forward_sum", "ref2forward_sum", "forward_read_len_sum",
+        "reverse_sum", "ref2reverse_sum", "reverse_read_len_sum",
+        "ccbins", "ref2ccbins",
 
-        "mappable_forward_sum", "mappable_reference2forward_sum", "mappable_forward_len_sum",
-        "mappable_reverse_sum", "mappable_reference2reverse_sum", "mappable_reverse_len_sum",
-        "mappable_ccbins", "mappable_reference2ccbins",
+        "mappable_forward_sum", "mappable_ref2forward_sum", "mappable_forward_len_sum",
+        "mappable_reverse_sum", "mappable_ref2reverse_sum", "mappable_reverse_len_sum",
+        "mappable_ccbins", "mappable_ref2ccbins",
     )
 
     def __init__(self, ccc, alignpath, mapq_criteria, mappability, filter_len, expected_library_len=None):
@@ -157,11 +157,11 @@ class CCResult(object):
         self.ref2masc = {}
         self.ref2masc_min = {}
         self.ref2mascrl = {}
-        for ref, ccbins in self.mappable_reference2ccbins.items():
+        for ref, ccbins in self.mappable_ref2ccbins.items():
             if ccbins is not None and ref in self.ref2alignable_len:
                 self.ref2masc[ref], self.ref2masc_min[ref], self.ref2mascrl[ref] = self._calc_masc(
-                    self.ref2alignable_len[ref], self.mappable_reference2forward_sum[ref],
-                    self.mappable_reference2reverse_sum[ref], ccbins
+                    self.ref2alignable_len[ref], self.mappable_ref2forward_sum[ref],
+                    self.mappable_ref2reverse_sum[ref], ccbins
                 )
             else:
                 self.ref2masc[ref] = self.ref2masc_min[ref] = self.ref2mascrl[ref] = None
@@ -209,6 +209,6 @@ class CCResult(object):
         if self.calc_masc:
             self._chi2_test(self.mappable_forward_sum, self.mappable_reverse_sum, "Mappable region")
             for ref in self.ref2genomelen:
-                self._chi2_test(self.mappable_reference2forward_sum[ref],
-                                self.mappable_reference2reverse_sum[ref],
+                self._chi2_test(self.mappable_ref2forward_sum[ref],
+                                self.mappable_ref2reverse_sum[ref],
                                 ref + " mappable region")

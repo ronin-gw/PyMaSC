@@ -98,11 +98,11 @@ class CCCalculator(object):
         if calc_masc:
             # stats
             self.mappable_forward_sum = self.mappable_reverse_sum = 0
-            self.mappable_reference2forward_sum = {ref: 0 for ref in references}
-            self.mappable_reference2reverse_sum = {ref: 0 for ref in references}
+            self.mappable_ref2forward_sum = {ref: 0 for ref in references}
+            self.mappable_ref2reverse_sum = {ref: 0 for ref in references}
             self.mappable_forward_len_sum = self.mappable_reverse_len_sum = 0
             self.mappable_ccbins = []
-            self.mappable_reference2ccbins = {ref: None for ref in references}
+            self.mappable_ref2ccbins = {ref: None for ref in references}
             # internal buff
             self._m_forward_sum = self._m_reverse_sum = 0
             self._m_ccbins = np.repeat(0, max_shift)
@@ -115,11 +115,11 @@ class CCCalculator(object):
         else:
             # stats
             self.mappable_forward_sum = self.mappable_reverse_sum = None
-            self.mappable_reference2forward_sum = None
-            self.mappable_reference2reverse_sum = None
+            self.mappable_ref2forward_sum = None
+            self.mappable_ref2reverse_sum = None
             self.mappable_forward_len_sum = self.mappable_reverse_len_sum = None
             self.mappable_ccbins = None
-            self.mappable_reference2ccbins = None
+            self.mappable_ref2ccbins = None
             # calc func
             self._shift_with_update_mscc = self._get_pass_func()
 
@@ -153,10 +153,10 @@ class CCCalculator(object):
         if self.calc_masc:
             self.mappable_forward_sum += self._m_forward_sum
             self.mappable_reverse_sum += self._m_reverse_sum
-            self.mappable_reference2forward_sum[self._chr] = self._m_forward_sum
-            self.mappable_reference2reverse_sum[self._chr] = self._m_reverse_sum
+            self.mappable_ref2forward_sum[self._chr] = self._m_forward_sum
+            self.mappable_ref2reverse_sum[self._chr] = self._m_reverse_sum
             self._shift_with_update_mscc(self._m_reverse_buff.size - 1)
-            self.mappable_reference2ccbins[self._chr] = tuple(self._m_ccbins)
+            self.mappable_ref2ccbins[self._chr] = tuple(self._m_ccbins)
 
         self._init_pos_buff()
         self._progress.clean()
@@ -281,5 +281,5 @@ class CCCalculator(object):
             self.ccbins.append(sum(bins))
 
         if self.calc_masc:
-            for bins in zip(*[v for v in self.mappable_reference2ccbins.values() if v]):
+            for bins in zip(*[v for v in self.mappable_ref2ccbins.values() if v]):
                 self.mappable_ccbins.append(sum(bins))

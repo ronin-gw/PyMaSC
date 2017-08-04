@@ -161,6 +161,8 @@ def plot_ncc_vs_masc(pp, ccr, name):
 
     for ref in sorted(ccr.ref2cc):
         cc = ccr.ref2cc[ref]
+        if cc is None:
+            continue
         plot_masc_data = ccr.calc_masc and ccr.ref2masc.get(ref, None) is not None
 
         plt.title(title.format(ref))

@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 def _main():
     # parse aregs
-    parser = argparse.ArgumentParser(description="Pre-compute mappability stats for a region file.")
+    parser = argparse.ArgumentParser(description="Pre-compute mappability stats for PyMaSC.")
     add_common_args(parser)
     add_mappability_args(parser)
     add_shift_arg(parser)

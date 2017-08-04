@@ -14,7 +14,7 @@ class StoreLoggingLevel(argparse.Action):
 class ForceNaturalNumber(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         if values < 1:
-            parser.error("argument -d/--max-shift: shift length must be > 0.")
+            parser.error("argument {} must be > 0.".format('/'.join(self.option_strings)))
         setattr(namespace, self.dest, values)
 
 
@@ -27,18 +27,21 @@ def add_common_args(parser):
 
 
 def add_mappability_args(group):
-    group.add_argument("-m", "--mappable", nargs=1,
-                       help="BigWig/BigBed format mappable region file.")
+    group.add_argument("-m", "--mappable", nargs=1, metavar="REGION_FILE",
+                       help="BigWig format mappable region file.")
     group.add_argument("--map-path", nargs='?',
-                       help="Read/Save path for mappability stats. (Default: <region file>.json)")
+                       help="Read/Save path for mappability stats. (Default: [REGION_FILE].json)")
 
 
 def add_shift_arg(group):
-    group.add_argument("-d", "--max-shift", nargs='?', type=int, action=ForceNaturalNumber, default=1000)
+    group.add_argument("-d", "--max-shift", nargs='?', type=int, action=ForceNaturalNumber, default=1000,
+                       help="PyMaSC calculate CC with reverse strand shift from 1 to [MAX_SHIFT] base. (Default: 1000)")
 
 
 def get_parser():
-    parser = argparse.ArgumentParser(description="Mappability-sensitive cross-correlation calculator for NGS data")
+    parser = argparse.ArgumentParser(
+        description="Estimation and visualization tool for library length, NSC and RSC metrics with mappability sensitive cross-correlation calculation."
+    )
 
     add_common_args(parser)
 
@@ -50,11 +53,15 @@ def get_parser():
     add_mappability_args(input_args)
 
     params = parser.add_argument_group("Parameters")
+    params.add_argument("-l", "--library_length", nargs='?', type=int, action=ForceNaturalNumber,
+                        help="Expected library length to clac NSC and RSC if library length estimation couldn't perform.")
     add_shift_arg(params)
     params.add_argument("-q", "--mapq", nargs='?', type=int, default=1,
                         help="Filter out reads which have less than specified MAPQ. (Default: 1)")
     params.add_argument("-p", "--chi2-pval", nargs='?', type=float, default=0.05,
                         help="Chi-squared test p-value threshold to check strand specificity. (Default: 0.05)")
+    params.add_argument("-w", "--smooth-window", nargs='?', type=int, action=ForceNaturalNumber, default=10,
+                        help="Moving average window size for smoothing MSCC to estimate library length. (Default: 10)")
 
     output = parser.add_argument_group("Output file arguments")
     output.add_argument("--outdir", nargs='?', default='.',

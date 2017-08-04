@@ -8,7 +8,8 @@ from PyMaSC.utils.progress import ProgressBar
 from PyMaSC.reader.align import InputUnseekable
 from PyMaSC.handler.alignability import AlignabilityHandler, BWIOError, JSONIOError
 from PyMaSC.handler.masc import CCCalcHandler
-from PyMaSC.output import output_cc, output_stats, plot_figures
+from PyMaSC.output.stats import output_cc, output_stats
+from PyMaSC.output.figure import plot_figures
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,9 @@ def _main():
         args.mappable = args.mappable[0]
     if args.map_path and args.map_path == args.mappable:
         args.map_path = None
-
+    if args.library_length and args.library_length > args.max_shift:
+        logger.error("Specified expected library length > max shift. Ignore expected length setting.")
+        args.library_length = None
     #
     if sys.stderr.isatty():
         ProgressBar.enable = True
@@ -65,7 +68,7 @@ def _main():
         logger.info("Process {}".format(f))
 
         try:
-            cch = CCCalcHandler(f, args.format, args.max_shift, args.mapq, alh, args.chi2_pval)
+            cch = CCCalcHandler(f, args.format, args.max_shift, args.mapq, args.smooth_window, alh, args.chi2_pval)
         except InputUnseekable:
             logger.error("Specify input file format using `-f` option if your input can't seek back.")
             ccr = None
@@ -76,7 +79,7 @@ def _main():
             logger.warning("Faild to process {}. Skip this file.".format(f))
             continue
 
-        output_result(f, ccc, args.outdir)
+        output_result(f, ccr, args.outdir)
 
     #
     if alh:
@@ -115,23 +118,9 @@ def output_result(sourcepath, ccc, outdir):
     outfile_prefix = _get_output_basename(outdir, sourcepath)
     logger.info("Output results to '{}'".format(outfile_prefix))
 
-    try:
-        output_cc(outfile_prefix + CCOUTPUT_SUFFIX, ccc)
-    except IOError as e:
-        logger.error("Faild to output cc table: {}\n[Errno {}] {}".format(
-                     e.filename, e.errno, e.message))
-
-    try:
-        output_stats(outfile_prefix + STATSFILE_SUFFIX, ccc)
-    except IOError as e:
-        logger.error("Faild to output stats: {}\n[Errno {}] {}".format(
-                     e.filename, e.errno, e.message))
-
-    try:
-        plot_figures(outfile_prefix + PLOTFILE_SUFFIX, ccc, os.path.basename(sourcepath))
-    except IOError as e:
-        logger.error("Faild to output figure: {}\n[Errno {}] {}".format(
-                     e.filename, e.errno, e.message))
+    output_cc(outfile_prefix + CCOUTPUT_SUFFIX, ccc)
+    output_stats(outfile_prefix + STATSFILE_SUFFIX, ccc)
+    plot_figures(outfile_prefix + PLOTFILE_SUFFIX, ccc, os.path.basename(sourcepath))
 
 
 def exec_entrypoint():

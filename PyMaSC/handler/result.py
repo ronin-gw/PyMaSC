@@ -3,6 +3,8 @@ import logging
 import numpy as np
 from scipy.stats.distributions import chi2
 
+from PyMaSC.utils.calc import moving_avr_filter
+
 logger = logging.getLogger(__name__)
 
 
@@ -24,9 +26,11 @@ class CCResult(object):
         "mappable_ccbins", "mappable_reference2ccbins",
     )
 
-    def __init__(self, ccc, alignpath, mapq_criteria, mappability):
+    def __init__(self, ccc, alignpath, mapq_criteria, mappability, filter_len, expected_library_len=None):
         self.alignfile = alignpath
         self.mapq_criteria = mapq_criteria
+        self.filter_len = filter_len
+        self.expected_library_len = None
 
         #
         for attr in self.CALCULATOR_RESULT_ATTRS:
@@ -34,13 +38,13 @@ class CCResult(object):
 
         #
         if mappability is None:
-            self.regionfile = self.alignable_len = self.reference2library_len = None
+            self.regionfile = self.alignable_len = self.ref2library_len = None
         else:
             self.regionfile = mappability.path
             assert mappability.is_called
             assert self.max_shift <= mappability.max_shift
             self.alignable_len = mappability.alignable_len
-            self.reference2alignable_len = mappability.chrom2alignable_len
+            self.ref2alignable_len = mappability.chrom2alignable_len
 
         #
         if ccc.forward_sum == 0:
@@ -71,7 +75,7 @@ class CCResult(object):
         if self.estimated_read_len > self.max_shift:
             ccrl = 0
         else:
-            ccrl = cc[self.estimated_read_len]
+            ccrl = cc[self.estimated_read_len - 1]
 
         return cc, cc_min, ccrl
 
@@ -93,16 +97,33 @@ class CCResult(object):
         self.cc, self.cc_min, self.ccrl = self._calc_cc(
             self.genomelen, self.forward_sum, self.reverse_sum, self.ccbins
         )
-        self.reference2cc = {}
-        self.reference2cc_min = {}
-        self.reference2ccrl = {}
-        for ref, ccbins in self.reference2ccbins.items():
+        self.ref2cc = {}
+        self.ref2cc_min = {}
+        self.ref2ccrl = {}
+        for ref, ccbins in self.ref2ccbins.items():
             if ccbins:
-                self.reference2cc[ref], self.reference2cc_min[ref], self.reference2ccrl[ref] = self._calc_cc(
-                    self.ref2genomelen[ref], self.reference2forward_sum[ref], self.reference2reverse_sum[ref], ccbins
+                self.ref2cc[ref], self.ref2cc_min[ref], self.ref2ccrl[ref] = self._calc_cc(
+                    self.ref2genomelen[ref], self.ref2forward_sum[ref], self.ref2reverse_sum[ref], ccbins
                 )
             else:
-                self.reference2cc[ref] = self.reference2cc_min[ref] = self.reference2ccrl[ref] = None
+                self.ref2cc[ref] = self.ref2cc_min[ref] = self.ref2ccrl[ref] = None
+
+        if self.expected_library_len:
+            self.ccfl = self.cc[self.expected_library_len - 1]
+            self.nsc = self.ccfl / self.cc_min
+            self.rsc = (self.ccfl - self.cc_min) / (self.ccrl - self.cc_min)
+
+            self.ref2ccfl = {}
+            self.ref2nsc = {}
+            self.ref2rsc = {}
+            for ref, ccbins in self.ref2ccbins.items():
+                self.ref2ccfl[ref] = self.ref2cc[self.expected_library_len - 1]
+                self.ref2nsc[ref] = self.ref2ccfl[ref] / self.ref2cc_min[ref]
+                self.ref2rsc[ref] = ((self.ref2ccfl[ref] - self.ref2cc_min[ref]) /
+                                     (self.ref2ccrl[ref] - self.ref2cc_min[ref]))
+        else:
+            self.ccfl = self.nsc = self.rsc = None
+            self.ref2ccfl = self.ref2nsc = self.ref2rsc = None
 
     def _calc_masc(self, totlen, forward_sum, reverse_sum, ccbins):
         totlen = np.array(totlen[1:], dtype=float)
@@ -133,40 +154,40 @@ class CCResult(object):
         self.masc, self.masc_min, self.mascrl_y = self._calc_masc(
             self.alignable_len, self.mappable_forward_sum, self.mappable_reverse_sum, self.mappable_ccbins
         )
-        self.reference2masc = {}
-        self.reference2masc_min = {}
-        self.reference2mascrl = {}
+        self.ref2masc = {}
+        self.ref2masc_min = {}
+        self.ref2mascrl = {}
         for ref, ccbins in self.mappable_reference2ccbins.items():
-            if ccbins is not None and ref in self.reference2alignable_len:
-                self.reference2masc[ref], self.reference2masc_min[ref], self.reference2mascrl[ref] = self._calc_masc(
-                    self.reference2alignable_len[ref], self.mappable_reference2forward_sum[ref],
+            if ccbins is not None and ref in self.ref2alignable_len:
+                self.ref2masc[ref], self.ref2masc_min[ref], self.ref2mascrl[ref] = self._calc_masc(
+                    self.ref2alignable_len[ref], self.mappable_reference2forward_sum[ref],
                     self.mappable_reference2reverse_sum[ref], ccbins
                 )
             else:
-                self.reference2masc[ref] = self.reference2masc_min[ref] = self.reference2mascrl[ref] = None
+                self.ref2masc[ref] = self.ref2masc_min[ref] = self.ref2mascrl[ref] = None
 
         # calc additional stats
-        self.estimated_library_len = np.argmax(self.masc) + 1
+        self.estimated_library_len = np.argmax(moving_avr_filter(self.masc, self.filter_len)) + 1
         self.estimated_ccfl = self.cc[self.estimated_library_len - 1]
         self.estimated_nsc = self.estimated_ccfl / self.cc_min
-        self.esitmated_rsc = (self.estimated_ccfl - self.cc_min) / (self.ccrl - self.cc_min)
+        self.estimated_rsc = (self.estimated_ccfl - self.cc_min) / (self.ccrl - self.cc_min)
 
-        self.reference2library_len = {}
-        self.reference2ccfl = {}
-        self.reference2nsc = {}
-        self.reference2rsc = {}
-        for ref, masc in self.reference2masc.items():
+        self.ref2library_len = {}
+        self.ref2est_ccfl = {}
+        self.ref2est_nsc = {}
+        self.ref2est_rsc = {}
+        for ref, masc in self.ref2masc.items():
             if masc is not None:
-                self.reference2library_len[ref] = np.argmax(masc) + 1
-                self.reference2ccfl[ref] = self.reference2cc[ref][self.reference2library_len[ref] - 1]
-                self.reference2nsc[ref] = self.reference2ccfl[ref] / self.reference2cc_min[ref]
-                self.reference2rsc[ref] = ((self.reference2ccfl[ref] - self.reference2cc_min[ref]) /
-                                           (self.reference2ccrl[ref] - self.reference2cc_min[ref]))
+                self.ref2library_len[ref] = np.argmax(moving_avr_filter(masc, self.filter_len)) + 1
+                self.ref2est_ccfl[ref] = self.ref2cc[ref][self.ref2library_len[ref] - 1]
+                self.ref2est_nsc[ref] = self.ref2est_ccfl[ref] / self.ref2cc_min[ref]
+                self.ref2est_rsc[ref] = ((self.ref2est_ccfl[ref] - self.ref2cc_min[ref]) /
+                                         (self.ref2ccrl[ref] - self.ref2cc_min[ref]))
             else:
-                self.reference2library_len[ref] = None
-                self.reference2ccfl[ref] = None
-                self.reference2nsc[ref] = None
-                self.reference2rsc[ref] = None
+                self.ref2library_len[ref] = None
+                self.ref2est_ccfl[ref] = None
+                self.ref2est_nsc[ref] = None
+                self.ref2est_rsc[ref] = None
 
     def _chi2_test(self, a, b, label):
         sum_ = a + b
@@ -182,8 +203,8 @@ class CCResult(object):
     def test_read_balance(self):
         self._chi2_test(self.forward_sum, self.reverse_sum, "Whole genome")
         for ref in self.ref2genomelen:
-            self._chi2_test(self.reference2forward_sum[ref],
-                            self.reference2reverse_sum[ref],
+            self._chi2_test(self.ref2forward_sum[ref],
+                            self.ref2reverse_sum[ref],
                             ref)
         if self.calc_masc:
             self._chi2_test(self.mappable_forward_sum, self.mappable_reverse_sum, "Mappable region")

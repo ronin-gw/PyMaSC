@@ -79,11 +79,11 @@ class CCCalculator(object):
         # Naive CC
         # stats
         self.forward_sum = self.reverse_sum = 0
-        self.reference2forward_sum = {ref: 0 for ref in references}
-        self.reference2reverse_sum = {ref: 0 for ref in references}
+        self.ref2forward_sum = {ref: 0 for ref in references}
+        self.ref2reverse_sum = {ref: 0 for ref in references}
         self.forward_read_len_sum = self.reverse_read_len_sum = 0
         self.ccbins = []
-        self.reference2ccbins = {ref: None for ref in references}
+        self.ref2ccbins = {ref: None for ref in references}
         # internal buff
         self._forward_sum = self._reverse_sum = 0
         self._ccbins = np.repeat(0, max_shift)
@@ -146,9 +146,9 @@ class CCCalculator(object):
 
         self.forward_sum += self._forward_sum
         self.reverse_sum += self._reverse_sum
-        self.reference2forward_sum[self._chr] = self._forward_sum
-        self.reference2reverse_sum[self._chr] = self._reverse_sum
-        self.reference2ccbins[self._chr] = tuple(self._ccbins)
+        self.ref2forward_sum[self._chr] = self._forward_sum
+        self.ref2reverse_sum[self._chr] = self._reverse_sum
+        self.ref2ccbins[self._chr] = tuple(self._ccbins)
 
         if self.calc_masc:
             self.mappable_forward_sum += self._m_forward_sum
@@ -277,7 +277,7 @@ class CCCalculator(object):
     def finishup_calculation(self):
         self._flush()
 
-        for bins in zip(*[v for v in self.reference2ccbins.values() if v]):
+        for bins in zip(*[v for v in self.ref2ccbins.values() if v]):
             self.ccbins.append(sum(bins))
 
         if self.calc_masc:

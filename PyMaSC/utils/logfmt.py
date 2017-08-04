@@ -34,7 +34,7 @@ class StrFormatStyle(object):
 
 class ColorfulFormatter(logging.Formatter):
     DEFAULT_COLOR = 39
-    LOGLEVEL2COLOR = {20: 36, 30: 33, 40: 35, 50: 31}
+    LOGLEVEL2COLOR = {20: 36, 30: 33, 40: 31, 50: 35}
 
     @classmethod
     def bleach(cls):

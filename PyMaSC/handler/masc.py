@@ -10,10 +10,11 @@ logger = logging.getLogger(__name__)
 class CCCalcHandler(object):
     default_chi2_p_thresh = 0.05
 
-    def __init__(self, path, fmt, max_shift, mapq_criteria, bwfeeder=None, chi2_pval=None):
+    def __init__(self, path, fmt, max_shift, mapq_criteria, filter_len, bwfeeder=None, chi2_pval=None):
         self.path = path
         self.max_shift = max_shift
         self.mapq_criteria = mapq_criteria
+        self.filter_len = filter_len
         self.bwfeeder = bwfeeder
         self.chi2_p_thresh = chi2_pval if chi2_pval else self.default_chi2_p_thresh
 
@@ -123,6 +124,6 @@ class CCCalcHandler(object):
 
         self.ccc.finishup_calculation()
         try:
-            return CCResult(self.ccc, self.path, self.mapq_criteria, self.bwfeeder)
+            return CCResult(self.ccc, self.path, self.mapq_criteria, self.bwfeeder, self.filter_len)
         except ReadsTooFew:
             return None

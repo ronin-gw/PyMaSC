@@ -39,7 +39,7 @@ class AlignableLengthCalculator(BigWigFile):
         self._buff_tail_pos = 0
         self._buff.fill(0)
 
-        logger.info("Calculate mappable length for {}...".format(chrom))
+        logger.info("Calculate {} mappable length...".format(chrom))
         self._chr = chrom
         self._progress.set(self.chromsizes[chrom])
 

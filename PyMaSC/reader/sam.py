@@ -35,7 +35,7 @@ class SamStreamReadGenerator(object):
         if self._buff is None:
             raise StopIteration
 
-        _, flag, chrom, pos, mapq, _, _, _, seq, _ = self._buff.split('\t', 9)
+        _, flag, chrom, pos, mapq, _, _, _, _, seq, _ = self._buff.split('\t', 10)
         try:
             self._buff = self._next_source()
         except StopIteration:

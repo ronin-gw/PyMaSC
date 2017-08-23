@@ -68,9 +68,11 @@ def _main():
         logger.info("Process {}".format(f))
 
         try:
-            cch = CCCalcHandler(f, args.format, args.max_shift, args.mapq, args.smooth_window, alh, args.chi2_pval)
+            cch = CCCalcHandler(f, args.format, args.estimation_type, args.max_shift, args.mapq,
+                                args.smooth_window, args.read_length, alh, args.chi2_pval)
         except InputUnseekable:
-            logger.error("Specify input file format using `-f` option if your input can't seek back.")
+            logger.error("If your input can't seek back, specify input file format and read length "
+                         "using `-f` and `-r` option.")
             ccr = None
 
         ccr = cch.run_calcuration()

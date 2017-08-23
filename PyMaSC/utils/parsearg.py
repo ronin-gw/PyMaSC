@@ -2,6 +2,9 @@ import argparse
 import logging
 
 
+READLEN_ESTIMATION_TYPES = ("MEAN", "MEDIAN", "MODE", "MIN", "MAX")
+
+
 def _make_upper(s):
     return s.upper()
 
@@ -40,7 +43,8 @@ def add_shift_arg(group):
 
 def get_parser():
     parser = argparse.ArgumentParser(
-        description="Estimation and visualization tool for library length, NSC and RSC metrics with mappability sensitive cross-correlation calculation."
+        description="Estimation and visualization tool for library length, "
+                    "NSC and RSC metrics with mappability sensitive cross-correlation calculation."
     )
 
     add_common_args(parser)
@@ -50,6 +54,11 @@ def get_parser():
                             help="SAM/BAM format mapped reads. Input must be sorted.")
     input_args.add_argument("-f", "--format", nargs='?', type=_make_upper, default=None, choices=("BAM", "SAM"),
                             help="Specify input file type. (Default: auto)")
+    input_args.add_argument("-r", "--read-length", nargs='?', type=int, action=ForceNaturalNumber,
+                            help="Set read length manually and disable read length estimation.")
+    input_args.add_argument("--estimation-type", nargs='?', type=_make_upper, default="MEDIAN", choices=READLEN_ESTIMATION_TYPES,
+                            help="Define the statistic used to estimate a read length from observed read lengths. "
+                                 "Choices: mean, median, mode, min, max (Default: median)")
     add_mappability_args(input_args)
 
     params = parser.add_argument_group("Parameters")

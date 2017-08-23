@@ -2,6 +2,7 @@ import logging
 
 from PyMaSC.reader.align import get_read_generator_and_init_target
 from PyMaSC.core.masc import CCCalculator, ReadUnsortedError
+from PyMaSC.core.readlen import estimate_readlen
 from PyMaSC.handler.result import CCResult, ReadsTooFew
 
 logger = logging.getLogger(__name__)
@@ -10,7 +11,7 @@ logger = logging.getLogger(__name__)
 class CCCalcHandler(object):
     default_chi2_p_thresh = 0.05
 
-    def __init__(self, path, fmt, max_shift, mapq_criteria, filter_len, bwfeeder=None, chi2_pval=None):
+    def __init__(self, path, fmt, esttype, max_shift, mapq_criteria, filter_len, readlen=None, bwfeeder=None, chi2_pval=None):
         self.path = path
         self.max_shift = max_shift
         self.mapq_criteria = mapq_criteria
@@ -24,6 +25,15 @@ class CCCalcHandler(object):
 
         # Raise `InputUnseekable`, possibly.
         self.align_parser, self.stream = get_read_generator_and_init_target(path, fmt)
+        if readlen:
+            self.read_len = readlen
+        else:
+            self.read_len = estimate_readlen(self.align_parser, self.stream, esttype, mapq_criteria)
+
+        if self.read_len > max_shift:
+            logger.warning("Read lengh ({}) seems to be longer than shift size ({}).".format(
+                self.read_mean_len, max_shift
+            ))
 
     def _valid_read_generator(self):
         with self.align_parser(self.stream) as alignfile:

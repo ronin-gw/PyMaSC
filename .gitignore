@@ -1,3 +1,6 @@
+test*
+*.pdf
+*.tab
 
 # Created by https://www.gitignore.io/api/macos,emacs,python
 

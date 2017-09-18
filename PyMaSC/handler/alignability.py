@@ -56,7 +56,6 @@ class AlignabilityHandler(BWFeederWithAlignableRegionSum):
                     logger.error("Failed to read '{}'".format(self.map_path))
                     logger.error("[Errno {}] {}".format(e.errno, e.message))
                 except (TypeError, OverflowError, ValueError, KeyError, IndexError) as e:
-                    raise e
                     logger.error("Failed to load json file: '{}'".format(self.map_path))
                 except NeedUpdate:
                     pass
@@ -94,8 +93,8 @@ class AlignabilityHandler(BWFeederWithAlignableRegionSum):
                 logger.error("Max shift length for 'ref' unmatched.".format(ref))
                 raise IndexError
 
-        self.alignable_len = stats["__whole__"]
-        self.chrom2alignable_len = stats["references"]
+        self.alignable_len = stats["__whole__"][:self.max_shift + 1]
+        self.chrom2alignable_len = {ref: b[:self.max_shift + 1] for ref, b in stats["references"].items()}
         self.chrom2is_called = {ref: True for ref in self.chromsizes}
         self.is_called = True
         self.need_save_stats = False

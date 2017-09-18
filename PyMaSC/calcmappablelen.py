@@ -2,7 +2,7 @@ import logging
 import argparse
 import sys
 
-from PyMaSC.utils.parsearg import add_common_args, add_mappability_args, add_shift_arg
+from PyMaSC.utils.parsearg import add_common_args, add_mappability_args, add_shift_arg, ForceNaturalNumber
 from PyMaSC.utils.logfmt import set_rootlogger
 from PyMaSC.utils.progress import ProgressBar
 from PyMaSC.handler.alignability import AlignabilityHandler
@@ -16,6 +16,8 @@ def _main():
     add_common_args(parser)
     add_mappability_args(parser)
     add_shift_arg(parser)
+    parser.add_argument("-r", "--max-readlen", nargs='?', type=int, action=ForceNaturalNumber, default=1000,
+                        help="Set max read length to calculate mappable region length.")
 
     args = parser.parse_args()
     if not args.mappable:
@@ -42,7 +44,7 @@ def _main():
 
     #
     logger.info("Calcurate mappable length with max shift size {}.".format(args.max_shift))
-    alh = AlignabilityHandler(args.mappable, args.max_shift, args.map_path)
+    alh = AlignabilityHandler(args.mappable, max(args.max_readlen, args.max_shift), args.map_path)
     alh._calc_alignability()
     alh.save_mappability_stats()
     alh.close()

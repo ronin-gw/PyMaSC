@@ -69,8 +69,8 @@ def get_parser():
                         help="Filter out reads which have less than specified MAPQ. (Default: 1)")
     params.add_argument("-p", "--chi2-pval", nargs='?', type=float, default=0.05,
                         help="Chi-squared test p-value threshold to check strand specificity. (Default: 0.05)")
-    params.add_argument("-w", "--smooth-window", nargs='?', type=int, action=ForceNaturalNumber, default=10,
-                        help="Moving average window size for smoothing MSCC to estimate library length. (Default: 10)")
+    params.add_argument("-w", "--smooth-window", nargs='?', type=int, action=ForceNaturalNumber, default=30,
+                        help="Moving average window size for smoothing MSCC to estimate library length. (Default: 30)")
 
     output = parser.add_argument_group("Output file arguments")
     output.add_argument("--outdir", nargs='?', default='.',

@@ -17,9 +17,9 @@ def plot_figures(outfile, ccr, name):
         plt.close()
 
         if ccr.calc_masc:
-            plot_naive_cc_just(ccr, name)
-            pp.savefig()
-            plt.close()
+            if plot_naive_cc_just(ccr, name):
+                pp.savefig()
+                plt.close()
 
             plot_masc(ccr, name)
             pp.savefig()
@@ -52,7 +52,7 @@ def plot_naive_cc(ccr, name=None, xlim=None):
     plt.xlabel("Reverse Strand Shift")
     plt.ylabel("Cross-Correlation")
 
-    plt.plot(xrange(1, ccr.max_shift + 1), ccr.cc, color="black", linewidth=0.5)
+    plt.plot(xrange(ccr.max_shift + 1), ccr.cc, color="black", linewidth=0.5)
     axes = plt.gca()
     if xlim:
         axes.set_xlim(xlim)
@@ -64,21 +64,21 @@ def plot_naive_cc(ccr, name=None, xlim=None):
     plt.text(0, ccr.cc_min, 'min(cc) = {:.5f}'.format(ccr.cc_min))
 
     _annotate_point(
-        ccr.estimated_read_len, ccr.ccrl, " cc(read length) = {:.5f}".format(ccr.ccrl),
-        upper - height/25, 'mean read length: {:.1f}'.format(ccr.read_mean_len),
+        ccr.read_len - 1, ccr.ccrl, " cc(read length) = {:.5f}".format(ccr.ccrl),
+        upper - height/25, 'read length: {:.1f}'.format(ccr.read_len),
         "red", height/50
     )
 
     if ccr.estimated_library_len:
         _annotate_point(
-            ccr.estimated_library_len, ccr.estimated_ccfl, " cc(lib length) = {:.5f}".format(ccr.estimated_ccfl),
+            ccr.estimated_library_len - 1, ccr.estimated_ccfl, " cc(lib length) = {:.5f}".format(ccr.estimated_ccfl),
             upper - height/10, 'estimated lib len: {}'.format(ccr.estimated_library_len),
             "blue", height/50
         )
         _annotate_params(ccr.estimated_nsc, ccr.estimated_rsc)
     elif ccr.expected_library_len:
         _annotate_point(
-            ccr.expected_library_len, ccr.ccfl, " cc(lib length) = {:.5f}".format(ccr.ccfl),
+            ccr.expected_library_len - 1, ccr.ccfl, " cc(lib length) = {:.5f}".format(ccr.ccfl),
             upper - height/10, 'estimated lib len: {}'.format(ccr.expected_library_len),
             "green", height/50
         )
@@ -88,6 +88,8 @@ def plot_naive_cc(ccr, name=None, xlim=None):
 def plot_naive_cc_just(ccr, name=None):
     if ccr.estimated_library_len * 2 < ccr.max_shift + 1:
         plot_naive_cc(ccr, name, (0, ccr.estimated_library_len * 2))
+        return True
+    return False
 
 
 def plot_masc(ccr, name=None):
@@ -99,8 +101,8 @@ def plot_masc(ccr, name=None):
     plt.xlabel("Reverse Strand Shift")
     plt.ylabel("Mappability Sensitive Cross-Correlation")
 
-    plt.plot(xrange(1, ccr.max_shift + 1), ccr.masc, color="black", linewidth=0.5, label="MSCC")
-    plt.plot(xrange(1, ccr.max_shift + 1), moving_avr_filter(ccr.masc, 10), alpha=0.8, label="Smoothed")
+    plt.plot(xrange(ccr.max_shift + 1), ccr.masc, color="black", linewidth=0.5, label="MSCC")
+    plt.plot(xrange(ccr.max_shift + 1), moving_avr_filter(ccr.masc, ccr.filter_len), alpha=0.8, label="Smoothed")
 
     axes = plt.gca()
     lower, upper = axes.get_ylim()
@@ -110,7 +112,7 @@ def plot_masc(ccr, name=None):
     masc_max = max(ccr.masc)
 
     _annotate_point(
-        ccr.estimated_library_len, masc_max, " cc(estimated lib len) = {:.5f}".format(masc_max),
+        ccr.estimated_library_len - 1, masc_max, " cc(estimated lib len) = {:.5f}".format(masc_max),
         lower + height/25, ' estimated lib len: {}'.format(ccr.estimated_library_len),
         "blue", height/50
     )
@@ -133,17 +135,17 @@ def plot_ncc_vs_masc(pp, ccr, name):
         plt.xlabel("Reverse Strand Shift")
         plt.ylabel("Relative Cross-Correlation from Infimum")
 
-        plt.plot(xrange(1, ccr.max_shift + 1), ccr.cc - ccr.cc_min, color="black", linewidth=0.5, label="Naive CC")
-        plt.plot(xrange(1, ccr.max_shift + 1), ccr.masc - ccr.masc_min, alpha=0.8, linewidth=0.5, label="MSCC")
+        plt.plot(xrange(ccr.max_shift + 1), ccr.cc - ccr.cc_min, color="black", linewidth=0.5, label="Naive CC")
+        plt.plot(xrange(ccr.max_shift + 1), ccr.masc - ccr.masc_min, alpha=0.8, linewidth=0.5, label="MSCC")
 
         axes = plt.gca()
         lower, upper = axes.get_ylim()
         lower, upper = axes.set_ylim((lower, upper * 1.1))
         height = upper - lower
 
-        plt.axvline(ccr.estimated_read_len, color="red", linestyle="dashed", linewidth=0.5)
-        plt.annotate('mean read length: {:.1f}'.format(ccr.read_mean_len),
-                     (ccr.estimated_read_len, upper - height/25))
+        plt.axvline(ccr.read_len, color="red", linestyle="dashed", linewidth=0.5)
+        plt.annotate('read length: {:.1f}'.format(ccr.read_len),
+                     (ccr.read_len, upper - height/25))
 
         plt.axvline(ccr.estimated_library_len, color="blue", linestyle="dashed", linewidth=0.5)
         plt.annotate('estimated lib len: {}'.format(ccr.estimated_library_len),
@@ -171,13 +173,16 @@ def plot_ncc_vs_masc(pp, ccr, name):
 
         cc_min = ccr.ref2cc_min[ref]
         # ccrl = ccr.ref2ccrl[ref]
-        plt.plot(xrange(1, ccr.max_shift + 1), cc - cc_min, color="black", linewidth=0.5, label="Naive CC")
+        plt.plot(xrange(ccr.max_shift + 1), cc - cc_min, color="black", linewidth=0.5, label="Naive CC")
 
         if plot_masc_data:
             masc = ccr.ref2masc[ref]
             masc_min = ccr.ref2masc_min[ref]
 
-            plt.plot(xrange(1, ccr.max_shift + 1), masc - masc_min, alpha=0.8, linewidth=0.5, label="MSCC")
+            # print cc
+            # print masc
+
+            plt.plot(xrange(ccr.max_shift + 1), masc - masc_min, alpha=0.8, linewidth=0.5, label="MSCC")
 
         axes = plt.gca()
         lower, upper = axes.get_ylim()
@@ -185,9 +190,9 @@ def plot_ncc_vs_masc(pp, ccr, name):
         height = upper - lower
         # yoffset = height / 50
 
-        plt.axvline(ccr.estimated_read_len, color="red", linestyle="dashed", linewidth=0.5)
-        plt.annotate('mean read length: {:.1f}'.format(ccr.read_mean_len),
-                     (ccr.estimated_read_len, upper - height/25))
+        plt.axvline(ccr.read_len, color="red", linestyle="dashed", linewidth=0.5)
+        plt.annotate('read length: {:.1f}'.format(ccr.read_len),
+                     (ccr.read_len, upper - height/25))
 
         if plot_masc_data:
             # mascrl = ccr.ref2mascrl[ref]

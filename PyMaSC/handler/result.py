@@ -13,39 +13,51 @@ class ReadsTooFew(IndexError):
 
 
 class CCResult(object):
-    CALCULATOR_RESULT_ATTRS = (
-        "max_shift", "calc_masc", "chi2_p_thresh",
+    STATIC_ATTRS = (
+        "max_shift",
         "genomelen", "ref2genomelen",
-
+    )
+    CALCULATOR_RESULT_ATTRS = (
         "forward_sum", "ref2forward_sum", "forward_read_len_sum",
         "reverse_sum", "ref2reverse_sum", "reverse_read_len_sum",
         "ccbins", "ref2ccbins",
-
-        "mappable_forward_sum", "mappable_ref2forward_sum", "mappable_forward_len_sum",
-        "mappable_reverse_sum", "mappable_ref2reverse_sum", "mappable_reverse_len_sum",
-        "mappable_ccbins", "mappable_ref2ccbins",
     )
 
-    def __init__(self, ccc, alignpath, mapq_criteria, mappability, filter_len, expected_library_len=None):
+    def __init__(self, ccc, mscc, alignpath, read_len, mapq_criteria, mappability, filter_len, expected_library_len=None):
         self.alignfile = alignpath
+        self.read_len = read_len
         self.mapq_criteria = mapq_criteria
         self.filter_len = filter_len
         self.expected_library_len = None
 
+        ###
+        self.estimated_library_len = None
+
         #
+        for attr in self.STATIC_ATTRS:
+            setattr(self, attr, getattr(ccc, attr))
         for attr in self.CALCULATOR_RESULT_ATTRS:
             setattr(self, attr, getattr(ccc, attr))
 
         #
-        if mappability is None:
-            self.regionfile = self.alignable_len = self.ref2library_len = None
-        else:
+        if mappability and mscc:
+            self.calc_masc = True
+            #
             self.regionfile = mappability.path
             assert mappability.is_called
             assert self.max_shift <= mappability.max_shift
             self.alignable_len = mappability.alignable_len
             self.ref2alignable_len = mappability.chrom2alignable_len
-
+            #
+            for attr in self.STATIC_ATTRS:
+                assert getattr(self, attr) == getattr(mscc, attr)
+            for attr in self.CALCULATOR_RESULT_ATTRS:
+                setattr(self, "mappable_" + attr, getattr(mscc, attr))
+        else:
+            self.calc_masc = False
+            self.regionfile = self.alignable_len = self.ref2library_len = None
+            for attr in self.CALCULATOR_RESULT_ATTRS:
+                setattr(self, "mappable_" + attr, None)
         #
         if ccc.forward_sum == 0:
             logger.error("There is no forward read.")
@@ -68,31 +80,31 @@ class CCResult(object):
         sum_prod = forward_mean * reverse_mean
         var_geomean = (forward_var * reverse_var) ** 0.5
 
-        cc = (ccbins / (totlen - np.array(range(self.max_shift)) - 1.) - sum_prod) / var_geomean
+        cc = (ccbins / (totlen - np.array(range(self.max_shift + 1), dtype=np.float_)) - sum_prod) / var_geomean
 
         cc_min = min(cc)
 
-        if self.estimated_read_len > self.max_shift:
+        if self.read_len > self.max_shift:
             ccrl = 0
         else:
-            ccrl = cc[self.estimated_read_len - 1]
+            ccrl = cc[self.read_len - 1]
+
+        # print forward_sum
+        # print reverse_sum
+        # print totlen
+        # print forward_mean
+        # print reverse_mean
+        # print forward_var
+        # print reverse_var
+        print ccbins
+        # print ''.join(map(str, map(int, ccbins)))
+        # print sum_prod
+        # print var_geomean
+        # print cc
 
         return cc, cc_min, ccrl
 
     def _calc_stats(self):
-        # calc read len
-        self.forward_read_mean_len = self.forward_read_len_sum / float(self.forward_sum)
-        self.reverse_read_mean_len = self.reverse_read_len_sum / float(self.reverse_sum)
-        self.read_mean_len = (
-            (self.forward_read_len_sum + self.reverse_read_len_sum) /
-            (float(self.forward_sum) + self.reverse_sum)
-        )
-        self.estimated_read_len = int(round(self.read_mean_len))
-        if self.estimated_read_len > self.max_shift:
-            logger.warning("Observed read lengh ({}) longer than shift size ({}).".format(
-                self.read_mean_len, self.max_shift
-            ))
-
         # calc cc
         self.cc, self.cc_min, self.ccrl = self._calc_cc(
             self.genomelen, self.forward_sum, self.reverse_sum, self.ccbins
@@ -126,7 +138,11 @@ class CCResult(object):
             self.ref2ccfl = self.ref2nsc = self.ref2rsc = None
 
     def _calc_masc(self, totlen, forward_sum, reverse_sum, ccbins):
-        totlen = np.array(totlen[1:], dtype=float)
+        totlen = np.array(totlen, dtype=float)
+        totlen = np.concatenate((
+            totlen[:self.read_len][::-1], totlen[1:]
+        ))[:self.max_shift + 1]
+        # totlen = np.array(totlen, dtype=float)[1:]
         forward_sum = np.array(forward_sum, dtype=float)
         reverse_sum = np.array(reverse_sum, dtype=float)
         forward_mean = forward_sum / totlen
@@ -142,16 +158,16 @@ class CCResult(object):
 
         cc_min = min(cc)
 
-        if self.estimated_read_len > self.max_shift:
+        if self.read_len > self.max_shift:
             ccrl = 0
         else:
-            ccrl = cc[self.estimated_read_len]
+            ccrl = cc[self.read_len]
 
         return cc, cc_min, ccrl
 
     def _calc_masc_stats(self):
         # calc masc
-        self.masc, self.masc_min, self.mascrl_y = self._calc_masc(
+        self.masc, self.masc_min, self.mascrl = self._calc_masc(
             self.alignable_len, self.mappable_forward_sum, self.mappable_reverse_sum, self.mappable_ccbins
         )
         self.ref2masc = {}

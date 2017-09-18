@@ -8,6 +8,10 @@ from PyMaSC.utils.progress import ProgressBar
 logger = logging.getLogger(__name__)
 
 
+class ContinueCalculation(Exception):
+    pass
+
+
 class AlignableLengthCalculator(BigWigFile):
     MAPPABILITY_THRESHOLD = 1
 
@@ -22,9 +26,9 @@ class AlignableLengthCalculator(BigWigFile):
         self._sum_bin_size = self.max_shift + 1
         self._chr = None
 
-        self._sumbins = np.repeat(0, self.max_shift + 1)
-        self._buff_tail_pos = 0
-        self._buff = np.repeat(0, self.max_shift)
+        self._sumbins = np.zeros(self.max_shift + 1, dtype=np.int64)
+        self._buff_tail_pos = -1
+        self._buff = np.zeros(self.max_shift, dtype=np.int64)
 
         self._progress = ProgressBar()
 
@@ -36,10 +40,10 @@ class AlignableLengthCalculator(BigWigFile):
 
     def _init_buff(self, chrom):
         self._sumbins.fill(0)
-        self._buff_tail_pos = 0
-        self._buff.fill(0)
+        self._buff_tail_pos = -1
+        self._buff = np.zeros(self.max_shift, dtype=np.int64)
 
-        logger.info("Calculate {} mappable length...".format(chrom))
+        logger.info("Calc {} mappable length...".format(chrom))
         self._chr = chrom
         self._progress.set(self.chromsizes[chrom])
 
@@ -72,41 +76,31 @@ class AlignableLengthCalculator(BigWigFile):
             self._flush()
 
     def _feed_track(self, begin, end):
-        gap_len = begin - self._buff_tail_pos
-        remain_buff_len = self.max_shift - gap_len
+        gap_len = begin - self._buff_tail_pos - 1
         track_len = end - begin
 
-        if remain_buff_len > track_len:
-            track = np.repeat(1, track_len)
+        for i in xrange(min(self.max_shift + 1, track_len)):
+            self._sumbins[i] += track_len - i
 
-            self._sumbins[gap_len + 1:] += np.correlate(
-                self._buff[- remain_buff_len:], track, "full"
-            )[:- 1 - remain_buff_len:-1]
+        if gap_len < self.max_shift:
+            overlap_len = self.max_shift - gap_len
 
-            for i in range(track_len):
-                self._sumbins[i] += track_len - i
+            self._sumbins[gap_len+1:] += np.correlate(
+                np.ones(min(overlap_len, track_len), dtype=np.int64),
+                self._buff[-(overlap_len):], "full"
+            )[:overlap_len]
 
             self._buff = np.concatenate((
-                self._buff[track_len - remain_buff_len:], np.repeat(0, gap_len), track
+                self._buff, np.zeros(gap_len, dtype=np.int64),
+                np.ones(track_len, dtype=np.int64)
+            ))[-self.max_shift:]
+        elif track_len < self.max_shift:
+            self._buff = np.concatenate((
+                np.zeros(self.max_shift - track_len, dtype=np.int64),
+                np.ones(track_len, dtype=np.int64)
             ))
         else:
-            if remain_buff_len > 0:
-                self._sumbins[gap_len + 1:] += np.correlate(
-                    self._buff[- remain_buff_len:], np.repeat(1, remain_buff_len), "full"
-                )[:- 1 - remain_buff_len:-1]
-
-            if track_len < self.max_shift:
-                for i in range(track_len):
-                    self._sumbins[i] += track_len - i
-
-                self._buff = np.concatenate((
-                    np.repeat(0, self.max_shift - track_len), np.repeat(1, track_len)
-                ))
-            else:
-                for i in range(self._sum_bin_size):
-                    self._sumbins[i] += track_len - i
-
-                self._buff = np.repeat(1, self.max_shift)
+            self._buff = np.ones(self.max_shift, dtype=np.int64)
 
         self._buff_tail_pos = end - 1
 
@@ -140,7 +134,7 @@ class BWFeederWithAlignableRegionSum(AlignableLengthCalculator):
         for wig in self.fetch(self.MAPPABILITY_THRESHOLD, chrom):
             try:
                 yield wig
-            except GeneratorExit:
+            except ContinueCalculation:
                 break
 
     def _yield_with_calc_alignability(self, chrom):
@@ -154,7 +148,7 @@ class BWFeederWithAlignableRegionSum(AlignableLengthCalculator):
             if not stop_yield:
                 try:
                     yield wig
-                except GeneratorExit:
+                except ContinueCalculation:
                     logger.info("Continue calc alignability for {}...".format(chrom))
                     stop_yield = True
 

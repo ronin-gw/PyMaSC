@@ -8,11 +8,11 @@ logger = logging.getLogger(__name__)
 @catch_IOError(logger, "cc table")
 def output_cc(outfile, ccr):
     with open(outfile, 'w') as f:
-        if ccr.calc_masc:
-            print >>f, "shift\tcc\tmscc"
-            for i, cc in enumerate(ccr.cc):
-                print >>f, "{}\t{}".format(i + 1, cc, ccr.masc[i])
-        else:
+        # if ccr.calc_masc:
+        #     print >>f, "shift\tcc\tmscc"
+        #     for i, cc in enumerate(ccr.cc):
+        #         print >>f, "{}\t{}".format(i + 1, cc, ccr.masc[i])
+        # else:
             print >>f, "shift\tcc"
             for i, cc in enumerate(ccr.cc):
                 print >>f, "{}\t{}".format(i + 1, cc)
@@ -27,7 +27,7 @@ def output_stats(outfile, ccr):
             ("reverse reads", "reverse_sum"),
             ("total forward read length", "forward_read_len_sum"),
             ("total reverse read length", "reverse_read_len_sum"),
-            ("estimated read length", "estimated_read_len"),
+            ("read length", "read_len"),
             ("minimum cc", "cc_min"),
             ("cc at read length", "ccrl")
         ):

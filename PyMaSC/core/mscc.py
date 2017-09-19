@@ -282,4 +282,4 @@ class MSCCCalculator(NaiveCCCalculator):
                 self._feeder.throw(ContinueCalculation)
             except ContinueCalculation:
                 pass
-        self.bwfeeder._calc_mappability()
+        self.bwfeeder.calc_mappability()

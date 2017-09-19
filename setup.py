@@ -5,6 +5,7 @@ import os
 from setuptools import setup, Extension
 from setuptools.command import build_ext
 
+import numpy
 from Cython.Build import cythonize
 
 BASEDIR = os.path.dirname(__file__)
@@ -56,9 +57,15 @@ def _setup():
                 sources=[_basedir("PyMaSC/reader/bigwig/interval.pyx")],
                 include_dirs=[_basedir("external/KentLib/inc")],
                 extra_link_args=[_basedir("external/KentLib/lib/jkweb.a")]
+            ),
+            Extension(
+                "PyMaSC.core.mappability",
+                sources=[_basedir("PyMaSC/core/mappability.pyx")],
+                include_dirs=[numpy.get_include(), _basedir("external/KentLib/inc")]
             )
         ] + cythonize([
-            "PyMaSC/reader/bam.pyx"
+            "PyMaSC/reader/bam.pyx",
+            "PyMaSC/core/readlen.pyx",
         ]),
         entry_points={
             "console_scripts": [

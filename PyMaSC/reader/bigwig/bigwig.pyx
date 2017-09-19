@@ -106,13 +106,13 @@ def bigwig2wig(path, output):
 
 
 cdef class BigWigFile:
-    cdef:
-        readonly char path[1024]
-        readonly bint closed
-        readonly dict chromsizes
-
-        bbiFile *file
-        bbiChromInfo *chrominfo
+    # cdef:
+    #     readonly char path[1024]
+    #     readonly bint closed
+    #     readonly dict chromsizes
+    #
+    #     bbiFile *file
+    #     bbiChromInfo *chrominfo
 
     def __init__(self, path, chrom_size=None):
         if not os.path.exists(path) and path != '-':

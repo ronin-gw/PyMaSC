@@ -103,7 +103,7 @@ class MappabilityHandler(BWFeederWithMappableRegionSum):
         if not self.need_save_stats:
             return logger.info("Update mappability stats is not required.")
 
-        self._calc_mappability()
+        self.calc_mappability()
 
         logger.info("Save mappable length to '{}'".format(self.map_path))
         try:

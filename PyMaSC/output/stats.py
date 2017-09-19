@@ -8,14 +8,14 @@ logger = logging.getLogger(__name__)
 @catch_IOError(logger, "cc table")
 def output_cc(outfile, ccr):
     with open(outfile, 'w') as f:
-        # if ccr.calc_masc:
-        #     print >>f, "shift\tcc\tmscc"
-        #     for i, cc in enumerate(ccr.cc):
-        #         print >>f, "{}\t{}".format(i + 1, cc, ccr.masc[i])
-        # else:
+        if ccr.calc_masc:
+            print >>f, "shift\tcc\tmscc"
+            for i, cc in enumerate(ccr.cc):
+                print >>f, "{}\t{}".format(i, cc, ccr.masc[i])
+        else:
             print >>f, "shift\tcc"
             for i, cc in enumerate(ccr.cc):
-                print >>f, "{}\t{}".format(i + 1, cc)
+                print >>f, "{}\t{}".format(i, cc)
 
 
 @catch_IOError(logger, "cc stats")
@@ -38,7 +38,7 @@ def output_stats(outfile, ccr):
 
         if ccr.calc_masc:
             for row, attr in (
-                ("mappable genome length", "alignable_len"),
+                ("mappable genome length", "mappable_len"),
                 ("forward reads in mappable region", "mappable_forward_sum"),
                 ("reverse reads in mappable region", "mappable_reverse_sum"),
                 ("total forward read length in mappable region", "mappable_forward_len_sum"),
@@ -48,7 +48,7 @@ def output_stats(outfile, ccr):
                 ("NSC", "estimated_nsc"),
                 ("RSC", "estimated_rsc")
             ):
-                print >>f, "{}\t{}".format(row, getattr(ccr, attr))
+                print >>f, "{}\t{}".format(row, getattr(ccr, attr, None))
 
         elif ccr.expected_library_len:
             for row, attr in (

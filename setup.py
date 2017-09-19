@@ -5,6 +5,8 @@ import os
 from setuptools import setup, Extension
 from setuptools.command import build_ext
 
+from Cython.Build import cythonize
+
 BASEDIR = os.path.dirname(__file__)
 
 
@@ -55,7 +57,9 @@ def _setup():
                 include_dirs=[_basedir("external/KentLib/inc")],
                 extra_link_args=[_basedir("external/KentLib/lib/jkweb.a")]
             )
-        ],
+        ] + cythonize([
+            "PyMaSC/reader/bam.pyx"
+        ]),
         entry_points={
             "console_scripts": [
                 "pymasc = PyMaSC.pymasc:exec_entrypoints",

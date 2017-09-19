@@ -89,19 +89,6 @@ class CCResult(object):
         else:
             ccrl = cc[self.read_len - 1]
 
-        # print forward_sum
-        # print reverse_sum
-        # print totlen
-        # print forward_mean
-        # print reverse_mean
-        # print forward_var
-        # print reverse_var
-        print ccbins
-        # print ''.join(map(str, map(int, ccbins)))
-        # print sum_prod
-        # print var_geomean
-        # print cc
-
         return cc, cc_min, ccrl
 
     def _calc_stats(self):
@@ -142,7 +129,7 @@ class CCResult(object):
         totlen = np.concatenate((
             totlen[:self.read_len][::-1], totlen[1:]
         ))[:self.max_shift + 1]
-        # totlen = np.array(totlen, dtype=float)[1:]
+
         forward_sum = np.array(forward_sum, dtype=float)
         reverse_sum = np.array(reverse_sum, dtype=float)
         forward_mean = forward_sum / totlen

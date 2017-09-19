@@ -6,7 +6,7 @@ from PyMaSC.utils.logfmt import set_rootlogger
 from PyMaSC.utils.parsearg import get_parser
 from PyMaSC.utils.progress import ProgressBar
 from PyMaSC.reader.align import InputUnseekable
-from PyMaSC.handler.alignability import AlignabilityHandler, BWIOError, JSONIOError
+from PyMaSC.handler.mappability import MappabilityHandler, BWIOError, JSONIOError
 from PyMaSC.handler.masc import CCCalcHandler
 from PyMaSC.output.stats import output_cc, output_stats
 from PyMaSC.output.figure import plot_figures
@@ -56,7 +56,7 @@ def _main():
     #
     if args.mappable:
         try:
-            alh = AlignabilityHandler(args.mappable, args.max_shift, args.map_path)
+            alh = MappabilityHandler(args.mappable, args.max_shift, args.map_path)
         except (BWIOError, JSONIOError):
             sys.exit(1)
     else:

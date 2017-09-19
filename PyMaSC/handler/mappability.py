@@ -2,7 +2,7 @@ import logging
 import os
 import json
 
-from PyMaSC.core.alignability import BWFeederWithAlignableRegionSum
+from PyMaSC.core.mappability import BWFeederWithMappableRegionSum
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,7 @@ class NeedUpdate(Exception):
     pass
 
 
-class AlignabilityHandler(BWFeederWithAlignableRegionSum):
+class MappabilityHandler(BWFeederWithMappableRegionSum):
     def __init__(self, path, max_shift=0, map_path=None, chrom_size=None):
         if not os.path.isfile(path):
             logger.critical("Failed to open '{}': no such file.".format(path))
@@ -28,7 +28,7 @@ class AlignabilityHandler(BWFeederWithAlignableRegionSum):
             logger.critical("Failed to open '{}': file is unreadable.".format(path))
             raise BWIOError
 
-        super(AlignabilityHandler, self).__init__(path, max_shift, chrom_size)
+        super(MappabilityHandler, self).__init__(path, max_shift, chrom_size)
         self.need_save_stats = True
 
         if map_path:
@@ -93,8 +93,8 @@ class AlignabilityHandler(BWFeederWithAlignableRegionSum):
                 logger.error("Max shift length for 'ref' unmatched.".format(ref))
                 raise IndexError
 
-        self.alignable_len = stats["__whole__"][:self.max_shift + 1]
-        self.chrom2alignable_len = {ref: b[:self.max_shift + 1] for ref, b in stats["references"].items()}
+        self.mappable_len = stats["__whole__"][:self.max_shift + 1]
+        self.chrom2mappable_len = {ref: b[:self.max_shift + 1] for ref, b in stats["references"].items()}
         self.chrom2is_called = {ref: True for ref in self.chromsizes}
         self.is_called = True
         self.need_save_stats = False
@@ -103,15 +103,15 @@ class AlignabilityHandler(BWFeederWithAlignableRegionSum):
         if not self.need_save_stats:
             return logger.info("Update mappability stats is not required.")
 
-        self._calc_alignability()
+        self._calc_mappability()
 
         logger.info("Save mappable length to '{}'".format(self.map_path))
         try:
             with open(self.map_path, 'w') as f:
                 json.dump({
                     "max_shift": self.max_shift,
-                    "__whole__": self.alignable_len,
-                    "references": self.chrom2alignable_len
+                    "__whole__": self.mappable_len,
+                    "references": self.chrom2mappable_len
                 }, f, indent=4, sort_keys=True)
         except IOError as e:
             logger.error("Faild to output: {}\n[Errno {}] {}".format(

@@ -46,8 +46,8 @@ class CCResult(object):
             self.regionfile = mappability.path
             assert mappability.is_called
             assert self.max_shift <= mappability.max_shift
-            self.alignable_len = mappability.alignable_len
-            self.ref2alignable_len = mappability.chrom2alignable_len
+            self.mappable_len = mappability.mappable_len
+            self.ref2mappable_len = mappability.chrom2mappable_len
             #
             for attr in self.STATIC_ATTRS:
                 assert getattr(self, attr) == getattr(mscc, attr)
@@ -55,7 +55,7 @@ class CCResult(object):
                 setattr(self, "mappable_" + attr, getattr(mscc, attr))
         else:
             self.calc_masc = False
-            self.regionfile = self.alignable_len = self.ref2library_len = None
+            self.regionfile = self.mappable_len = self.ref2library_len = None
             for attr in self.CALCULATOR_RESULT_ATTRS:
                 setattr(self, "mappable_" + attr, None)
         #
@@ -155,15 +155,15 @@ class CCResult(object):
     def _calc_masc_stats(self):
         # calc masc
         self.masc, self.masc_min, self.mascrl = self._calc_masc(
-            self.alignable_len, self.mappable_forward_sum, self.mappable_reverse_sum, self.mappable_ccbins
+            self.mappable_len, self.mappable_forward_sum, self.mappable_reverse_sum, self.mappable_ccbins
         )
         self.ref2masc = {}
         self.ref2masc_min = {}
         self.ref2mascrl = {}
         for ref, ccbins in self.mappable_ref2ccbins.items():
-            if ccbins is not None and ref in self.ref2alignable_len:
+            if ccbins is not None and ref in self.ref2mappable_len:
                 self.ref2masc[ref], self.ref2masc_min[ref], self.ref2mascrl[ref] = self._calc_masc(
-                    self.ref2alignable_len[ref], self.mappable_ref2forward_sum[ref],
+                    self.ref2mappable_len[ref], self.mappable_ref2forward_sum[ref],
                     self.mappable_ref2reverse_sum[ref], ccbins
                 )
             else:

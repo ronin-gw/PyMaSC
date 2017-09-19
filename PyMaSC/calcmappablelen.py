@@ -5,7 +5,7 @@ import sys
 from PyMaSC.utils.parsearg import add_common_args, add_mappability_args, add_shift_arg, ForceNaturalNumber
 from PyMaSC.utils.logfmt import set_rootlogger
 from PyMaSC.utils.progress import ProgressBar
-from PyMaSC.handler.alignability import AlignabilityHandler
+from PyMaSC.handler.mappability import MappabilityHandler
 
 logger = logging.getLogger(__name__)
 
@@ -44,8 +44,8 @@ def _main():
 
     #
     logger.info("Calcurate mappable length with max shift size {}.".format(args.max_shift))
-    alh = AlignabilityHandler(args.mappable, max(args.max_readlen, args.max_shift), args.map_path)
-    alh._calc_alignability()
+    alh = MappabilityHandler(args.mappable, max(args.max_readlen, args.max_shift), args.map_path)
+    alh._calc_mappability()
     alh.save_mappability_stats()
     alh.close()
 

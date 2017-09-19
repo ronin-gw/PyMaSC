@@ -3,7 +3,7 @@ import logging
 import numpy as np
 
 from PyMaSC.core.ncc import NaiveCCCalculator, ReadUnsortedError
-from PyMaSC.core.alignability import ContinueCalculation
+from PyMaSC.core.mappability import ContinueCalculation
 
 logger = logging.getLogger(__name__)
 
@@ -282,4 +282,4 @@ class MSCCCalculator(NaiveCCCalculator):
                 self._feeder.throw(ContinueCalculation)
             except ContinueCalculation:
                 pass
-        self.bwfeeder._calc_alignability()
+        self.bwfeeder._calc_mappability()

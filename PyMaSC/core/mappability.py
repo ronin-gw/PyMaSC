@@ -12,15 +12,15 @@ class ContinueCalculation(Exception):
     pass
 
 
-class AlignableLengthCalculator(BigWigFile):
+class MappableLengthCalculator(BigWigFile):
     MAPPABILITY_THRESHOLD = 1
 
     def __init__(self, path, max_shift=0, chrom_size=None):
-        super(AlignableLengthCalculator, self).__init__(path, chrom_size)
+        super(MappableLengthCalculator, self).__init__(path, chrom_size)
         self.max_shift = max_shift
         self.chrom2is_called = {c: False for c in self.chromsizes}
-        self.chrom2alignable_len = {}
-        self.alignable_len = [0] * (max_shift + 1)
+        self.chrom2mappable_len = {}
+        self.mappable_len = [0] * (max_shift + 1)
         self.is_called = False
 
         self._sum_bin_size = self.max_shift + 1
@@ -49,9 +49,9 @@ class AlignableLengthCalculator(BigWigFile):
 
     def _flush(self):
         if self._chr:
-            self.chrom2alignable_len[self._chr] = tuple(self._sumbins)
+            self.chrom2mappable_len[self._chr] = tuple(self._sumbins)
             for i in xrange(self.max_shift + 1):
-                self.alignable_len[i] += self._sumbins[i]
+                self.mappable_len[i] += self._sumbins[i]
             self.chrom2is_called[self._chr] = True
 
             if all(self.chrom2is_called.values()):
@@ -59,7 +59,7 @@ class AlignableLengthCalculator(BigWigFile):
 
             self._progress.clean()
 
-    def _calc_alignability(self, chrom=None):
+    def _calc_mappability(self, chrom=None):
         if chrom is None:
             chroms = [c for c, b in self.chrom2is_called.items() if b is False]
         elif self.chrom2is_called[chrom]:
@@ -104,31 +104,31 @@ class AlignableLengthCalculator(BigWigFile):
 
         self._buff_tail_pos = end - 1
 
-    def get_alignable_len(self, chrom=None, shift_from=None, shift_to=None, force=False):
+    def get_mappable_len(self, chrom=None, shift_from=None, shift_to=None, force=False):
         if chrom is not None:
             if chrom not in self.chrom2is_called:
                 return None
             if self.chrom2is_called[chrom]:
-                return self.chrom2alignable_len[chrom][shift_from:shift_to]
+                return self.chrom2mappable_len[chrom][shift_from:shift_to]
             elif force:
-                self._calc_alignability(chrom)
-                return self.chrom2alignable_len[chrom][shift_from:shift_to]
+                self._calc_mappability(chrom)
+                return self.chrom2mappable_len[chrom][shift_from:shift_to]
             else:
-                raise KeyError("Alignable length for '{}' is not calculated yet.".format(chrom))
+                raise KeyError("Mappable length for '{}' is not calculated yet.".format(chrom))
 
         if self.is_called:
-            return self.alignable_len[shift_from:shift_to]
+            return self.mappable_len[shift_from:shift_to]
 
-        self._calc_alignability()
-        return self.alignable_len[shift_from:shift_to]
+        self._calc_mappability()
+        return self.mappable_len[shift_from:shift_to]
 
 
-class BWFeederWithAlignableRegionSum(AlignableLengthCalculator):
+class BWFeederWithMappableRegionSum(MappableLengthCalculator):
     def feed(self, chrom):
         if self.chrom2is_called[chrom]:
             return self._yield(chrom)
         else:
-            return self._yield_with_calc_alignability(chrom)
+            return self._yield_with_calc_mappability(chrom)
 
     def _yield(self, chrom):
         for wig in self.fetch(self.MAPPABILITY_THRESHOLD, chrom):
@@ -137,7 +137,7 @@ class BWFeederWithAlignableRegionSum(AlignableLengthCalculator):
             except ContinueCalculation:
                 break
 
-    def _yield_with_calc_alignability(self, chrom):
+    def _yield_with_calc_mappability(self, chrom):
         stop_yield = False
 
         self._init_buff(chrom)
@@ -149,7 +149,7 @@ class BWFeederWithAlignableRegionSum(AlignableLengthCalculator):
                 try:
                     yield wig
                 except ContinueCalculation:
-                    logger.info("Continue calc alignability for {}...".format(chrom))
+                    logger.info("Continue calc mappability for {}...".format(chrom))
                     stop_yield = True
                     self.enable_progress_bar()
 

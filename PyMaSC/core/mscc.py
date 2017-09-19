@@ -4,7 +4,6 @@ import numpy as np
 
 from PyMaSC.core.ncc import NaiveCCCalculator, ReadUnsortedError
 from PyMaSC.core.alignability import ContinueCalculation
-from PyMaSC.utils.progress import ProgressBar
 
 logger = logging.getLogger(__name__)
 
@@ -57,8 +56,6 @@ class MSCCCalculator(NaiveCCCalculator):
         # print self._max_shift_from_f, self._extra_size
 
         self._init_pos_buff()
-        self._progress = ProgressBar()
-        self._progress.disable_bar()
         self.bwfeeder.disable_progress_bar()
 
     def _init_pos_buff(self):
@@ -114,15 +111,11 @@ class MSCCCalculator(NaiveCCCalculator):
                 self._flush()
             self._chr = chrom
             self._init_bw()
-
-            logger.info("Calc {}...".format(chrom))
-
-            self._progress.set(self.ref2genomelen[chrom])
+            if not self._bwiter_stopped:
+                logger.info("Calc {}...".format(chrom))
 
         if pos < self._last_pos:
             raise ReadUnsortedError
-
-        self._progress.update(pos)
 
         self._last_pos = pos
 
@@ -284,10 +277,9 @@ class MSCCCalculator(NaiveCCCalculator):
     def finishup_calculation(self):
         super(MSCCCalculator, self).finishup_calculation()
 
-        self.bwfeeder.enable_progress_bar()
         if not self._bwiter_stopped:
             try:
-                self.bwfeeder.throw(ContinueCalculation)
-            except StopIteration:
+                self._feeder.throw(ContinueCalculation)
+            except ContinueCalculation:
                 pass
         self.bwfeeder._calc_alignability()

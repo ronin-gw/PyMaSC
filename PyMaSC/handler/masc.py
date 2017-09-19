@@ -5,6 +5,7 @@ from PyMaSC.core.readlen import estimate_readlen
 from PyMaSC.core.ncc import NaiveCCCalculator, ReadUnsortedError
 from PyMaSC.core.mscc import MSCCCalculator
 from PyMaSC.handler.result import CCResult, ReadsTooFew
+from PyMaSC.utils.progress import ProgressBar
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,10 @@ class CCCalcHandler(object):
             logger.warning("Read lengh ({}) seems to be longer than shift size ({}).".format(
                 self.read_len, max_shift
             ))
+
+        # to display progress bar
+        self._chr = None
+        self._progress = ProgressBar()
 
     def _set_calculator(self, references, lengths):
         self.nccc = NaiveCCCalculator(self.max_shift, references, lengths)
@@ -59,12 +64,27 @@ class CCCalcHandler(object):
     def _valid_read_generator(self):
         with self.align_parser(self.stream) as alignfile:
             self._set_calculator(alignfile.references, alignfile.lengths)
+            _ref2genomelen = {r: l for r, l in zip(alignfile.references, alignfile.lengths)}
 
             for is_reverse, is_duplicate, chrom, pos, mapq, readlen in alignfile:
-                if mapq < self.mapq_criteria or is_duplicate:
-                    continue
+                if chrom != self._chr:
+                    self._progress.clean()
+                    self._progress.disable_bar()
 
-                yield is_reverse, chrom, pos, readlen
+                    if mapq < self.mapq_criteria or is_duplicate:
+                        continue
+                    yield is_reverse, chrom, pos, readlen
+
+                    self._chr = chrom
+                    self._progress.enable_bar()
+                    self._progress.set(_ref2genomelen[chrom])
+                    self._progress.update(pos)
+                else:
+                    self._progress.update(pos)
+                    if mapq < self.mapq_criteria or is_duplicate:
+                        continue
+                    yield is_reverse, chrom, pos, readlen
+            self._progress.clean()
 
     def run_calcuration(self):
         for is_reverse, chrom, pos, readlen in self._valid_read_generator():

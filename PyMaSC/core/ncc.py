@@ -2,8 +2,6 @@ import logging
 
 import numpy as np
 
-from PyMaSC.utils.progress import ProgressBar
-
 logger = logging.getLogger(__name__)
 
 
@@ -40,7 +38,6 @@ class NaiveCCCalculator(object):
         self._reverse_buff = np.zeros(max_shift + 1, dtype=np.int64)
 
         self._init_pos_buff()
-        self._progress = ProgressBar()
 
     def _init_pos_buff(self):
         self._forward_sum = self._reverse_sum = 0
@@ -63,8 +60,6 @@ class NaiveCCCalculator(object):
         self.ref2reverse_sum[self._chr] = self._reverse_sum
         self.ref2ccbins[self._chr] = tuple(self._ccbins)
 
-        self._progress.clean()
-
     def _check_pos(self, chrom, pos):
         if chrom != self._chr:
             if self._chr is not None:
@@ -74,12 +69,8 @@ class NaiveCCCalculator(object):
 
             logger.info("Calc {}...".format(chrom))
 
-            self._progress.set(self.ref2genomelen[chrom])
-
         if pos < self._last_pos:
             raise ReadUnsortedError
-
-        self._progress.update(pos)
 
         self._last_pos = pos
 

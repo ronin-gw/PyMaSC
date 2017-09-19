@@ -151,5 +151,6 @@ class BWFeederWithAlignableRegionSum(AlignableLengthCalculator):
                 except ContinueCalculation:
                     logger.info("Continue calc alignability for {}...".format(chrom))
                     stop_yield = True
+                    self.enable_progress_bar()
 
         self._flush()

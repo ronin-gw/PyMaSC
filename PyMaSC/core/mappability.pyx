@@ -1,4 +1,3 @@
-# cython: profile=True
 import logging
 
 cimport numpy as np
@@ -6,6 +5,8 @@ from PyMaSC.reader.bigwig.bigwig cimport BigWigFile
 from PyMaSC.reader.bigwig.interval cimport Interval
 from PyMaSC.reader.bigwig.kentlib.types cimport bits32
 from cython cimport boundscheck, wraparound
+
+from .utils cimport bits32_min
 
 import numpy as np
 from PyMaSC.utils.progress import ProgressBar
@@ -102,20 +103,20 @@ cdef class MappableLengthCalculator(BigWigFile):
 
     @wraparound(False)
     @boundscheck(False)
-    cdef _feed_track(self, bits32 begin, bits32 end):
+    cdef inline _feed_track(self, bits32 begin, bits32 end):
         cdef bits32 i
         cdef bits32 track_len = end - begin
         cdef bits32 gap_len = begin - self._buff_tail_pos - 1
         cdef overlap_len, remain_buff_len
 
-        for i in range(min(self.max_shift + 1, track_len)):
+        for i in range(bits32_min(self.max_shift + 1, track_len)):
             self._sumbins[i] += track_len - i
 
         if gap_len < self.max_shift:
             overlap_len = self.max_shift - gap_len
 
             self._sumbins[gap_len+1:] += np.correlate(
-                np.ones(min(overlap_len, track_len), dtype=np.long),
+                np.ones(bits32_min(overlap_len, track_len), dtype=np.long),
                 self._buff[self.max_shift - overlap_len:], "full"
             )[:overlap_len]
 

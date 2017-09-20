@@ -9,6 +9,7 @@ import numpy
 from Cython.Build import cythonize
 
 BASEDIR = os.path.dirname(__file__)
+NUMPY_INCLUDE = numpy.get_include()
 
 
 def _basedir(path):
@@ -61,7 +62,12 @@ def _setup():
             Extension(
                 "PyMaSC.core.mappability",
                 sources=[_basedir("PyMaSC/core/mappability.pyx")],
-                include_dirs=[numpy.get_include(), _basedir("external/KentLib/inc")]
+                include_dirs=[NUMPY_INCLUDE, _basedir("external/KentLib/inc")]
+            ),
+            Extension(
+                "PyMaSC.core.ncc",
+                sources=[_basedir("PyMaSC/core/ncc.pyx")],
+                include_dirs=[NUMPY_INCLUDE, _basedir("external/KentLib/inc")]
             )
         ] + cythonize([
             "PyMaSC/reader/bam.pyx",

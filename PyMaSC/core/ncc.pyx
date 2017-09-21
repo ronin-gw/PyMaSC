@@ -100,6 +100,7 @@ cdef class NaiveCCCalculator(object):
 
         self._last_pos = pos
 
+    @boundscheck(False)
     def feed_forward_read(self, char* chrom, int64 pos, int64 readlen):
         self._check_pos(chrom, pos)
 

@@ -6,6 +6,8 @@ from libc.stdint cimport int_fast64_t as int64
 from libc.string cimport strcmp, strcpy
 from cython cimport boundscheck, wraparound
 
+from .utils cimport int64_min, int64_max
+
 import numpy as np
 from PyMaSC.core.ncc import ReadUnsortedError
 from PyMaSC.core.mappability import ContinueCalculation
@@ -34,7 +36,7 @@ cdef class MSCCCalculator(object):
         object _bwfeeder, _feeder
         np.ndarray _bwbuff
         bint _bwiter_stopped
-        int64, _bwbuff_head, _extra_size
+        int64, _bwbuff_head, _extra_size, _double_shift_len
 
     def __init__(self, max_shift, read_len, references, lengths, bwfeeder):
         #    _last_pos      pos + read_len - 1
@@ -81,8 +83,8 @@ cdef class MSCCCalculator(object):
         # _bwbuff_head = 1-based position for first element in _bwbuff
         self._bwbuff_head = 1
         # _extra_size = extra buff size from _last_pos save to _bwbuff
-        self._extra_size = max(0, self._max_shift_from_f)
-        # print self._max_shift_from_f, self._extra_size
+        self._extra_size = int64_max(0, self._max_shift_from_f)
+        self._double_shift_len = self.max_shift * 2 + 1
 
         self._init_pos_buff()
         self._bwfeeder.disable_progress_bar()
@@ -148,7 +150,11 @@ cdef class MSCCCalculator(object):
 
         self._last_pos = pos
 
-    def feed_forward_read(self, chrom, pos, readlen):
+    @boundscheck(False)
+    def feed_forward_read(self, char* chrom, int64 pos, int64 readlen):
+        cdef int64 offset, read_mappability
+        cdef np.ndarray[np.int64_t] mappability
+
         self._check_pos(chrom, pos)
 
         if self._last_forward_pos == pos:
@@ -169,7 +175,10 @@ cdef class MSCCCalculator(object):
         else:
             self._shift_with_update_forward(offset, mappability)
 
-    def feed_reverse_read(self, chrom, pos, readlen):
+    @wraparound(False)
+    @boundscheck(False)
+    def feed_reverse_read(self, char* chrom, int64 pos, int64 readlen):
+        cdef int64 offset, revbuff_pos
         cdef np.ndarray[np.int64_t] mappability
 
         self._check_pos(chrom, pos)
@@ -191,9 +200,10 @@ cdef class MSCCCalculator(object):
             self._shift_with_update(offset)
         else:
             revbuff_pos += offset
-        try:
+
+        if revbuff_pos < len(self._reverse_buff):
             self._reverse_buff[revbuff_pos] = 1
-        except IndexError:
+        else:
             self._reverse_buff += [None] * (revbuff_pos - len(self._reverse_buff)) + [1]
 
     @wraparound(False)
@@ -206,7 +216,7 @@ cdef class MSCCCalculator(object):
         cdef np.ndarray[np.int64_t] mappability
 
         to = self._last_pos + self.read_len - 1
-        from_ = min(to - self._forward_buff_size, self._last_pos - 1)
+        from_ = int64_min(to - self._forward_buff_size, self._last_pos - 1)
 
         if from_ < 0:
             mappability = np.concatenate((
@@ -231,36 +241,29 @@ cdef class MSCCCalculator(object):
 
         if forward_from < 0:
             forward_mappability = np.concatenate((
-                np.zeros(-forward_from, dtype=np.int64), self._get_bwbuff(0, forward_to)
-            ))[::-1]
+                self._get_bwbuff(0, forward_to)[::-1], np.zeros(-forward_from, dtype=np.int64)
+            ))
         else:
             forward_mappability = self._get_bwbuff(forward_from, forward_to)[::-1]
 
         reverse_to = forward_to + self.read_len - 1
-        reverse_from = reverse_to - self.max_shift * 2 - 1
+        reverse_from = reverse_to - self._double_shift_len
 
         if reverse_from < 0:
             reverse_mappability = np.concatenate((
-                np.zeros(-reverse_from, dtype=np.int64),
-                self._get_bwbuff(0, reverse_to)
-            ))[::-2]
+                self._get_bwbuff(0, reverse_to)[::-2],
+                np.zeros(self._forward_buff_size - (reverse_to + 1) / 2, dtype=np.int64)
+            ))
         else:
-            reverse_mappability = self._get_bwbuff(reverse_from, reverse_to)
-            if reverse_mappability.size != self.max_shift * 2 + 1:
-                reverse_mappability = np.concatenate((
-                    reverse_mappability,
-                    np.zeros(self.max_shift*2 + 1 - reverse_mappability.size, dtype=np.int64)
-                ))[::-2]
-            else:
-                reverse_mappability = reverse_mappability[::-2]
+            reverse_mappability = self._get_bwbuff(reverse_from, reverse_to)[::-2]
 
         return forward_mappability * reverse_mappability
 
     @wraparound(False)
     @boundscheck(False)
     cdef inline np.ndarray[np.int64_t] _get_bwbuff(self, int64 from_, int64 to):
-        cdef int64 bwbuff_head = max(0, self._last_pos - self.max_shift * 2 - 1)
-        cdef int64 bwbuff_tail
+        cdef int64 bwbuff_head = int64_max(0, self._last_pos - self._double_shift_len)
+        cdef int64 bwbuff_tail, gap
 
         cdef char* _chrom
         cdef int64 start, end
@@ -281,7 +284,7 @@ cdef class MSCCCalculator(object):
                 self._bwiter_stopped = True
                 m = self._bwbuff[from_:to]
                 return np.concatenate((
-                    m, np.zeros(max(0, to - from_ - m.size), dtype=np.int64)
+                    m, np.zeros(int64_max(0, to - from_ - m.size), dtype=np.int64)
                 ))
 
             bwbuff_tail = bwbuff_head + self._bwbuff.size
@@ -292,9 +295,9 @@ cdef class MSCCCalculator(object):
                     np.ones(end - start, dtype=np.int64)
                 ))
             elif bwbuff_head < end:
-                self._bwbuff[max(0, start - bwbuff_head):(end - bwbuff_head)] = 1
+                self._bwbuff[int64_max(0, start - bwbuff_head):(end - bwbuff_head)] = 1
                 self._bwbuff = np.concatenate(
-                    (self._bwbuff, np.ones(max(0, end - bwbuff_tail), dtype=np.int64))
+                    (self._bwbuff, np.ones(int64_max(0, end - bwbuff_tail), dtype=np.int64))
                 )
 
         return self._bwbuff[from_:to]
@@ -311,18 +314,18 @@ cdef class MSCCCalculator(object):
         cdef int64 i, j
         cdef np.ndarray[np.int64_t] forward_state
 
-        for i in range(min(min(offset, self._forward_buff_size), len(self._reverse_buff))):
+        for i in range(int64_min(int64_min(offset, self._forward_buff_size), len(self._reverse_buff))):
             forward_state = self._forward_buff[i]
             if forward_state is None:
                 continue
 
-            for j in range(min(self._forward_buff_size, len(self._reverse_buff) - i)):
+            for j in range(int64_min(self._forward_buff_size, len(self._reverse_buff) - i)):
                 if self._reverse_buff[i + j] is None:
                     continue
 
                 self._ccbins[j] += forward_state[j]
 
-        self._forward_buff = self._forward_buff[offset:] + [None] * min(offset, self._forward_buff_size)
+        self._forward_buff = self._forward_buff[offset:] + [None] * int64_min(offset, self._forward_buff_size)
         self._reverse_buff = self._reverse_buff[offset:]
         self._fb_tail_pos += offset
 

@@ -18,19 +18,19 @@ class ReadUnsortedError(IndexError):
 
 
 cdef class NaiveCCCalculator(object):
+    # cdef readonly:
+    #     int64 max_shift
+    #     dict ref2genomelen
+    #     int64 genomelen
+    #     int64 forward_sum, reverse_sum
+    #     dict ref2forward_sum, ref2reverse_sum
+    #     int64 forward_read_len_sum, reverse_read_len_sum
+    #     list ccbins
+    #     dict ref2ccbins
     # cdef:
-    #     readonly int64 max_shift
-    #     readonly dict ref2genomelen
-    #     readonly int64 genomelen
-    #     readonly int64 forward_sum, reverse_sum
-    #     readonly dict ref2forward_sum, ref2reverse_sum
-    #     readonly int64 forward_read_len_sum, reverse_read_len_sum
-    #     readonly list ccbins
-    #     readonly dict ref2ccbins
-    #
     #     char _chr[1024]
-    #     int64 _forward_sum, _reverse_sum
-    #     object _ccbins, _forward_buff, _reverse_buff
+    #     int64 _forward_buff_size, _forward_sum, _reverse_sum
+    #     np.ndarray[np.int64_t] _ccbins, _forward_buff, _reverse_buff
     #
     #     int64 _fb_tail_pos, _last_pos, _last_forward_pos, _last_reverse_pos
 
@@ -55,11 +55,12 @@ cdef class NaiveCCCalculator(object):
         self.ccbins = []
         self.ref2ccbins = {ref: None for ref in references}
         # internal buff
+        self._forward_buff_size = max_shift + 1
         # strcpy(self._chr, '\0')
         self._forward_sum = self._reverse_sum = 0
-        self._ccbins = np.zeros(max_shift + 1, dtype=np.int64)
-        self._forward_buff = np.zeros(max_shift + 1, dtype=np.int64)
-        self._reverse_buff = np.zeros(max_shift + 1, dtype=np.int64)
+        self._ccbins = np.zeros(self._forward_buff_size, dtype=np.int64)
+        self._forward_buff = np.zeros(self._forward_buff_size, dtype=np.int64)
+        self._reverse_buff = np.zeros(self._forward_buff_size, dtype=np.int64)
 
         self._init_pos_buff()
 
@@ -68,7 +69,7 @@ cdef class NaiveCCCalculator(object):
         self._ccbins.fill(0)
 
         self._forward_buff.fill(0)
-        self._fb_tail_pos = self.max_shift + 1
+        self._fb_tail_pos = self._forward_buff_size
 
         self._reverse_buff.fill(0)
 
@@ -76,7 +77,7 @@ cdef class NaiveCCCalculator(object):
         self._last_forward_pos = self._last_reverse_pos = 0
 
     def _flush(self):
-        self._shift_with_update(self.max_shift + 1)
+        self._shift_with_update(self._forward_buff_size)
 
         self.forward_sum += self._forward_sum
         self.reverse_sum += self._reverse_sum
@@ -147,12 +148,12 @@ cdef class NaiveCCCalculator(object):
     @wraparound(False)
     @boundscheck(False)
     cdef inline _shift_with_update(self, int64 offset, bint update_forward=False):
-        cdef int64 buff_max_shift = int64_min(self.max_shift + 1, offset)
+        cdef int64 buff_max_shift = int64_min(self._forward_buff_size, offset)
         cdef int64 i, j
 
         for i in range(buff_max_shift):
             if self._forward_buff[i]:
-                for j in range(int64_min(self.max_shift + 1, self._reverse_buff.size - i)):
+                for j in range(int64_min(self._forward_buff_size, self._reverse_buff.size - i)):
                     if self._reverse_buff[i + j]:
                         self._ccbins[j] += 1
 

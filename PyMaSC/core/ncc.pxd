@@ -15,7 +15,8 @@ cdef class NaiveCCCalculator(object):
     cdef:
         char _chr[1024]
         int64 _forward_buff_size, _forward_sum, _reverse_sum
-        np.ndarray _ccbins, _forward_buff, _reverse_buff
+        np.ndarray _ccbins
+        list _forward_buff, _reverse_buff
         int64 _fb_tail_pos, _last_pos, _last_forward_pos, _last_reverse_pos
 
     # def __init__(self, int64 max_shift, references, lengths)

@@ -30,7 +30,8 @@ cdef class NaiveCCCalculator(object):
     # cdef:
     #     char _chr[1024]
     #     int64 _forward_buff_size, _forward_sum, _reverse_sum
-    #     np.ndarray[np.int64_t] _ccbins, _forward_buff, _reverse_buff
+    #     np.ndarray _ccbins
+    #     list _forward_buff, _reverse_buff
     #
     #     int64 _fb_tail_pos, _last_pos, _last_forward_pos, _last_reverse_pos
 
@@ -59,8 +60,8 @@ cdef class NaiveCCCalculator(object):
         # strcpy(self._chr, '\0')
         self._forward_sum = self._reverse_sum = 0
         self._ccbins = np.zeros(self._forward_buff_size, dtype=np.int64)
-        self._forward_buff = np.zeros(self._forward_buff_size, dtype=np.int64)
-        self._reverse_buff = np.zeros(self._forward_buff_size, dtype=np.int64)
+        self._forward_buff = [0] * self._forward_buff_size
+        self._reverse_buff = [0] * self._forward_buff_size
 
         self._init_pos_buff()
 
@@ -68,10 +69,10 @@ cdef class NaiveCCCalculator(object):
         self._forward_sum = self._reverse_sum = 0
         self._ccbins.fill(0)
 
-        self._forward_buff.fill(0)
+        self._forward_buff = [0] * self._forward_buff_size
         self._fb_tail_pos = self._forward_buff_size
 
-        self._reverse_buff.fill(0)
+        self._reverse_buff = [0] * self._forward_buff_size
 
         self._last_pos = 0
         self._last_forward_pos = self._last_reverse_pos = 0
@@ -120,7 +121,9 @@ cdef class NaiveCCCalculator(object):
     @boundscheck(False)
     def feed_reverse_read(self, char* chrom, int64 pos, int64 readlen):
         cdef int64 offset, revbuff_pos
-        cdef np.ndarray[int64] appendarray
+        # cdef np.ndarray[int64] appendarray
+        cdef int64 appendtail
+        cdef list appendlist
 
         self._check_pos(chrom, pos)
 
@@ -138,12 +141,13 @@ cdef class NaiveCCCalculator(object):
         else:
             revbuff_pos += offset
 
-        if self._reverse_buff.size > revbuff_pos:
+        if len(self._reverse_buff) > revbuff_pos:
             self._reverse_buff[revbuff_pos] = 1
         else:
-            appendarray = np.zeros(revbuff_pos - self._reverse_buff.size + 1, dtype=np.int64)
-            appendarray[revbuff_pos - self._reverse_buff.size] = 1
-            self._reverse_buff = np.concatenate((self._reverse_buff,  appendarray))
+            appendtail = revbuff_pos - len(self._reverse_buff)
+            appendlist = [0] * (appendtail + 1)
+            appendlist[appendtail] = 1
+            self._reverse_buff += appendlist
 
     @wraparound(False)
     @boundscheck(False)
@@ -153,14 +157,11 @@ cdef class NaiveCCCalculator(object):
 
         for i in range(buff_max_shift):
             if self._forward_buff[i]:
-                for j in range(int64_min(self._forward_buff_size, self._reverse_buff.size - i)):
+                for j in range(int64_min(self._forward_buff_size, len(self._reverse_buff) - i)):
                     if self._reverse_buff[i + j]:
                         self._ccbins[j] += 1
 
-        self._forward_buff = np.concatenate((
-            self._forward_buff[offset:],
-            np.zeros(buff_max_shift, dtype=np.int64)
-        ))
+        self._forward_buff = self._forward_buff[offset:] + [0] * buff_max_shift
 
         if update_forward:
             self._forward_buff[self.max_shift] = 1

@@ -68,6 +68,11 @@ def _setup():
                 "PyMaSC.core.ncc",
                 sources=[_basedir("PyMaSC/core/ncc.pyx")],
                 include_dirs=[NUMPY_INCLUDE, _basedir("external/KentLib/inc")]
+            ),
+            Extension(
+                "PyMaSC.core.mscc",
+                sources=[_basedir("PyMaSC/core/mscc.pyx")],
+                include_dirs=[NUMPY_INCLUDE, _basedir("external/KentLib/inc")]
             )
         ] + cythonize([
             "PyMaSC/reader/bam.pyx",

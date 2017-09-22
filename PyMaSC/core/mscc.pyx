@@ -36,7 +36,7 @@ cdef class MSCCCalculator(object):
         object _bwfeeder, _feeder
         np.ndarray _bwbuff
         bint _bwiter_stopped
-        int64, _bwbuff_head, _extra_size, _double_shift_len
+        int64 _bwbuff_head, _extra_size, _double_shift_len
 
     def __init__(self, max_shift, read_len, references, lengths, bwfeeder):
         #    _last_pos      pos + read_len - 1
@@ -173,7 +173,8 @@ cdef class MSCCCalculator(object):
         if offset < 1:
             self._forward_buff[offset - 1] = mappability
         else:
-            self._shift_with_update_forward(offset, mappability)
+            self._shift_with_update(offset)
+            self._forward_buff[self.max_shift] = mappability
 
     @wraparound(False)
     @boundscheck(False)
@@ -301,12 +302,6 @@ cdef class MSCCCalculator(object):
                 )
 
         return self._bwbuff[from_:to]
-
-    @wraparound(False)
-    @boundscheck(False)
-    cdef inline _shift_with_update_forward(self, int64 offset, np.ndarray[np.int64_t] forward_mappability):
-        self._shift_with_update(offset)
-        self._forward_buff[self.max_shift] = forward_mappability
 
     @wraparound(False)
     @boundscheck(False)

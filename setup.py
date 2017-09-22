@@ -10,6 +10,7 @@ from Cython.Build import cythonize
 
 BASEDIR = os.path.dirname(__file__)
 NUMPY_INCLUDE = numpy.get_include()
+EXTRA_C_ARGS = ["-O3", "-ffast-math"]
 
 
 def _basedir(path):
@@ -51,28 +52,33 @@ def _setup():
                 "PyMaSC.reader.bigwig.bigwig",
                 sources=[_basedir("PyMaSC/reader/bigwig/bigwig.pyx")],
                 include_dirs=[_basedir("external/KentLib/inc")],
-                extra_link_args=[_basedir("external/KentLib/lib/jkweb.a")]
+                extra_link_args=[_basedir("external/KentLib/lib/jkweb.a")],
+                extra_compile_args=EXTRA_C_ARGS
             ),
             Extension(
                 "PyMaSC.reader.bigwig.interval",
                 sources=[_basedir("PyMaSC/reader/bigwig/interval.pyx")],
                 include_dirs=[_basedir("external/KentLib/inc")],
-                extra_link_args=[_basedir("external/KentLib/lib/jkweb.a")]
+                extra_link_args=[_basedir("external/KentLib/lib/jkweb.a")],
+                extra_compile_args=EXTRA_C_ARGS
             ),
             Extension(
                 "PyMaSC.core.mappability",
                 sources=[_basedir("PyMaSC/core/mappability.pyx")],
-                include_dirs=[NUMPY_INCLUDE, _basedir("external/KentLib/inc")]
+                include_dirs=[NUMPY_INCLUDE, _basedir("external/KentLib/inc")],
+                extra_compile_args=EXTRA_C_ARGS
             ),
             Extension(
                 "PyMaSC.core.ncc",
                 sources=[_basedir("PyMaSC/core/ncc.pyx")],
-                include_dirs=[NUMPY_INCLUDE, _basedir("external/KentLib/inc")]
+                include_dirs=[NUMPY_INCLUDE, _basedir("external/KentLib/inc")],
+                extra_compile_args=EXTRA_C_ARGS
             ),
             Extension(
                 "PyMaSC.core.mscc",
                 sources=[_basedir("PyMaSC/core/mscc.pyx")],
-                include_dirs=[NUMPY_INCLUDE, _basedir("external/KentLib/inc")]
+                include_dirs=[NUMPY_INCLUDE, _basedir("external/KentLib/inc")],
+                extra_compile_args=EXTRA_C_ARGS
             )
         ] + cythonize([
             "PyMaSC/reader/bam.pyx",

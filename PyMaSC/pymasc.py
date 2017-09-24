@@ -56,40 +56,60 @@ def _main():
     prepare_output(args)
 
     #
-    if args.mappable:
+    calc_handlers = []
+    need_logging_unseekable_error = False
+    for f in args.reads:
         try:
-            alh = MappabilityHandler(args.mappable, args.max_shift, args.map_path)
-        except (BWIOError, JSONIOError):
-            sys.exit(1)
-    else:
-        alh = None
+            calc_handlers.append(
+                CCCalcHandler(f, args.format, args.estimation_type, args.max_shift,
+                              args.mapq, args.smooth_window, args.chi2_pval)
+            )
+        except InputUnseekable:
+            need_logging_unseekable_error = True
+    if need_logging_unseekable_error:
+        logger.error("If your input can't seek back, specify input file format and "
+                     "read length using `-f` and `-r` option.")
 
     #
-    logger.info("Calculate cross-correlation between 1 to {} base shift with reads MAOQ >= {}".format(args.max_shift, args.mapq))
-    for f in args.reads:
-        logger.info("Process {}".format(f))
+    readlens = []
+    if args.read_length is None:
+        logger.info("Check read length: Get {} from read length distribution".format(args.estimation_type.lower()))
+    for handler in calc_handlers:
+        handler.set_readlen(args.read_length)
+        readlens.append(handler.read_len)
+    max_readlen = max(readlens)
 
+    #
+    mappability_handler = None
+    if args.mappable:
         try:
-            cch = CCCalcHandler(f, args.format, args.estimation_type, args.max_shift, args.mapq,
-                                args.smooth_window, args.read_length, alh, args.chi2_pval)
-        except InputUnseekable:
-            logger.error("If your input can't seek back, specify input file format and read length "
-                         "using `-f` and `-r` option.")
-            ccr = None
+            mappability_handler = MappabilityHandler(
+                args.mappable, args.max_shift, max_readlen, args.map_path
+            )
+        except (BWIOError, JSONIOError):
+            sys.exit(1)
 
-        ccr = cch.run_calcuration()
+        for handler in calc_handlers:
+            handler.set_mappability_handler(mappability_handler)
 
-        if ccr is None:
+    #
+    logger.info("Calculate cross-correlation between 1 to {} base shift"
+                "with reads MAOQ >= {}".format(args.max_shift, args.mapq))
+    for handler in calc_handlers:
+        logger.info("Process {}".format(handler.path))
+
+        result_handler = handler.run_calcuration()
+        if result_handler is None:
             logger.warning("Faild to process {}. Skip this file.".format(f))
             continue
 
-        output_result(f, ccr, args.outdir)
+        output_result(handler.path, result_handler, args.outdir)
 
     #
-    if alh:
-        if alh.need_save_stats:
-            alh.save_mappability_stats()
-        alh.close()
+    if mappability_handler:
+        if mappability_handler.need_save_stats:
+            mappability_handler.save_mappability_stats()
+        mappability_handler.close()
     logger.info("PyMASC finished.")
 
 

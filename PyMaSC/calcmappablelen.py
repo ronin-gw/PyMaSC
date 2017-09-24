@@ -45,8 +45,7 @@ def _main():
         ProgressBar.enable = True
 
     #
-    logger.info("Calcurate mappable length with max shift size {}.".format(args.max_shift))
-    alh = MappabilityHandler(args.mappable, max(args.max_readlen, args.max_shift), args.map_path)
+    alh = MappabilityHandler(args.mappable, args.max_shift, args.max_readlen, args.map_path)
     alh.calc_mappability()
     alh.save_mappability_stats()
     alh.close()

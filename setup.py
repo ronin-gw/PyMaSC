@@ -73,12 +73,12 @@ def _setup():
             "PyMaSC.core.mappability",
             "PyMaSC.core.ncc",
             "PyMaSC.core.mscc"
-        )] + cythonize(
+        )] + cythonize([
             "PyMaSC/reader/bam.pyx",
             "PyMaSC/reader/bx/bpt_file.pyx",
             "PyMaSC/core/readlen.pyx",
             "PyMaSC/utils/bx/binary_file.pyx"
-        ),
+        ]),
         entry_points={
             "console_scripts": [
                 "pymasc = PyMaSC.pymasc:exec_entrypoint",

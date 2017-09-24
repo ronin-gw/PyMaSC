@@ -13,29 +13,42 @@ logger = logging.getLogger(__name__)
 class CCCalcHandler(object):
     default_chi2_p_thresh = 0.05
 
-    def __init__(self, path, fmt, esttype, max_shift, mapq_criteria, filter_len, readlen=None, bwfeeder=None, chi2_pval=None):
+    def __init__(self, path, fmt, esttype, max_shift, mapq_criteria, filter_len, chi2_pval=None):
         self.path = path
         self.max_shift = max_shift
         self.mapq_criteria = mapq_criteria
         self.filter_len = filter_len
-        self.bwfeeder = bwfeeder
         self.chi2_p_thresh = chi2_pval if chi2_pval else self.default_chi2_p_thresh
+
+        self.esttype = esttype
+        self.mapq_criteria = mapq_criteria
 
         # Raise `InputUnseekable`, possibly.
         self.align_parser, self.stream = get_read_generator_and_init_target(path, fmt)
-        if readlen:
-            self.read_len = readlen
-        else:
-            self.read_len = estimate_readlen(self.align_parser, self.stream, esttype, mapq_criteria)
-
-        if self.read_len > max_shift:
-            logger.warning("Read lengh ({}) seems to be longer than shift size ({}).".format(
-                self.read_len, max_shift
-            ))
 
         # to display progress bar
         self._chr = None
         self._progress = ProgressBar()
+
+        #
+        self.read_len = None
+        self.bwfeeder = None
+
+    def set_readlen(self, readlen=None):
+        if readlen:
+            self.read_len = readlen
+        else:
+            logger.info("Check read length... : " + self.path)
+            self.read_len = estimate_readlen(self.align_parser, self.stream,
+                                             self.esttype, self.mapq_criteria)
+
+        if self.read_len > self.max_shift:
+            logger.warning("Read lengh ({}) seems to be longer than shift size ({}).".format(
+                self.read_len, self.max_shift
+            ))
+
+    def set_mappability_handler(self, mappability_handler):
+        self.bwfeeder = mappability_handler
 
     def _set_calculator(self, references, lengths):
         self.nccc = NaiveCCCalculator(self.max_shift, references, lengths)

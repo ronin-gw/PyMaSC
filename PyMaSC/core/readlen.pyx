@@ -39,7 +39,6 @@ ESTFUNCTIONS = dict(
 
 
 def estimate_readlen(parser, source, esttype, unsigned int mapq_criteria):
-    logger.info("Estimate read length: get {} from read length distribution...".format(esttype.lower()))
     estfunc = ESTFUNCTIONS[esttype]
 
     cdef bint is_duplicate

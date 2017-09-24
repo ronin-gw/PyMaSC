@@ -20,7 +20,13 @@ class NeedUpdate(Exception):
 
 
 class MappabilityHandler(BWFeederWithMappableRegionSum):
-    def __init__(self, path, max_shift=0, map_path=None):
+    @staticmethod
+    def calc_mappable_len_required_shift_size(readlen, max_shift):
+        return max_shift - readlen if max_shift > 2*readlen - 1 else readlen - 1
+
+    def __init__(self, path, max_shift=0, readlen=0, map_path=None):
+        max_shift = self.calc_mappable_len_required_shift_size(readlen, max_shift)
+
         if not os.path.isfile(path):
             logger.critical("Failed to open '{}': no such file.".format(path))
             raise BWIOError
@@ -49,7 +55,6 @@ class MappabilityHandler(BWFeederWithMappableRegionSum):
             if not os.access(self.map_path, os.R_OK):
                 logger.error("Failed to read '{}'".format(self.map_path))
             else:
-                logger.info("Read mappability stats from '{}'".format(self.map_path))
                 try:
                     self._load_mappability_stats()
                 except IOError as e:
@@ -67,6 +72,8 @@ class MappabilityHandler(BWFeederWithMappableRegionSum):
                     else:
                         logger.warning("Existing file '{}' will be overwritten.".format(self.map_path))
                     logger.info("Calcurate mappable length with max shift size {}.".format(max_shift))
+                else:
+                    logger.info("Use mappability stats read from '{}'".format(self.map_path))
 
     def _load_mappability_stats(self):
         with open(self.map_path) as f:
@@ -94,8 +101,8 @@ class MappabilityHandler(BWFeederWithMappableRegionSum):
                 logger.error("Max shift length for 'ref' unmatched.".format(ref))
                 raise IndexError
 
-        self.mappable_len = stats["__whole__"][:self.max_shift + 1]
-        self.chrom2mappable_len = {ref: b[:self.max_shift + 1] for ref, b in stats["references"].items()}
+        self.mappable_len = stats["__whole__"][:self.max_shift + 2]
+        self.chrom2mappable_len = {ref: b[:self.max_shift + 2] for ref, b in stats["references"].items()}
         self.chrom2is_called = {ref: True for ref in self.chromsizes}
         self.is_called = True
         self.need_save_stats = False

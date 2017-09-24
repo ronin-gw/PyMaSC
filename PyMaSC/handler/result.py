@@ -3,6 +3,7 @@ import logging
 import numpy as np
 from scipy.stats.distributions import chi2
 
+from PyMaSC.handler.mappability import MappabilityHandler
 from PyMaSC.utils.calc import moving_avr_filter
 
 logger = logging.getLogger(__name__)
@@ -45,7 +46,8 @@ class CCResult(object):
             #
             self.regionfile = mappability.path
             assert mappability.is_called
-            assert self.max_shift <= mappability.max_shift
+            required_size = MappabilityHandler.calc_mappable_len_required_shift_size(self.read_len, self.max_shift)
+            assert required_size <= mappability.max_shift
             self.mappable_len = mappability.mappable_len
             self.ref2mappable_len = mappability.chrom2mappable_len
             #

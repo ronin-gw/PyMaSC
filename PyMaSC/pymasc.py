@@ -2,6 +2,7 @@ import logging
 import os
 import sys
 
+from PyMaSC import VERSION
 from PyMaSC.utils.logfmt import set_rootlogger
 from PyMaSC.utils.parsearg import get_parser
 from PyMaSC.utils.progress import ProgressBar
@@ -37,6 +38,7 @@ def _main():
         colorize = sys.stderr.isatty()
 
     set_rootlogger(colorize, args.log_level)
+    logger.info("PyMaSC version " + VERSION)
 
     # check args
     if args.mappable:

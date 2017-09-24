@@ -1,6 +1,7 @@
 import argparse
 import logging
 
+import PyMaSC
 
 READLEN_ESTIMATION_TYPES = ("MEAN", "MEDIAN", "MODE", "MIN", "MAX")
 
@@ -27,6 +28,7 @@ def add_common_args(parser):
                         help="Set verbosity. (Default: INFO)")
     parser.add_argument("--color", nargs='?', type=_make_upper, default=None, choices=("TRUE", "FALSE"),
                         help="Coloring log. (Default: auto)")
+    parser.add_argument("--version", action="version", version="PyMaSC " + PyMaSC.VERSION)
 
 
 def add_mappability_args(group):

@@ -66,6 +66,7 @@ class MappabilityHandler(BWFeederWithMappableRegionSum):
                         raise JSONIOError
                     else:
                         logger.warning("Existing file '{}' will be overwritten.".format(self.map_path))
+                    logger.info("Calcurate mappable length with max shift size {}.".format(max_shift))
 
     def _load_mappability_stats(self):
         with open(self.map_path) as f:

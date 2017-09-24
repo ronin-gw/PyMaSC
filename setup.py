@@ -2,6 +2,8 @@
 import distutils
 import subprocess
 import os
+import sys
+import shutil
 from setuptools import setup, Extension
 from setuptools.command import build_ext
 
@@ -11,6 +13,8 @@ from Cython.Build import cythonize
 BASEDIR = os.path.dirname(__file__)
 NUMPY_INCLUDE = numpy.get_include()
 EXTRA_C_ARGS = ["-O3", "-ffast-math"]
+
+sys.path.append(os.path.join(BASEDIR, "external", "bx-python", "lib"))
 
 
 def _basedir(path):
@@ -41,57 +45,49 @@ class BuildExtCommand(build_ext.build_ext):
         build_ext.build_ext.run(self)
 
 
+def _make_link():
+    for ext in ".pyx", ".pxd":
+        shutil.copy2(_basedir("PyMaSC/utils/bx/binary_{}_endian".format(sys.byteorder) + ext),
+                     _basedir("PyMaSC/utils/bx/binary_file" + ext))
+
+
+def _define_extension(name, include_numpy=False):
+    include_dirs = [NUMPY_INCLUDE] if include_numpy else []
+
+    return Extension(
+        name, sources=[_basedir(name.replace('.', '/') + ".pyx")],
+        include_dirs=include_dirs, extra_compile_args=EXTRA_C_ARGS
+    )
+
+
 def _setup():
     setup(
         cmdclass={
             "makeclean": MakeCleanCommand,
             "build_ext": BuildExtCommand
         },
-        ext_modules=[
-            Extension(
-                "PyMaSC.reader.bigwig.bigwig",
-                sources=[_basedir("PyMaSC/reader/bigwig/bigwig.pyx")],
-                include_dirs=[_basedir("external/KentLib/inc")],
-                extra_link_args=[_basedir("external/KentLib/lib/jkweb.a")],
-                extra_compile_args=EXTRA_C_ARGS
-            ),
-            Extension(
-                "PyMaSC.reader.bigwig.interval",
-                sources=[_basedir("PyMaSC/reader/bigwig/interval.pyx")],
-                include_dirs=[_basedir("external/KentLib/inc")],
-                extra_link_args=[_basedir("external/KentLib/lib/jkweb.a")],
-                extra_compile_args=EXTRA_C_ARGS
-            ),
-            Extension(
-                "PyMaSC.core.mappability",
-                sources=[_basedir("PyMaSC/core/mappability.pyx")],
-                include_dirs=[NUMPY_INCLUDE, _basedir("external/KentLib/inc")],
-                extra_compile_args=EXTRA_C_ARGS
-            ),
-            Extension(
-                "PyMaSC.core.ncc",
-                sources=[_basedir("PyMaSC/core/ncc.pyx")],
-                include_dirs=[NUMPY_INCLUDE, _basedir("external/KentLib/inc")],
-                extra_compile_args=EXTRA_C_ARGS
-            ),
-            Extension(
-                "PyMaSC.core.mscc",
-                sources=[_basedir("PyMaSC/core/mscc.pyx")],
-                include_dirs=[NUMPY_INCLUDE, _basedir("external/KentLib/inc")],
-                extra_compile_args=EXTRA_C_ARGS
-            )
-        ] + cythonize([
+        ext_modules=[_define_extension(name, include_numpy=True) for name in (
+            "PyMaSC.reader.bx.bbi_file",
+            "PyMaSC.reader.bx.bigwig_file",
+            "PyMaSC.reader.bigwig",
+            "PyMaSC.core.mappability",
+            "PyMaSC.core.ncc",
+            "PyMaSC.core.mscc"
+        )] + cythonize(
             "PyMaSC/reader/bam.pyx",
+            "PyMaSC/reader/bx/bpt_file.pyx",
             "PyMaSC/core/readlen.pyx",
-        ]),
+            "PyMaSC/utils/bx/binary_file.pyx"
+        ),
         entry_points={
             "console_scripts": [
-                "pymasc = PyMaSC.pymasc:exec_entrypoints",
-                "calcmappablelen = PyMaSC.calcmappablelen:exec_entrypoints"
+                "pymasc = PyMaSC.pymasc:exec_entrypoint",
+                "pymasc-precalc = PyMaSC.calcmappablelen:exec_entrypoint"
             ],
         }
     )
 
 
 if __name__ == "__main__":
+    _make_link()
     _setup()

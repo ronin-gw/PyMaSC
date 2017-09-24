@@ -2,7 +2,7 @@ import logging
 
 import numpy as np
 
-from PyMaSC.reader.bigwig.bigwig import BigWigFile
+from PyMaSC.reader.bigwig import BigWigReader
 from PyMaSC.utils.progress import ProgressBar
 
 logger = logging.getLogger(__name__)
@@ -12,11 +12,11 @@ class ContinueCalculation(Exception):
     pass
 
 
-class MappableLengthCalculator(BigWigFile):
+class MappableLengthCalculator(BigWigReader):
     MAPPABILITY_THRESHOLD = 1
 
-    def __init__(self, path, max_shift=0, chrom_size=None):
-        super(MappableLengthCalculator, self).__init__(path, chrom_size)
+    def __init__(self, path, max_shift=0):
+        super(MappableLengthCalculator, self).__init__(path)
         self.max_shift = max_shift
         self.chrom2is_called = {c: False for c in self.chromsizes}
         self.chrom2mappable_len = {}
@@ -70,9 +70,8 @@ class MappableLengthCalculator(BigWigFile):
         for c in chroms:
             self._init_buff(c)
             for wig in self.fetch(self.MAPPABILITY_THRESHOLD, c):
-                self._progress.update(wig[2])
-                self._feed_track(wig[1], wig[2])
-
+                self._progress.update(wig[1])
+                self._feed_track(wig[0], wig[1])
             self._flush()
 
     def _feed_track(self, begin, end):
@@ -142,8 +141,8 @@ class BWFeederWithMappableRegionSum(MappableLengthCalculator):
 
         self._init_buff(chrom)
         for wig in self.fetch(self.MAPPABILITY_THRESHOLD, chrom):
-            self._progress.update(wig[2])
-            self._feed_track(wig[1], wig[2])
+            self._progress.update(wig[1])
+            self._feed_track(wig[0], wig[1])
 
             if not stop_yield:
                 try:

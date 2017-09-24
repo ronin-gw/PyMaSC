@@ -1,4 +1,4 @@
-from PyMaSC.reader.bigwig.kentlib.types cimport bits32
+from bx.bbi.types cimport bits32
 from libc.stdint cimport int_fast64_t as int64
 
 

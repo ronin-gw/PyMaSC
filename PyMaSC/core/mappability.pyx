@@ -1,9 +1,12 @@
+#cython: profile=True
 import logging
 
 cimport numpy as np
-from PyMaSC.reader.bigwig.bigwig cimport BigWigFile
-from PyMaSC.reader.bigwig.interval cimport Interval
-from PyMaSC.reader.bigwig.kentlib.types cimport bits32
+from bx.bbi.types cimport bits32
+
+from PyMaSC.reader.bigwig cimport BigWigReader
+from PyMaSC.reader.bx.bbi_file cimport interval
+from PyMaSC.reader.bx.bigwig_file cimport BigWigFile
 from cython cimport boundscheck, wraparound
 
 from .utils cimport bits32_min
@@ -18,7 +21,7 @@ class ContinueCalculation(Exception):
     pass
 
 
-cdef class MappableLengthCalculator(BigWigFile):
+cdef class MappableLengthCalculator(BigWigReader):
     cdef:
         public double MAPPABILITY_THRESHOLD
         readonly bits32 max_shift
@@ -34,10 +37,10 @@ cdef class MappableLengthCalculator(BigWigFile):
         bits32 _buff_tail_pos
         # np.ndarray[np.long] _buff
 
-    def __init__(self, char* path, unsigned int max_shift=0, chrom_size=None):
+    def __init__(self, str path, unsigned int max_shift=0):
         self.MAPPABILITY_THRESHOLD = 1.
 
-        super(MappableLengthCalculator, self).__init__(path, chrom_size)
+        super(MappableLengthCalculator, self).__init__(path)
         self.max_shift = max_shift
         self.chrom2is_called = {c: False for c in self.chromsizes}
         self.chrom2mappable_len = {}
@@ -73,7 +76,6 @@ cdef class MappableLengthCalculator(BigWigFile):
             self.chrom2mappable_len[self._chr] = tuple(self._sumbins)
             for i in xrange(self.max_shift + 1):
                 self.mappable_len[i] += self._sumbins[i]
-            print self.mappable_len
             self.chrom2is_called[self._chr] = True
 
             if all(self.chrom2is_called.values()):
@@ -90,14 +92,18 @@ cdef class MappableLengthCalculator(BigWigFile):
             chroms = [chrom]
 
         cdef char* _chrom
-        cdef bits32 begin, end
-        cdef double _val
+        cdef BigWigFile gen
+        cdef interval i
 
         for c in chroms:
             self._init_buff(c)
-            for _chrom, begin, end, _val in self.fetch(self.MAPPABILITY_THRESHOLD, c):
-                self._progress.update(end)
-                self._feed_track(begin, end)
+            gen = self.fetch(self.MAPPABILITY_THRESHOLD, c)
+            while True:
+                i = gen.next()
+                if i.end == 0:
+                    break
+                self._progress.update(i.end)
+                self._feed_track(i.begin, i.end)
 
             self._flush()
 
@@ -172,8 +178,8 @@ class BWFeederWithMappableRegionSum(MappableLengthCalculator):
 
         self._init_buff(chrom)
         for wig in self.fetch(self.MAPPABILITY_THRESHOLD, chrom):
-            self._progress.update(wig[2])
-            self._feed_track(wig[1], wig[2])
+            self._progress.update(wig[1])
+            self._feed_track(wig[0], wig[1])
 
             if not stop_yield:
                 try:

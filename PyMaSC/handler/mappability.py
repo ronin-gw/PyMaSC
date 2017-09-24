@@ -20,7 +20,7 @@ class NeedUpdate(Exception):
 
 
 class MappabilityHandler(BWFeederWithMappableRegionSum):
-    def __init__(self, path, max_shift=0, map_path=None, chrom_size=None):
+    def __init__(self, path, max_shift=0, map_path=None):
         if not os.path.isfile(path):
             logger.critical("Failed to open '{}': no such file.".format(path))
             raise BWIOError
@@ -28,7 +28,7 @@ class MappabilityHandler(BWFeederWithMappableRegionSum):
             logger.critical("Failed to open '{}': file is unreadable.".format(path))
             raise BWIOError
 
-        super(MappabilityHandler, self).__init__(path, max_shift, chrom_size)
+        super(MappabilityHandler, self).__init__(path, max_shift)
         self.need_save_stats = True
 
         if map_path:

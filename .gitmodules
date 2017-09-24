@@ -1,0 +1,3 @@
+[submodule "external/bx-python"]
+	path = external/bx-python
+	url = https://github.com/bxlab/bx-python.git

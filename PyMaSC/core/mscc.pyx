@@ -280,7 +280,7 @@ cdef class MSCCCalculator(object):
 
         while self._bwbuff.size < to:
             try:
-                _chrom, start, end, _val = next(self._feeder)
+                start, end, _val = next(self._feeder)
             except StopIteration:
                 self._bwiter_stopped = True
                 m = self._bwbuff[from_:to]

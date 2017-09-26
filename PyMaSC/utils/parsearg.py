@@ -23,8 +23,10 @@ class ForceNaturalNumber(argparse.Action):
 
 
 def add_common_args(parser):
+    parser.add_argument("-p", "--process", nargs='?', type=int, action=ForceNaturalNumber, default=1,
+                        help="Number of worker process. (Default: 1)")
     parser.add_argument("-v", "--log-level", nargs='?', type=_make_upper, default=logging.INFO, action=StoreLoggingLevel,
-                        choices=("INFO", "WARNING", "ERROR", "CRITICAL"),
+                        choices=("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"),
                         help="Set verbosity. (Default: INFO)")
     parser.add_argument("--color", nargs='?', type=_make_upper, default=None, choices=("TRUE", "FALSE"),
                         help="Coloring log. (Default: auto)")
@@ -69,7 +71,7 @@ def get_parser():
     add_shift_arg(params)
     params.add_argument("-q", "--mapq", nargs='?', type=int, default=1,
                         help="Filter out reads which have less than specified MAPQ. (Default: 1)")
-    params.add_argument("-p", "--chi2-pval", nargs='?', type=float, default=0.05,
+    params.add_argument("--chi2-pval", nargs='?', type=float, default=0.05,
                         help="Chi-squared test p-value threshold to check strand specificity. (Default: 0.05)")
     params.add_argument("-w", "--smooth-window", nargs='?', type=int, action=ForceNaturalNumber, default=30,
                         help="Moving average window size for smoothing MSCC to estimate library length. (Default: 30)")

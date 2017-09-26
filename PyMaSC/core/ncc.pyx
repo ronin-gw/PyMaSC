@@ -77,7 +77,7 @@ cdef class NaiveCCCalculator(object):
         self._last_pos = 0
         self._last_forward_pos = self._last_reverse_pos = 0
 
-    def _flush(self):
+    def flush(self):
         self._shift_with_update(self._forward_buff_size)
 
         self.forward_sum += self._forward_sum
@@ -89,7 +89,7 @@ cdef class NaiveCCCalculator(object):
     cdef inline _check_pos(self, char* chrom, int64 pos):
         if strcmp(chrom, self._chr):
             if strcmp(self._chr, '\0'):
-                self._flush()
+                self.flush()
             strcpy(self._chr, chrom)
             self._init_pos_buff()
 
@@ -171,7 +171,7 @@ cdef class NaiveCCCalculator(object):
         self._fb_tail_pos += offset
 
     def finishup_calculation(self):
-        self._flush()
+        self.flush()
 
         for bins in zip(*[v for v in self.ref2ccbins.values() if v]):
             self.ccbins.append(sum(bins))

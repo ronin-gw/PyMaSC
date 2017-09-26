@@ -14,57 +14,59 @@ class ReadsTooFew(IndexError):
 
 
 class CCResult(object):
-    STATIC_ATTRS = (
-        "max_shift",
-        "genomelen", "ref2genomelen",
-    )
+    default_chi2_p_thresh = 0.05
+
     CALCULATOR_RESULT_ATTRS = (
-        "forward_sum", "ref2forward_sum", "forward_read_len_sum",
-        "reverse_sum", "ref2reverse_sum", "reverse_read_len_sum",
-        "ccbins", "ref2ccbins",
+        "ref2forward_sum", "ref2reverse_sum", "ref2ccbins",
     )
 
-    def __init__(self, ccc, mscc, alignpath, read_len, mapq_criteria, mappability, filter_len, expected_library_len=None):
-        self.alignfile = alignpath
-        self.read_len = read_len
-        self.mapq_criteria = mapq_criteria
+    def __init__(self, calc_handler, filter_len, chi2_pval, expected_library_len=None):
         self.filter_len = filter_len
-        self.expected_library_len = None
+        self.chi2_p_thresh = chi2_pval if chi2_pval else self.default_chi2_p_thresh
+        self.expected_library_len = expected_library_len
+
+        #
+        self.alignfile = calc_handler.path
+        self.read_len = calc_handler.read_len
+        self.mapq_criteria = calc_handler.mapq_criteria
+
+        self.max_shift = calc_handler.max_shift
+        self.ref2genomelen = dict(zip(calc_handler.references, calc_handler.lengths))
+        self.genomelen = sum(calc_handler.lengths)
+
+        for attr in self.CALCULATOR_RESULT_ATTRS:
+            setattr(self, attr, getattr(calc_handler, attr))
+        self.forward_sum = sum(self.ref2forward_sum.values())
+        self.reverse_sum = sum(self.ref2reverse_sum.values())
+        self.ccbins = np.sum(self.ref2ccbins.values(), axis=0)
 
         ###
         self.estimated_library_len = None
 
         #
-        for attr in self.STATIC_ATTRS:
-            setattr(self, attr, getattr(ccc, attr))
-        for attr in self.CALCULATOR_RESULT_ATTRS:
-            setattr(self, attr, getattr(ccc, attr))
-
-        #
-        if mappability and mscc:
+        if calc_handler.mappability_handler:
             self.calc_masc = True
             #
-            self.regionfile = mappability.path
-            assert mappability.is_called
+            self.regionfile = calc_handler.mappability_handler.path
             required_size = MappabilityHandler.calc_mappable_len_required_shift_size(self.read_len, self.max_shift)
-            assert required_size <= mappability.max_shift
-            self.mappable_len = mappability.mappable_len
-            self.ref2mappable_len = mappability.chrom2mappable_len
-            #
-            for attr in self.STATIC_ATTRS:
-                assert getattr(self, attr) == getattr(mscc, attr)
+            assert required_size <= calc_handler.mappability_handler.max_shift
+
+            self.ref2mappable_len = calc_handler.mappability_handler.chrom2mappable_len
             for attr in self.CALCULATOR_RESULT_ATTRS:
-                setattr(self, "mappable_" + attr, getattr(mscc, attr))
+                setattr(self, "mappable_" + attr, getattr(calc_handler, "mappable_" + attr))
+            self.mappable_len = np.sum(self.ref2mappable_len.values(), axis=0)
+            self.mappable_forward_sum = np.sum(self.mappable_ref2forward_sum.values(), axis=0)
+            self.mappable_reverse_sum = np.sum(self.mappable_ref2reverse_sum.values(), axis=0)
+            self.mappable_ccbins = np.sum(self.mappable_ref2ccbins.values(), axis=0)
         else:
             self.calc_masc = False
-            self.regionfile = self.mappable_len = self.ref2library_len = None
-            for attr in self.CALCULATOR_RESULT_ATTRS:
-                setattr(self, "mappable_" + attr, None)
+            self.regionfile = None
+
         #
-        if ccc.forward_sum == 0:
+        if self.forward_sum == 0:
             logger.error("There is no forward read.")
             raise ReadsTooFew
-        elif ccc.reverse_sum == 0:
+        elif self.reverse_sum == 0:
             logger.error("There is no reverse read.")
             raise ReadsTooFew
 

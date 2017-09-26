@@ -45,7 +45,7 @@ def _main():
         ProgressBar.enable = True
 
     #
-    alh = MappabilityHandler(args.mappable, args.max_shift, args.max_readlen, args.map_path)
+    alh = MappabilityHandler(args.mappable, args.max_shift, args.max_readlen, args.map_path, args.process)
     alh.calc_mappability()
     alh.save_mappability_stats()
     alh.close()

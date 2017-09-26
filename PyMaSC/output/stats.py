@@ -25,8 +25,6 @@ def output_stats(outfile, ccr):
             ("genome length", "genomelen"),
             ("forward reads", "forward_sum"),
             ("reverse reads", "reverse_sum"),
-            ("total forward read length", "forward_read_len_sum"),
-            ("total reverse read length", "reverse_read_len_sum"),
             ("read length", "read_len"),
             ("minimum cc", "cc_min"),
             ("cc at read length", "ccrl")
@@ -41,8 +39,6 @@ def output_stats(outfile, ccr):
                 ("mappable genome length", "mappable_len"),
                 ("forward reads in mappable region", "mappable_forward_sum"),
                 ("reverse reads in mappable region", "mappable_reverse_sum"),
-                ("total forward read length in mappable region", "mappable_forward_len_sum"),
-                ("total reverse read length in mappable region", "mappable_reverse_len_sum"),
                 ("estimated library length", "estimated_library_len"),
                 ("cc at library length", "estimated_ccfl"),
                 ("NSC", "estimated_nsc"),

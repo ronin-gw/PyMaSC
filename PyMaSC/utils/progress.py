@@ -45,3 +45,21 @@ class ProgressBar(object):
                 self.pos += 1
                 self._next_update += self._unit
             self.format(self.body[:self.pos])
+
+
+class ProgressHook(ProgressBar):
+    def __init__(self, queue, body="<1II1>" * 12, prefix='>', suffix='<'):
+        self.body = body
+        self.fmt = "\r" + prefix + "{:<" + str(len(body)) + "}" + suffix
+        self.output = queue  # multiprocessing.Queue
+
+        if self.enable:
+            self.enable_bar()
+        else:
+            self.disable_bar()
+
+    def _clean(self):
+        pass
+
+    def _format(self, s):
+        self.output.put((None, self.fmt.format(s)))

@@ -33,9 +33,11 @@ cdef class MappableLengthCalculator(BigWigReader):
         unsigned int _sum_bin_size
         char* _chr
 
-        # np.ndarray[np.long] _sumbins
+        np.ndarray _sumbins
         bits32 _buff_tail_pos
-        # np.ndarray[np.long] _buff
+        np.ndarray _buff
+
+        public object _progress
 
     def __init__(self, str path, unsigned int max_shift=0):
         self.MAPPABILITY_THRESHOLD = 1.
@@ -71,7 +73,7 @@ cdef class MappableLengthCalculator(BigWigReader):
         self._chr = chrom
         self._progress.set(self.chromsizes[chrom])
 
-    cdef _flush(self):
+    cpdef flush(self):
         if self._chr:
             self.chrom2mappable_len[self._chr] = tuple(self._sumbins)
             for i in xrange(self.max_shift + 1):
@@ -105,7 +107,7 @@ cdef class MappableLengthCalculator(BigWigReader):
                 self._progress.update(i.end)
                 self._feed_track(i.begin, i.end)
 
-            self._flush()
+            self.flush()
 
     @wraparound(False)
     @boundscheck(False)
@@ -159,7 +161,21 @@ cdef class MappableLengthCalculator(BigWigReader):
         return self.mappable_len[shift_from:shift_to]
 
 
-class BWFeederWithMappableRegionSum(MappableLengthCalculator):
+cdef class BWFeederWithMappableRegionSum(MappableLengthCalculator):
+    def __init__(self, path, max_shift, chrom2mappable_len=None):
+        super(BWFeederWithMappableRegionSum, self).__init__(path, max_shift)
+
+        if chrom2mappable_len:
+            for chrom, l in chrom2mappable_len.items():
+                if chrom in self.chrom2is_called:
+                    self.chrom2is_called[chrom] = True
+                    self.chrom2mappable_len[chrom] = l
+                    for i in range(self.max_shift + 1):
+                        self.mappable_len[i] += l[i]
+
+            if all(self.chrom2is_called.values()):
+                self.is_called = True
+
     def feed(self, chrom):
         if self.chrom2is_called[chrom]:
             return self._yield(chrom)
@@ -189,4 +205,4 @@ class BWFeederWithMappableRegionSum(MappableLengthCalculator):
                     stop_yield = True
                     self.enable_progress_bar()
 
-        self._flush()
+        self.flush()

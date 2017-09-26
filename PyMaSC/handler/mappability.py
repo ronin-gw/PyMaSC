@@ -1,8 +1,10 @@
 import logging
 import os
 import json
+from multiprocessing import Process, Queue, Lock
 
-from PyMaSC.core.mappability import BWFeederWithMappableRegionSum
+from PyMaSC.core.mappability import MappableLengthCalculator
+from PyMaSC.utils.progress import ProgressHook
 
 logger = logging.getLogger(__name__)
 
@@ -19,13 +21,14 @@ class NeedUpdate(Exception):
     pass
 
 
-class MappabilityHandler(BWFeederWithMappableRegionSum):
+class MappabilityHandler(MappableLengthCalculator):
     @staticmethod
     def calc_mappable_len_required_shift_size(readlen, max_shift):
-        return max_shift - readlen if max_shift > 2*readlen - 1 else readlen - 1
+        return max_shift - readlen + 1 if max_shift > 2*readlen - 1 else readlen
 
-    def __init__(self, path, max_shift=0, readlen=0, map_path=None):
+    def __init__(self, path, max_shift=0, readlen=0, map_path=None, threads=1):
         max_shift = self.calc_mappable_len_required_shift_size(readlen, max_shift)
+        self.threads = threads
 
         if not os.path.isfile(path):
             logger.critical("Failed to open '{}': no such file.".format(path))
@@ -35,6 +38,8 @@ class MappabilityHandler(BWFeederWithMappableRegionSum):
             raise BWIOError
 
         super(MappabilityHandler, self).__init__(path, max_shift)
+        self.close()
+        self._progress.disable_bar()
         self.need_save_stats = True
 
         if map_path:
@@ -48,6 +53,7 @@ class MappabilityHandler(BWFeederWithMappableRegionSum):
             if not os.access(dirname, os.W_OK):
                 logger.critical("Directory is not writable: '{}'".format(dirname))
                 raise JSONIOError
+            logger.info("Calcurate mappable length with max shift size {}.".format(max_shift))
         elif not os.path.isfile(self.map_path):
             logger.critical("Specified path is not file: '{}'".format(self.map_path))
             raise JSONIOError
@@ -101,8 +107,8 @@ class MappabilityHandler(BWFeederWithMappableRegionSum):
                 logger.error("Max shift length for 'ref' unmatched.".format(ref))
                 raise IndexError
 
-        self.mappable_len = stats["__whole__"][:self.max_shift + 2]
-        self.chrom2mappable_len = {ref: b[:self.max_shift + 2] for ref, b in stats["references"].items()}
+        self.mappable_len = stats["__whole__"][:self.max_shift + 1]
+        self.chrom2mappable_len = {ref: b[:self.max_shift + 1] for ref, b in stats["references"].items()}
         self.chrom2is_called = {ref: True for ref in self.chromsizes}
         self.is_called = True
         self.need_save_stats = False
@@ -110,8 +116,6 @@ class MappabilityHandler(BWFeederWithMappableRegionSum):
     def save_mappability_stats(self):
         if not self.need_save_stats:
             return logger.info("Update mappability stats is not required.")
-
-        self.calc_mappability()
 
         logger.info("Save mappable length to '{}'".format(self.map_path))
         try:
@@ -126,3 +130,70 @@ class MappabilityHandler(BWFeederWithMappableRegionSum):
                          e.filename, e.errno, e.message))
 
         self.need_save_stats = False
+
+    def calc_mappability(self):
+        target_chroms = [c for c, b in self.chrom2is_called.items() if b is False]
+        if not target_chroms:
+            return None
+
+        order_queue = Queue()
+        report_queue = Queue()
+        logger_lock = Lock()
+
+        workers = [MappabilityCalcWorker(self.path, self.max_shift, order_queue, report_queue, logger_lock)
+                   for _ in range(min(self.threads, len(target_chroms)))]
+
+        try:
+            for w in workers:
+                w.start()
+            for chrom in target_chroms:
+                order_queue.put(chrom)
+            for _ in range(self.threads):
+                order_queue.put(None)
+
+            while not self.is_called:
+                chrom, length = report_queue.get()
+                if chrom is None:  # update progress
+                    pass
+                else:
+                    self.chrom2mappable_len[chrom] = tuple(length)
+                    for i in xrange(self.max_shift + 1):
+                        self.mappable_len[i] += length[i]
+                    self.chrom2is_called[chrom] = True
+                    if all(self.chrom2is_called.values()):
+                        self.is_called = True
+        except:
+            for w in workers:
+                if w.is_alive():
+                    w.terminate()
+            raise
+
+
+class MappabilityCalcWorker(Process):
+    def __init__(self, path, max_shift, order_queue, report_queue, logger_lock):
+        super(MappabilityCalcWorker, self).__init__()
+
+        self.calculator = MappableLengthCalculator(path, max_shift)
+        self.calculator._progress.disable_bar()
+        self.order_queue = order_queue
+        self.report_queue = report_queue
+        self.logger_lock = logger_lock
+        self.calculator._progress = ProgressHook(report_queue)
+
+    def run(self):
+        with self.logger_lock:
+            logger.debug("{}: Hello. My pid is {}.".format(self.name, os.getpid()))
+
+        while True:
+            chrom = self.order_queue.get()
+            if chrom is None:
+                break
+
+            with self.logger_lock:
+                logger.debug("{}: Process {}...".format(self.name, chrom))
+            self.calculator.calc_mappability(chrom)
+            self.report_queue.put((chrom, self.calculator.chrom2mappable_len[chrom]))
+
+        with self.logger_lock:
+            logger.debug("{}: Goodbye.".format(self.name))
+        self.calculator.close()

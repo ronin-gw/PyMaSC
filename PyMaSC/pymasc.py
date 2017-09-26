@@ -9,6 +9,7 @@ from PyMaSC.utils.progress import ProgressBar
 from PyMaSC.reader.align import InputUnseekable
 from PyMaSC.handler.mappability import MappabilityHandler, BWIOError, JSONIOError
 from PyMaSC.handler.masc import CCCalcHandler
+from PyMaSC.handler.result import CCResult, ReadsTooFew
 from PyMaSC.output.stats import output_cc, output_stats
 from PyMaSC.output.figure import plot_figures
 
@@ -61,8 +62,7 @@ def _main():
     for f in args.reads:
         try:
             calc_handlers.append(
-                CCCalcHandler(f, args.format, args.estimation_type, args.max_shift,
-                              args.mapq, args.smooth_window, args.chi2_pval)
+                CCCalcHandler(f, args.format, args.estimation_type, args.max_shift, args.mapq, args.process)
             )
         except InputUnseekable:
             need_logging_unseekable_error = True
@@ -84,7 +84,7 @@ def _main():
     if args.mappable:
         try:
             mappability_handler = MappabilityHandler(
-                args.mappable, args.max_shift, max_readlen, args.map_path
+                args.mappable, args.max_shift, max_readlen, args.map_path, args.process
             )
         except (BWIOError, JSONIOError):
             sys.exit(1)
@@ -98,11 +98,14 @@ def _main():
     for handler in calc_handlers:
         logger.info("Process {}".format(handler.path))
 
-        result_handler = handler.run_calcuration()
+        handler.run_calcuration()
+        try:
+            result_handler = CCResult(handler, args.smooth_window, args.chi2_pval)
+        except ReadsTooFew:
+            result_handler = None
         if result_handler is None:
             logger.warning("Faild to process {}. Skip this file.".format(f))
             continue
-
         output_result(handler.path, result_handler, args.outdir)
 
     #

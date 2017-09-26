@@ -115,7 +115,7 @@ cdef class MSCCCalculator(object):
                         "Skip calc mappability sensitive CC.".format(e.args[0]))
             self._bwiter_stopped = True
 
-    def _flush(self):
+    def flush(self):
         if self._reverse_buff:
             self._shift_with_update(self._forward_buff_size)
 
@@ -126,7 +126,7 @@ cdef class MSCCCalculator(object):
         self.ref2ccbins[self._chr] = tuple(self._ccbins)
 
         # update bwfeeder
-        if not self._bwiter_stopped:
+        if not self._bwiter_stopped and self._feeder:
             try:
                 self._feeder.throw(ContinueCalculation)
             except StopIteration:
@@ -137,7 +137,7 @@ cdef class MSCCCalculator(object):
     cdef inline _check_pos(self, char* chrom, int64 pos):
         if strcmp(chrom, self._chr):
             if strcmp(self._chr, '\0'):
-                self._flush()
+                self.flush()
             else:
                 self._init_pos_buff()
             strcpy(self._chr, chrom)
@@ -325,7 +325,7 @@ cdef class MSCCCalculator(object):
         self._fb_tail_pos += offset
 
     def finishup_calculation(self):
-        self._flush()
+        self.flush()
 
         for bins in zip(*[v for v in self.ref2ccbins.values() if v]):
             self.ccbins.append(sum(bins))

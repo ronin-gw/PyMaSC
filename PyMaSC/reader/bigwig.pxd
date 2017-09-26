@@ -2,10 +2,11 @@ from PyMaSC.reader.bx.bigwig_file cimport BigWigFile
 
 
 cdef class BigWigReader(object):
-    cdef:
+    cdef readonly:
+        str path
         object file
         bint closed
         BigWigFile bigwig
-        readonly dict chromsizes
+        dict chromsizes
 
     cpdef BigWigFile fetch(self, float valfilter, chrom)

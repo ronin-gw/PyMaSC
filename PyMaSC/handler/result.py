@@ -20,6 +20,10 @@ class CCResult(object):
         "ref2forward_sum", "ref2reverse_sum", "ref2ccbins",
     )
 
+    @staticmethod
+    def _skip_none(i):
+        return [x for x in i if x is not None]
+
     def __init__(self, calc_handler, filter_len, chi2_pval, expected_library_len=None):
         self.filter_len = filter_len
         self.chi2_p_thresh = chi2_pval if chi2_pval else self.default_chi2_p_thresh
@@ -38,7 +42,7 @@ class CCResult(object):
             setattr(self, attr, getattr(calc_handler, attr))
         self.forward_sum = sum(self.ref2forward_sum.values())
         self.reverse_sum = sum(self.ref2reverse_sum.values())
-        self.ccbins = np.sum(self.ref2ccbins.values(), axis=0)
+        self.ccbins = np.sum(self._skip_none(self.ref2ccbins.values()), axis=0)
 
         ###
         self.estimated_library_len = None
@@ -55,9 +59,9 @@ class CCResult(object):
             for attr in self.CALCULATOR_RESULT_ATTRS:
                 setattr(self, "mappable_" + attr, getattr(calc_handler, "mappable_" + attr))
             self.mappable_len = np.sum(self.ref2mappable_len.values(), axis=0)
-            self.mappable_forward_sum = np.sum(self.mappable_ref2forward_sum.values(), axis=0)
-            self.mappable_reverse_sum = np.sum(self.mappable_ref2reverse_sum.values(), axis=0)
-            self.mappable_ccbins = np.sum(self.mappable_ref2ccbins.values(), axis=0)
+            self.mappable_forward_sum = np.sum(self._skip_none(self.mappable_ref2forward_sum.values()), axis=0)
+            self.mappable_reverse_sum = np.sum(self._skip_none(self.mappable_ref2reverse_sum.values()), axis=0)
+            self.mappable_ccbins = np.sum(self._skip_none(self.mappable_ref2ccbins.values()), axis=0)
         else:
             self.calc_masc = False
             self.regionfile = None

@@ -26,9 +26,9 @@ class MappabilityHandler(MappableLengthCalculator):
     def calc_mappable_len_required_shift_size(readlen, max_shift):
         return max_shift - readlen + 1 if max_shift > 2*readlen - 1 else readlen
 
-    def __init__(self, path, max_shift=0, readlen=0, map_path=None, threads=1):
+    def __init__(self, path, max_shift=0, readlen=0, map_path=None, nworker=1):
         max_shift = self.calc_mappable_len_required_shift_size(readlen, max_shift)
-        self.threads = threads
+        self.nworker = nworker
 
         if not os.path.isfile(path):
             logger.critical("Failed to open '{}': no such file.".format(path))
@@ -141,14 +141,14 @@ class MappabilityHandler(MappableLengthCalculator):
         logger_lock = Lock()
 
         workers = [MappabilityCalcWorker(self.path, self.max_shift, order_queue, report_queue, logger_lock)
-                   for _ in range(min(self.threads, len(target_chroms)))]
+                   for _ in range(min(self.nworker, len(target_chroms)))]
 
         try:
             for w in workers:
                 w.start()
             for chrom in target_chroms:
                 order_queue.put(chrom)
-            for _ in range(self.threads):
+            for _ in range(self.nworker):
                 order_queue.put(None)
 
             while not self.is_called:

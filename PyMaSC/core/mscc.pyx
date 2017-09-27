@@ -333,6 +333,6 @@ cdef class MSCCCalculator(object):
         if not self._bwiter_stopped:
             try:
                 self._feeder.throw(ContinueCalculation)
-            except ContinueCalculation:
+            except StopIteration:
                 pass
         self._bwfeeder.calc_mappability()

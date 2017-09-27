@@ -56,8 +56,6 @@ def get_parser():
     input_args = parser.add_argument_group("Input file arguments")
     input_args.add_argument("reads", nargs="+",
                             help="SAM/BAM format mapped reads. Input must be sorted.")
-    input_args.add_argument("-f", "--format", nargs='?', type=_make_upper, default=None, choices=("BAM", "SAM"),
-                            help="Specify input file type. (Default: auto)")
     input_args.add_argument("-r", "--read-length", nargs='?', type=int, action=ForceNaturalNumber,
                             help="Set read length manually and disable read length estimation.")
     input_args.add_argument("--estimation-type", nargs='?', type=_make_upper, default="MEDIAN", choices=READLEN_ESTIMATION_TYPES,
@@ -77,7 +75,9 @@ def get_parser():
                         help="Moving average window size for smoothing MSCC to estimate library length. (Default: 30)")
 
     output = parser.add_argument_group("Output file arguments")
-    output.add_argument("--outdir", nargs='?', default='.',
+    output.add_argument("-n", "--name", nargs='*', default=[],
+                        help="Output file base name(s). (Default: input file name without extension)")
+    output.add_argument("-o", "--outdir", nargs='?', default='.',
                         help="Output directory. (Default: current directory)")
 
     return parser

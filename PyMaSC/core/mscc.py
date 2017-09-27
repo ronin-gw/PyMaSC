@@ -280,6 +280,6 @@ class MSCCCalculator(NaiveCCCalculator):
         if not self._bwiter_stopped:
             try:
                 self._feeder.throw(ContinueCalculation)
-            except ContinueCalculation:
+            except StopIteration:
                 pass
         self.bwfeeder.calc_mappability()

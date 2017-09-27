@@ -1,14 +1,14 @@
 import logging
 import os
 import sys
+from itertools import izip_longest
 
 from PyMaSC import VERSION
 from PyMaSC.utils.logfmt import set_rootlogger
 from PyMaSC.utils.parsearg import get_parser
-from PyMaSC.utils.progress import ProgressBar
-from PyMaSC.reader.align import InputUnseekable
+from PyMaSC.utils.progress import ProgressBar, ReadCountProgressBar
 from PyMaSC.handler.mappability import MappabilityHandler, BWIOError, JSONIOError
-from PyMaSC.handler.masc import CCCalcHandler
+from PyMaSC.handler.masc import CCCalcHandler, InputUnseekable
 from PyMaSC.handler.result import CCResult, ReadsTooFew
 from PyMaSC.output.stats import output_cc, output_stats
 from PyMaSC.output.figure import plot_figures
@@ -54,7 +54,7 @@ def _main():
         ProgressBar.enable = True
 
     #
-    prepare_output(args)
+    basenames = prepare_output(args)
 
     #
     calc_handlers = []
@@ -62,13 +62,16 @@ def _main():
     for f in args.reads:
         try:
             calc_handlers.append(
-                CCCalcHandler(f, args.format, args.estimation_type, args.max_shift, args.mapq, args.process)
+                CCCalcHandler(f, args.estimation_type, args.max_shift, args.mapq, args.process)
             )
+        except ValueError:
+            logger.error("Failed to open file '{}'".format(f))
         except InputUnseekable:
             need_logging_unseekable_error = True
     if need_logging_unseekable_error:
-        logger.error("If your input can't seek back, specify input file format and "
-                     "read length using `-f` and `-r` option.")
+        logger.error("If your input can't reread, specify read length using `-r` option.")
+    if not calc_handlers:
+        return None
 
     #
     readlens = []
@@ -95,7 +98,7 @@ def _main():
     #
     logger.info("Calculate cross-correlation between 1 to {} base shift"
                 "with reads MAOQ >= {}".format(args.max_shift, args.mapq))
-    for handler in calc_handlers:
+    for handler, output_basename in zip(calc_handlers, basenames):
         logger.info("Process {}".format(handler.path))
 
         handler.run_calcuration()
@@ -106,14 +109,13 @@ def _main():
         if result_handler is None:
             logger.warning("Faild to process {}. Skip this file.".format(f))
             continue
-        output_result(handler.path, result_handler, args.outdir)
+        output_result(result_handler, output_basename)
 
     #
     if mappability_handler:
         if mappability_handler.need_save_stats:
             mappability_handler.save_mappability_stats()
         mappability_handler.close()
-    logger.info("PyMASC finished.")
 
 
 def prepare_output(args):
@@ -134,25 +136,33 @@ def prepare_output(args):
         logger.critical("Output directory '{}' is not writable.".format(args.outdir))
         sys.exit(1)
 
-    for f in args.reads:
+    basenames = []
+    for f, n in izip_longest(args.reads, args.name):
+        if n is None:
+            output_basename = os.path.join(args.outdir, os.path.splitext(os.path.basename(f))[0])
+        else:
+            output_basename = os.path.join(args.outdir, n)
         for suffix in EXPECT_OUTFILE_SUFFIXES:
-            expect_outfile = _get_output_basename(args.outdir, f) + suffix
+            expect_outfile = output_basename + suffix
             if os.path.exists(expect_outfile):
                 logger.warning("Existing file '{}' will be overwritten.".format(expect_outfile))
+        basenames.append(output_basename)
+
+    return basenames
 
 
-def output_result(sourcepath, ccc, outdir):
-    outfile_prefix = _get_output_basename(outdir, sourcepath)
+def output_result(ccc, outfile_prefix):
     logger.info("Output results to '{}'".format(outfile_prefix))
 
     output_cc(outfile_prefix + CCOUTPUT_SUFFIX, ccc)
     output_stats(outfile_prefix + STATSFILE_SUFFIX, ccc)
-    plot_figures(outfile_prefix + PLOTFILE_SUFFIX, ccc, os.path.basename(sourcepath))
+    plot_figures(outfile_prefix + PLOTFILE_SUFFIX, ccc, os.path.basename(outfile_prefix))
 
 
 def exec_entrypoint():
     try:
         _main()
+        logger.info("PyMASC finished.")
     except KeyboardInterrupt:
         sys.stderr.write("\r\033[K")
         sys.stderr.flush()

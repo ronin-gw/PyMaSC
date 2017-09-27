@@ -100,6 +100,8 @@ class CCResult(object):
         self.ref2est_nsc = {}
         self.ref2est_rsc = {}
 
+        self.test_read_balance()
+
         if not self.skip_ncc:
             self._calc_stats()
         if self.calc_masc:
@@ -207,26 +209,23 @@ class CCResult(object):
                 self.ref2est_rsc[ref] = ((self.ref2est_ccfl[ref] - self.ref2cc_min[ref]) /
                                          (self.ref2ccrl[ref] - self.ref2cc_min[ref]))
 
-    def _chi2_test(self, a, b, label):
+    def _chi2_test(self, a, b, label, info_logging=False):
         sum_ = a + b
         chi2_val = (((a - sum_ / 2.) ** 2) + ((b - sum_ / 2.) ** 2)) / sum_
         chi2_p = chi2.sf(chi2_val, 1)
 
-        if chi2_p < self.chi2_p_thresh:
+        if chi2_p <= self.chi2_p_thresh:
             logger.warning("{} Forward/Reverse read count imbalance.".format(label))
-            logger.warning("+/- = {} / {}, Chi-squared test p-val = {} < {}".format(
+            logger.warning("+/- = {} / {}, Chi-squared test p-val = {} <= {}".format(
                 a, b, chi2_p, self.chi2_p_thresh
             ))
+        elif info_logging:
+            logger.info("{} Forward/Reverse read count +/- = {} / {}".format(label, a, b))
+            logger.info("Chi-squared test p-val = {} > {}".format(chi2_p, self.chi2_p_thresh))
 
     def test_read_balance(self):
-        self._chi2_test(self.forward_sum, self.reverse_sum, "Whole genome")
-        for ref in self.ref2genomelen:
-            self._chi2_test(self.ref2forward_sum[ref],
-                            self.ref2reverse_sum[ref],
-                            ref)
-        if self.calc_masc:
-            self._chi2_test(self.mappable_forward_sum, self.mappable_reverse_sum, "Mappable region")
+        if not self.skip_ncc:
+            self._chi2_test(self.forward_sum, self.reverse_sum, "Whole genome", True)
             for ref in self.ref2genomelen:
-                self._chi2_test(self.mappable_ref2forward_sum[ref],
-                                self.mappable_ref2reverse_sum[ref],
-                                ref + " mappable region")
+                self._chi2_test(self.ref2forward_sum[ref], self.ref2reverse_sum[ref],
+                                ref, info_logging=False)

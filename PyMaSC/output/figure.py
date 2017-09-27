@@ -12,9 +12,10 @@ logger = logging.getLogger(__name__)
 @catch_IOError(logger, "figure")
 def plot_figures(outfile, ccr, name):
     with PdfPages(outfile) as pp:
-        plot_naive_cc(ccr, name)
-        pp.savefig()
-        plt.close()
+        if not ccr.skip_ncc:
+            plot_naive_cc(ccr, name)
+            pp.savefig()
+            plt.close()
 
         if ccr.calc_masc:
             if plot_naive_cc_just(ccr, name):
@@ -86,7 +87,7 @@ def plot_naive_cc(ccr, name=None, xlim=None):
 
 
 def plot_naive_cc_just(ccr, name=None):
-    if ccr.estimated_library_len * 2 < ccr.max_shift + 1:
+    if not ccr.skip_ncc and ccr.estimated_library_len * 2 < ccr.max_shift + 1:
         plot_naive_cc(ccr, name, (0, ccr.estimated_library_len * 2))
         return True
     return False
@@ -130,90 +131,60 @@ def plot_ncc_vs_masc(pp, ccr, name):
     if name:
         title += " for " + name
 
-    if ccr.calc_masc:
-        plt.title("Naive CC vs MSCC")
-        plt.xlabel("Reverse Strand Shift")
-        plt.ylabel("Relative Cross-Correlation from Infimum")
+    _plot_ncc_vs_masc(
+        pp, "Naive CC vs MSCC", ccr.max_shift, ccr.read_len,
+        ccr.cc, ccr.cc_min, ccr.masc, ccr.masc_min,
+        ccr.nsc, ccr.rsc, ccr.estimated_library_len, ccr.expected_library_len
+    )
 
-        plt.plot(xrange(ccr.max_shift + 1), ccr.cc - ccr.cc_min, color="black", linewidth=0.5, label="Naive CC")
-        plt.plot(xrange(ccr.max_shift + 1), ccr.masc - ccr.masc_min, alpha=0.8, linewidth=0.5, label="MSCC")
+    for ref in sorted(ccr.ref2genomelen):
+        try:
+            _plot_ncc_vs_masc(
+                pp, title.format(ref), ccr.max_shift, ccr.read_len,
+                ccr.ref2cc.get(ref), ccr.ref2cc_min.get(ref), ccr.ref2masc.get(ref), ccr.ref2masc_min.get(ref),
+                ccr.ref2est_nsc.get(ref), ccr.ref2est_rsc.get(ref), ccr.estimated_library_len, ccr.expected_library_len
+            )
+        except AssertionError:
+            logger.debug("Skip plot for {}, valid reads unable.".format(ref))
 
-        axes = plt.gca()
-        lower, upper = axes.get_ylim()
-        lower, upper = axes.set_ylim((lower, upper * 1.1))
-        height = upper - lower
 
-        plt.axvline(ccr.read_len, color="red", linestyle="dashed", linewidth=0.5)
-        plt.annotate('read length: {:.1f}'.format(ccr.read_len),
-                     (ccr.read_len, upper - height/25))
+def _plot_ncc_vs_masc(pp, title, max_shift, read_len,
+                      cc=None, cc_min=None, masc=None, masc_min=None,
+                      nsc=None, rsc=None, estimated_library_len=None, expected_library_len=None):
+    assert (cc is not None) or (masc is not None)
 
-        plt.axvline(ccr.estimated_library_len, color="blue", linestyle="dashed", linewidth=0.5)
-        plt.annotate('estimated lib len: {}'.format(ccr.estimated_library_len),
-                     (ccr.estimated_library_len, upper - height/10))
+    plt.title(title)
+    plt.xlabel("Reverse Strand Shift")
+    plt.ylabel("Relative Cross-Correlation from Infimum")
 
-        if ccr.expected_library_len:
-            plt.axvline(ccr.expected_library_len, color="green", linestyle="dashed", linewidth=0.5)
-            plt.annotate('expected lib len: {}'.format(ccr.expected_library_len),
-                         (ccr.expected_library_len, upper - height/5))
+    if cc is not None:
+        plt.plot(xrange(max_shift + 1), cc - cc_min, color="black", linewidth=0.5, label="Naive CC")
+    if masc is not None:
+        plt.plot(xrange(max_shift + 1), masc - masc_min, alpha=1 if cc is None else 0.8, linewidth=0.5, label="MSCC")
+
+    axes = plt.gca()
+    lower, upper = axes.get_ylim()
+    lower, upper = axes.set_ylim((lower, upper * 1.1))
+    height = upper - lower
+    # yoffset = height / 50
+
+    plt.axvline(read_len, color="red", linestyle="dashed", linewidth=0.5)
+    plt.annotate('read length: {:.1f}'.format(read_len),
+                 (read_len, upper - height/25))
+
+    if masc is not None:
+        plt.axvline(estimated_library_len, color="blue", linestyle="dashed", linewidth=0.5)
+        plt.annotate('estimated lib len: {}'.format(estimated_library_len),
+                     (estimated_library_len, upper - height/10))
 
         plt.legend(loc="best")
-
-        pp.savefig()
-        plt.close()
-
-    for ref in sorted(ccr.ref2cc):
-        cc = ccr.ref2cc[ref]
-        if cc is None:
-            continue
-        plot_masc_data = ccr.calc_masc and ccr.ref2masc.get(ref, None) is not None
-
-        plt.title(title.format(ref))
-        plt.xlabel("Reverse Strand Shift")
-        plt.ylabel("Relative Cross-Correlation from Infimum")
-
-        cc_min = ccr.ref2cc_min[ref]
-        # ccrl = ccr.ref2ccrl[ref]
-        plt.plot(xrange(ccr.max_shift + 1), cc - cc_min, color="black", linewidth=0.5, label="Naive CC")
-
-        if plot_masc_data:
-            masc = ccr.ref2masc[ref]
-            masc_min = ccr.ref2masc_min[ref]
-
-            # print cc
-            # print masc
-
-            plt.plot(xrange(ccr.max_shift + 1), masc - masc_min, alpha=0.8, linewidth=0.5, label="MSCC")
-
-        axes = plt.gca()
-        lower, upper = axes.get_ylim()
-        lower, upper = axes.set_ylim((lower, upper * 1.1))
-        height = upper - lower
-        # yoffset = height / 50
-
-        plt.axvline(ccr.read_len, color="red", linestyle="dashed", linewidth=0.5)
-        plt.annotate('read length: {:.1f}'.format(ccr.read_len),
-                     (ccr.read_len, upper - height/25))
-
-        if plot_masc_data:
-            # mascrl = ccr.ref2mascrl[ref]
-            # ccfl = ccr.ref2est_ccfl[ref]
-            nsc = ccr.ref2est_nsc[ref]
-            rsc = ccr.ref2est_rsc[ref]
-
-            plt.axvline(ccr.estimated_library_len, color="blue", linestyle="dashed", linewidth=0.5)
-            plt.annotate('estimated lib len: {}'.format(ccr.estimated_library_len),
-                         (ccr.estimated_library_len, upper - height/10))
-
-            plt.legend(loc="best")
+        if None not in (nsc, rsc):
             _annotate_params(nsc, rsc, "best")
 
-        elif ccr.expected_library_len:
-            nsc = ccr.ref2nsc[ref]
-            rsc = ccr.ref2rsc[ref]
+    elif expected_library_len:
+        plt.axvline(expected_library_len, color="green", linestyle="dashed", linewidth=0.5)
+        plt.annotate('expected lib len: {}'.format(expected_library_len),
+                     (expected_library_len, upper - height/10))
 
-            plt.axvline(ccr.expected_library_len, color="green", linestyle="dashed", linewidth=0.5)
-            plt.annotate('expected lib len: {}'.format(ccr.expected_library_len),
-                         (ccr.expected_library_len, upper - height/10))
-
-        pp.savefig()
-        plt.close()
+    pp.savefig()
+    plt.close()

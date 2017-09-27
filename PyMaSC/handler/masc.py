@@ -24,6 +24,12 @@ class SingleProcessCalculator(object):
         else:
             self.nccc.feed_forward_read(chrom, pos, readlen)
 
+    def _feed2mscc(self, is_reverse, chrom, pos, readlen):
+        if is_reverse:
+            self.mscc.feed_reverse_read(chrom, pos, readlen)
+        else:
+            self.mscc.feed_forward_read(chrom, pos, readlen)
+
     def _feed2both(self, is_reverse, chrom, pos, readlen):
         if is_reverse:
             self.nccc.feed_reverse_read(chrom, pos, readlen)
@@ -33,9 +39,15 @@ class SingleProcessCalculator(object):
             self.mscc.feed_forward_read(chrom, pos, readlen)
 
     def _set_calculator(self):
-        self.nccc = NaiveCCCalculator(self.max_shift, self.references, self.lengths)
+        if self.skip_ncc:
+            assert self.bwfeeder
 
-        if self.bwfeeder:
+            self.nccc = None
+            self.mscc = MSCCCalculator(self.max_shift, self.read_len,
+                                       self.references, self.lengths, self.bwfeeder)
+            self._stepping_calc = self._feed2mscc
+        elif self.bwfeeder:
+            self.nccc = NaiveCCCalculator(self.max_shift, self.references, self.lengths)
             self.mscc = MSCCCalculator(self.max_shift, self.read_len,
                                        self.references, self.lengths, self.bwfeeder)
             self._stepping_calc = self._feed2both
@@ -56,7 +68,11 @@ class SingleProcessCalculator(object):
         self._set_calculator()
 
         for read in self.align_file:
-            chrom = read.reference_name
+            # https://github.com/pysam-developers/pysam/issues/268
+            try:
+                chrom = read.reference_name
+            except ValueError:
+                continue
             pos = read.reference_start + 1
 
             if chrom != self._chr:
@@ -84,10 +100,11 @@ class SingleProcessCalculator(object):
         self._progress.clean()
         self.align_file.close()
 
-        self.nccc.finishup_calculation()
-        self.ref2forward_sum = self.nccc.ref2forward_sum
-        self.ref2reverse_sum = self.nccc.ref2reverse_sum
-        self.ref2ccbins = self.nccc.ref2ccbins
+        if not self.skip_ncc:
+            self.nccc.finishup_calculation()
+            self.ref2forward_sum = self.nccc.ref2forward_sum
+            self.ref2reverse_sum = self.nccc.ref2reverse_sum
+            self.ref2ccbins = self.nccc.ref2ccbins
 
         if self.mscc:
             self.mscc.finishup_calculation()
@@ -95,6 +112,7 @@ class SingleProcessCalculator(object):
             self.mappable_ref2forward_sum = self.mscc.ref2forward_sum
             self.mappable_ref2reverse_sum = self.mscc.ref2reverse_sum
             self.mappable_ref2ccbins = self.mscc.ref2ccbins
+            self.mappability_handler.chrom2mappable_len = self.bwfeeder.chrom2mappable_len
 
     def _feed_read(self, is_reverse, chrom, pos, readlen):
         try:
@@ -105,7 +123,7 @@ class SingleProcessCalculator(object):
 
 
 class CCCalcHandler(SingleProcessCalculator):
-    def __init__(self, path, esttype, max_shift, mapq_criteria, nworker=1):
+    def __init__(self, path, esttype, max_shift, mapq_criteria, nworker=1, skip_ncc=False):
         self.path = path
         self.max_shift = max_shift
         self.mapq_criteria = mapq_criteria
@@ -113,6 +131,7 @@ class CCCalcHandler(SingleProcessCalculator):
         self.esttype = esttype
         self.mapq_criteria = mapq_criteria
         self.nworker = nworker
+        self.skip_ncc = skip_ncc
 
         #
         try:
@@ -186,6 +205,15 @@ class CCCalcHandler(SingleProcessCalculator):
                 NaiveCCCalcWorker(
                     order_queue, report_queue, logger_lock, self.path,
                     self.mapq_criteria, self.max_shift, self.references, self.lengths
+                ) for _ in range(min(self.nworker, len(self.references)))
+            ]
+        elif self.skip_ncc:
+            workers = [
+                MSCCCalcWorker(
+                    order_queue, report_queue, logger_lock, self.path,
+                    self.mapq_criteria, self.max_shift, self.references, self.lengths,
+                    self.mappability_handler.path, self.read_len,
+                    self.mappability_handler.chrom2mappable_len
                 ) for _ in range(min(self.nworker, len(self.references)))
             ]
         else:

@@ -73,6 +73,8 @@ def get_parser():
                         help="Chi-squared test p-value threshold to check strand specificity. (Default: 0.05)")
     params.add_argument("-w", "--smooth-window", nargs='?', type=int, action=ForceNaturalNumber, default=30,
                         help="Moving average window size for smoothing MSCC to estimate library length. (Default: 30)")
+    params.add_argument("--skip-ncc", action="store_true",
+                        help="Skip naive cross-correlation calculation. Mappability region file must be specified.")
 
     output = parser.add_argument_group("Output file arguments")
     output.add_argument("-n", "--name", nargs='*', default=[],

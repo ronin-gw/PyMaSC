@@ -30,6 +30,9 @@ def _main():
     parser = get_parser()
     args = parser.parse_args()
 
+    if args.skip_ncc and args.mappable is None:
+        parser.error("argument --skip-ncc: -m/--mappable must be specified.")
+
     # set up logging
     if args.color == "TRUE":
         colorize = True
@@ -62,7 +65,8 @@ def _main():
     for f in args.reads:
         try:
             calc_handlers.append(
-                CCCalcHandler(f, args.estimation_type, args.max_shift, args.mapq, args.process)
+                CCCalcHandler(f, args.estimation_type, args.max_shift, args.mapq,
+                              args.process, args.skip_ncc)
             )
         except ValueError:
             logger.error("Failed to open file '{}'".format(f))
@@ -103,7 +107,7 @@ def _main():
 
         handler.run_calcuration()
         try:
-            result_handler = CCResult(handler, args.smooth_window, args.chi2_pval)
+            result_handler = CCResult(handler, args.smooth_window, args.chi2_pval, args.library_length, args.skip_ncc)
         except ReadsTooFew:
             result_handler = None
         if result_handler is None:

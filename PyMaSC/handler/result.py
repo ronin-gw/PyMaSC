@@ -24,10 +24,11 @@ class CCResult(object):
     def _skip_none(i):
         return [x for x in i if x is not None]
 
-    def __init__(self, calc_handler, filter_len, chi2_pval, expected_library_len=None):
+    def __init__(self, calc_handler, filter_len, chi2_pval, expected_library_len=None, skip_ncc=False):
         self.filter_len = filter_len
         self.chi2_p_thresh = chi2_pval if chi2_pval else self.default_chi2_p_thresh
         self.expected_library_len = expected_library_len
+        self.skip_ncc = skip_ncc
 
         #
         self.alignfile = calc_handler.path
@@ -65,16 +66,42 @@ class CCResult(object):
         else:
             self.calc_masc = False
             self.regionfile = None
+            self.mappable_forward_sum = np.zeros(1)
+            self.mappable_reverse_sum = np.zeros(1)
 
         #
-        if self.forward_sum == 0:
+        if self.forward_sum == 0 and np.all(self.mappable_forward_sum == 0):
             logger.error("There is no forward read.")
             raise ReadsTooFew
-        elif self.reverse_sum == 0:
+        elif self.reverse_sum == 0 and np.all(self.mappable_reverse_sum == 0):
             logger.error("There is no reverse read.")
             raise ReadsTooFew
 
-        self._calc_stats()
+        #
+        self.cc = self.cc_min = self.ccrl = None
+        self.ref2cc = {}
+        self.ref2cc_min = {}
+        self.ref2ccrl = {}
+
+        self.ccfl = self.nsc = self.rsc = None
+        self.ref2ccfl = {}
+        self.ref2nsc = {}
+        self.ref2rsc = {}
+
+        #
+        self.masc = self.masc_min = self.mascrl = None
+        self.ref2masc = {}
+        self.ref2masc_min = {}
+        self.ref2mascrl = {}
+
+        self.estimated_ccfl = self.estimated_nsc = self.estimated_rsc = None
+        self.ref2library_len = {}
+        self.ref2est_ccfl = {}
+        self.ref2est_nsc = {}
+        self.ref2est_rsc = {}
+
+        if not self.skip_ncc:
+            self._calc_stats()
         if self.calc_masc:
             self._calc_masc_stats()
 
@@ -104,33 +131,23 @@ class CCResult(object):
         self.cc, self.cc_min, self.ccrl = self._calc_cc(
             self.genomelen, self.forward_sum, self.reverse_sum, self.ccbins
         )
-        self.ref2cc = {}
-        self.ref2cc_min = {}
-        self.ref2ccrl = {}
+
         for ref, ccbins in self.ref2ccbins.items():
             if ccbins:
                 self.ref2cc[ref], self.ref2cc_min[ref], self.ref2ccrl[ref] = self._calc_cc(
                     self.ref2genomelen[ref], self.ref2forward_sum[ref], self.ref2reverse_sum[ref], ccbins
                 )
-            else:
-                self.ref2cc[ref] = self.ref2cc_min[ref] = self.ref2ccrl[ref] = None
 
         if self.expected_library_len:
             self.ccfl = self.cc[self.expected_library_len - 1]
             self.nsc = self.ccfl / self.cc_min
             self.rsc = (self.ccfl - self.cc_min) / (self.ccrl - self.cc_min)
 
-            self.ref2ccfl = {}
-            self.ref2nsc = {}
-            self.ref2rsc = {}
             for ref, ccbins in self.ref2ccbins.items():
                 self.ref2ccfl[ref] = self.ref2cc[self.expected_library_len - 1]
                 self.ref2nsc[ref] = self.ref2ccfl[ref] / self.ref2cc_min[ref]
                 self.ref2rsc[ref] = ((self.ref2ccfl[ref] - self.ref2cc_min[ref]) /
                                      (self.ref2ccrl[ref] - self.ref2cc_min[ref]))
-        else:
-            self.ccfl = self.nsc = self.rsc = None
-            self.ref2ccfl = self.ref2nsc = self.ref2rsc = None
 
     def _calc_masc(self, totlen, forward_sum, reverse_sum, ccbins):
         totlen = np.array(totlen, dtype=float)
@@ -165,40 +182,30 @@ class CCResult(object):
         self.masc, self.masc_min, self.mascrl = self._calc_masc(
             self.mappable_len, self.mappable_forward_sum, self.mappable_reverse_sum, self.mappable_ccbins
         )
-        self.ref2masc = {}
-        self.ref2masc_min = {}
-        self.ref2mascrl = {}
+
         for ref, ccbins in self.mappable_ref2ccbins.items():
             if ccbins is not None and ref in self.ref2mappable_len:
                 self.ref2masc[ref], self.ref2masc_min[ref], self.ref2mascrl[ref] = self._calc_masc(
                     self.ref2mappable_len[ref], self.mappable_ref2forward_sum[ref],
                     self.mappable_ref2reverse_sum[ref], ccbins
                 )
-            else:
-                self.ref2masc[ref] = self.ref2masc_min[ref] = self.ref2mascrl[ref] = None
 
         # calc additional stats
         self.estimated_library_len = np.argmax(moving_avr_filter(self.masc, self.filter_len)) + 1
-        self.estimated_ccfl = self.cc[self.estimated_library_len - 1]
-        self.estimated_nsc = self.estimated_ccfl / self.cc_min
-        self.estimated_rsc = (self.estimated_ccfl - self.cc_min) / (self.ccrl - self.cc_min)
+        if not self.skip_ncc:
+            self.estimated_ccfl = self.cc[self.estimated_library_len - 1]
+            self.estimated_nsc = self.estimated_ccfl / self.cc_min
+            self.estimated_rsc = (self.estimated_ccfl - self.cc_min) / (self.ccrl - self.cc_min)
 
-        self.ref2library_len = {}
-        self.ref2est_ccfl = {}
-        self.ref2est_nsc = {}
-        self.ref2est_rsc = {}
         for ref, masc in self.ref2masc.items():
             if masc is not None:
                 self.ref2library_len[ref] = np.argmax(moving_avr_filter(masc, self.filter_len)) + 1
+
+            if masc is not None and not self.skip_ncc:
                 self.ref2est_ccfl[ref] = self.ref2cc[ref][self.ref2library_len[ref] - 1]
                 self.ref2est_nsc[ref] = self.ref2est_ccfl[ref] / self.ref2cc_min[ref]
                 self.ref2est_rsc[ref] = ((self.ref2est_ccfl[ref] - self.ref2cc_min[ref]) /
                                          (self.ref2ccrl[ref] - self.ref2cc_min[ref]))
-            else:
-                self.ref2library_len[ref] = None
-                self.ref2est_ccfl[ref] = None
-                self.ref2est_nsc[ref] = None
-                self.ref2est_rsc[ref] = None
 
     def _chi2_test(self, a, b, label):
         sum_ = a + b

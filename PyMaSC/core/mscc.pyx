@@ -26,6 +26,7 @@ cdef class MSCCCalculator(object):
         int64 forward_read_len_sum, reverse_read_len_sum
         list ccbins
         dict ref2ccbins
+        object logger_lock
     cdef:
         char _chr[1024]
         int64 _max_shift_from_f, _forward_buff_size
@@ -38,7 +39,7 @@ cdef class MSCCCalculator(object):
         bint _bwiter_stopped
         int64 _bwbuff_head, _extra_size, _double_shift_len
 
-    def __init__(self, max_shift, read_len, references, lengths, bwfeeder):
+    def __init__(self, max_shift, read_len, references, lengths, bwfeeder, logger_lock=None):
         #    _last_pos      pos + read_len - 1
         #        |-----------------| read_len
         #        /=================>
@@ -89,6 +90,8 @@ cdef class MSCCCalculator(object):
         self._init_pos_buff()
         self._bwfeeder.disable_progress_bar()
 
+        self.logger_lock = logger_lock
+
     def _init_pos_buff(self):
         self._forward_sum.fill(0)
         self._reverse_sum.fill(0)
@@ -111,8 +114,12 @@ cdef class MSCCCalculator(object):
         try:
             self._feeder = self._bwfeeder.feed(self._chr)
         except KeyError as e:
+            if self.logger_lock:
+                self.logger_lock.acquire()
             logger.info("Mappability for '{}' not found. "
                         "Skip calc mappability sensitive CC.".format(e.args[0]))
+            if self.logger_lock:
+                self.logger_lock.release()
             self._bwiter_stopped = True
 
     def flush(self):
@@ -143,7 +150,11 @@ cdef class MSCCCalculator(object):
             strcpy(self._chr, chrom)
             self._init_bw()
             if not self._bwiter_stopped:
-                logger.info("Calc {}...".format(chrom))
+                if self.logger_lock:
+                    self.logger_lock.acquire()
+                logger.info("Calculate cross-correlation for {}...".format(chrom))
+                if self.logger_lock:
+                    self.logger_lock.release()
 
         if pos < self._last_pos:
             raise ReadUnsortedError

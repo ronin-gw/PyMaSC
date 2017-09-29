@@ -35,7 +35,7 @@ cdef class NaiveCCCalculator(object):
     #
     #     int64 _fb_tail_pos, _last_pos, _last_forward_pos, _last_reverse_pos
 
-    def __init__(self, int64 max_shift, references, lengths):
+    def __init__(self, int64 max_shift, references, lengths, logger_lock=None):
         """
         self._ccbins: summation bins to calc cc; shift from 0 to max_shift
         self._forward_buff: forward strand read position buff.
@@ -65,6 +65,8 @@ cdef class NaiveCCCalculator(object):
 
         self._init_pos_buff()
 
+        self.logger_lock = logger_lock
+
     def _init_pos_buff(self):
         self._forward_sum = self._reverse_sum = 0
         self._ccbins.fill(0)
@@ -93,7 +95,11 @@ cdef class NaiveCCCalculator(object):
             strcpy(self._chr, chrom)
             self._init_pos_buff()
 
-            logger.info("Calc {}...".format(chrom))
+            if self.logger_lock:
+                self.logger_lock.acquire()
+            logger.info("Calculate cross-correlation for {}...".format(chrom))
+            if self.logger_lock:
+                self.logger_lock.release()
 
         if pos < self._last_pos:
             raise ReadUnsortedError

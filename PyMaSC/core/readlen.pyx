@@ -1,5 +1,10 @@
 import logging
 
+from pysam.libcalignmentfile cimport AlignmentFile
+from pysam.libcalignedsegment cimport AlignedSegment
+
+from PyMaSC.utils.progress import ReadCountProgressBar
+
 logger = logging.getLogger(__name__)
 
 
@@ -38,22 +43,46 @@ ESTFUNCTIONS = dict(
 )
 
 
-def estimate_readlen(parser, source, esttype, unsigned int mapq_criteria):
+def estimate_readlen(path, esttype, unsigned int mapq_criteria):
     estfunc = ESTFUNCTIONS[esttype]
 
     cdef bint is_duplicate
+    cdef str chrom, _chrom
     cdef unsigned int mapq
-    cdef unsigned long readlen
+    cdef unsigned long pos, readlen
 
     cdef dict counter = {}
 
-    with parser(source) as stream:
-        for _, is_duplicate, _, _, mapq, readlen in stream:
-            if not is_duplicate and mapq >= mapq_criteria:
+    cdef dict chrom2length
+    cdef unsigned long length
+    cdef AlignedSegment read
+
+    with AlignmentFile(path) as stream:
+        chrom = None
+        chrom2length = dict(zip(stream.references, stream.lengths))
+        length = sum(chrom2length.values())
+
+        progress = ReadCountProgressBar()
+        progress.set_genome(length)
+
+        for read in stream:
+            try:
+                _chrom = read.reference_name
+            except ValueError:
+                continue
+            if chrom != _chrom:
+                chrom = _chrom
+                progress.set_chrom(chrom2length[chrom], chrom)
+            progress.update(read.reference_start)
+
+            if not read.is_duplicate and read.mapping_quality >= mapq_criteria:
+                readlen = read.query_length + 1
                 if readlen in counter:
                     counter[readlen] += 1
                 else:
                     counter[readlen] = 1
+    progress.finish()
+
     length = estfunc(counter)
 
     logger.info("Estimated read length = {}".format(length))

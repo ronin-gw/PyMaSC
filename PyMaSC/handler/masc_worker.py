@@ -43,7 +43,7 @@ class CalcWorkerBase(Process):
                     break
                 elif chrom != self._chr:
                     self._chr = chrom
-                    self._progress.set(self._ref2genomelen[chrom])
+                    self._progress.set(chrom, self._ref2genomelen[chrom])
 
                 with self.logger_lock:
                     logger.debug("{}: Process {}...".format(self.name, chrom))
@@ -95,7 +95,7 @@ class NaiveCCCalcWorker(CalcWorkerBase):
             mapq_criteria, max_shift, references, lengths
         )
 
-        self.calculator = NaiveCCCalculator(max_shift, references, lengths)
+        self.calculator = NaiveCCCalculator(max_shift, references, lengths, logger_lock)
 
     def _put_result_to_report_queue(self, chrom):
         self.calculator.flush()
@@ -126,9 +126,10 @@ class MSCCCalcWorker(NaiveCCCalcWorker):
 
         mappability_shift = MappabilityHandler.calc_mappable_len_required_shift_size(read_len, max_shift)
         self.bwfeeder = BWFeederWithMappableRegionSum(mappable_path, mappability_shift, chrom2mappable_len)
-        self.calculator = MSCCCalculator(max_shift, read_len, references, lengths, self.bwfeeder)
+        self.calculator = MSCCCalculator(max_shift, read_len, references, lengths, self.bwfeeder, logger_lock)
 
-        self.bwfeeder._progress = self._progress
+        self.bwfeeder.disable_progress_bar()
+        self._progress.enable_bar = ProgressHook._pass
 
     def _put_result_to_report_queue(self, chrom):
         self.calculator.flush()
@@ -162,10 +163,11 @@ class NCCandMSCCCalcWorker(MSCCCalcWorker):
             mappable_path, read_len, chrom2mappable_len
         )
 
-        self.ncc_calculator = NaiveCCCalculator(max_shift, references, lengths)
+        self.ncc_calculator = NaiveCCCalculator(max_shift, references, lengths, logger_lock)
         self.mscc_calculator = self.calculator
 
-        self.bwfeeder._progress = self._progress
+        self.bwfeeder.disable_progress_bar()
+        self._progress.enable_bar = ProgressHook._pass
 
     def _feed_read(self, read):
         if read.is_reverse:

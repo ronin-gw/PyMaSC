@@ -18,6 +18,7 @@ cdef class NaiveCCCalculator(object):
         np.ndarray _ccbins
         list _forward_buff, _reverse_buff
         int64 _fb_tail_pos, _last_pos, _last_forward_pos, _last_reverse_pos
+        object logger_lock
 
     # def __init__(self, int64 max_shift, references, lengths)
     # def _init_pos_buff(self)

@@ -5,7 +5,7 @@ import sys
 from PyMaSC import VERSION
 from PyMaSC.utils.parsearg import add_common_args, add_mappability_args, add_shift_arg, ForceNaturalNumber
 from PyMaSC.utils.logfmt import set_rootlogger
-from PyMaSC.utils.progress import ProgressBar
+from PyMaSC.utils.progress import ProgressBar, MultiLineProgressManager
 from PyMaSC.handler.mappability import MappabilityHandler
 
 logger = logging.getLogger(__name__)
@@ -21,7 +21,7 @@ def _main():
                         help="Set max read length to calculate mappable region length.")
 
     args = parser.parse_args()
-    if not args.mappable:
+    if not args.mappability:
         parser.error("argument -m/--mappable: expected 1 argument(s)")
 
     # set up logging
@@ -36,16 +36,17 @@ def _main():
     logger.info("PyMaSC version " + VERSION)
 
     # check args
-    args.mappable = args.mappable[0]
-    if args.map_path and args.map_path == args.mappable:
-        args.map_path = None
+    args.mappability = args.mappability[0]
+    if args.mappability_stats and args.mappability_stats == args.mappability:
+        args.mappability_stats = None
 
     #
     if sys.stderr.isatty():
         ProgressBar.enable = True
+        MultiLineProgressManager.enable = True
 
     #
-    alh = MappabilityHandler(args.mappable, args.max_shift, args.max_readlen, args.map_path, args.process)
+    alh = MappabilityHandler(args.mappability, args.max_shift, args.max_readlen, args.mappability_stats, args.process)
     alh.calc_mappability()
     alh.save_mappability_stats()
     alh.close()

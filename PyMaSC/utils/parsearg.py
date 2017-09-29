@@ -34,9 +34,9 @@ def add_common_args(parser):
 
 
 def add_mappability_args(group):
-    group.add_argument("-m", "--mappable", nargs=1, metavar="REGION_FILE",
+    group.add_argument("-m", "--mappability", nargs=1, metavar="REGION_FILE",
                        help="BigWig format mappable region file.")
-    group.add_argument("--map-path", nargs='?',
+    group.add_argument("--mappability-stats", nargs='?',
                        help="Read/Save path for mappability stats. (Default: [REGION_FILE].json)")
 
 
@@ -70,7 +70,7 @@ def get_parser():
     params.add_argument("-q", "--mapq", nargs='?', type=int, default=1,
                         help="Filter out reads which have less than specified MAPQ. (Default: 1)")
     params.add_argument("--chi2-pval", nargs='?', type=float, default=0.05,
-                        help="Chi-squared test p-value threshold to check strand specificity. (Default: 0.05)")
+                        help="p-value threshold for Chi-squared test to check strand specificity. (Default: 0.05)")
     params.add_argument("-w", "--smooth-window", nargs='?', type=int, action=ForceNaturalNumber, default=30,
                         help="Moving average window size for smoothing MSCC to estimate library length. (Default: 30)")
     params.add_argument("--skip-ncc", action="store_true",

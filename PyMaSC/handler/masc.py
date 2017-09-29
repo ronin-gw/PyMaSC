@@ -8,7 +8,7 @@ from PyMaSC.core.readlen import estimate_readlen
 from PyMaSC.core.mappability import BWFeederWithMappableRegionSum
 from PyMaSC.core.ncc import NaiveCCCalculator, ReadUnsortedError
 from PyMaSC.core.mscc import MSCCCalculator
-from PyMaSC.utils.progress import ProgressBar
+from PyMaSC.utils.progress import ProgressBar, MultiLineProgressManager
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +87,7 @@ class SingleProcessCalculator(object):
 
                 self._chr = chrom
                 self._progress.enable_bar()
-                self._progress.set(_ref2genomelen[chrom])
+                self._progress.set(chrom, _ref2genomelen[chrom])
                 self._progress.update(pos)
             else:
                 self._progress.update(pos)
@@ -176,8 +176,7 @@ class CCCalcHandler(SingleProcessCalculator):
             raise InputUnseekable
         else:
             logger.info("Check read length... : " + self.path)
-            self.read_len = estimate_readlen(self.align_parser, self.stream,
-                                             self.esttype, self.mapq_criteria)
+            self.read_len = estimate_readlen(self.path, self.esttype, self.mapq_criteria)
 
         if self.read_len > self.max_shift:
             logger.warning("Read lengh ({}) seems to be longer than shift size ({}).".format(
@@ -199,6 +198,7 @@ class CCCalcHandler(SingleProcessCalculator):
         order_queue = Queue()
         report_queue = Queue()
         logger_lock = Lock()
+        progress = MultiLineProgressManager()
 
         if self.mappability_handler is None:
             workers = [
@@ -237,7 +237,9 @@ class CCCalcHandler(SingleProcessCalculator):
             while True:
                 chrom, obj = report_queue.get()
                 if chrom is None:  # update progress
-                    pass
+                    chrom, body = obj
+                    with logger_lock:
+                        progress.update(chrom, body)
                 else:
                     _m_len, (_f_sum, _r_sum, _ccbins), (_mf_sum, _mr_sum, _m_ccbins) = obj
 
@@ -258,11 +260,16 @@ class CCCalcHandler(SingleProcessCalculator):
                     _chrom2finished[chrom] = True
                     if all(_chrom2finished.values()):
                         break
+
+                    with logger_lock:
+                        progress.erase(chrom)
         except:
             for w in workers:
                 if w.is_alive():
                     w.terminate()
             raise
+
+        progress.clean()
 
         if self.mappability_handler is not None and not self.mappability_handler.is_called:
             self.mappability_handler.is_called = all(self.mappability_handler.chrom2is_called.values())

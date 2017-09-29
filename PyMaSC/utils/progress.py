@@ -1,13 +1,18 @@
 import sys
+import array
+import fcntl
+from termios import TIOCGWINSZ
 
 
-class ProgressBar(object):
+class ProgressBase(object):
     enable = False
 
     @classmethod
     def _pass(self, *args, **kwargs):
         pass
 
+
+class ProgressBar(ProgressBase):
     def __init__(self, body="<1II1>" * 12, prefix='>', suffix='<', output=sys.stderr):
         self.body = body
         self.fmt = "\r" + prefix + "{:<" + str(len(body)) + "}" + suffix
@@ -33,7 +38,7 @@ class ProgressBar(object):
         self.output.write("\r\033[K")
         self.output.flush()
 
-    def set(self, maxval):
+    def set(self, name, maxval):
         self._unit = maxval / len(self.body)
         self.pos = 0
         self._next_update = self._unit
@@ -52,6 +57,7 @@ class ProgressHook(ProgressBar):
         self.body = body
         self.fmt = "\r" + prefix + "{:<" + str(len(body)) + "}" + suffix
         self.output = queue  # multiprocessing.Queue
+        self.name = None
 
         if self.enable:
             self.enable_bar()
@@ -61,5 +67,186 @@ class ProgressHook(ProgressBar):
     def _clean(self):
         pass
 
+    def set(self, name, maxval):
+        self.name = name
+        super(ProgressHook, self).set(name, maxval)
+
     def _format(self, s):
-        self.output.put((None, self.fmt.format(s)))
+        self.output.put((
+            None, (self.name, self.fmt.format(s))
+        ))
+
+
+class MultiLineProgressManager(ProgressBase):
+    def __init__(self, output=sys.stderr):
+        #
+        self.output = output
+        if not self.output.isatty():
+            self.enable = False
+
+        #
+        if not self.enable:
+            self.erase = self.clean = self.update = self._pass
+            return None
+
+        # get terminal size
+        buf = array.array('H', ([0] * 4))
+        stdfileno = self.output.fileno()
+        fcntl.ioctl(stdfileno, TIOCGWINSZ, buf, 1)
+        self.max_height, self.max_width = buf[:2]
+        self.max_width -= 1
+
+        #
+        self.key2lineno = {}
+        self.lineno2key = {}
+        self.key2body = {}
+        self.nlines = 0
+
+    def _down(self, n):
+        if n < 1:
+            return None
+        self._write("\033[{}E".format(n))
+
+    def _up(self, n):
+        if n < 1:
+            return None
+        self._write("\033[{}F".format(n))
+
+    def _reset_line(self):
+        self._write("\033[K")
+
+    def _write(self, l):
+        self.output.write(l[:self.max_width])
+        self.output.flush()
+
+    def update(self, key, body):
+        if key not in self.key2lineno:
+            self.nlines += 1
+            lineno = self.key2lineno[key] = self.nlines
+            self.lineno2key[lineno] = key
+        else:
+            lineno = self.key2lineno[key]
+        self.key2body[key] = body
+
+        for i in range(1, self.nlines + 1):
+            k = self.lineno2key[i]
+            self._reset_line()
+            self._write("{} {}".format(self.key2body[k], k))
+            if i < self.nlines:
+                self._write('\n')
+
+        self._up(self.nlines - 1)
+        if self.nlines == 1:
+            self._write("\033[G")
+
+    def erase(self, key):
+        try:
+            lineno = self.key2lineno[key]
+        except KeyError:
+            return None
+
+        for i in range(1, lineno):
+            k = self.lineno2key[i]
+            self._reset_line()
+            self._write("{} {}".format(self.key2body[k], k))
+            if i < self.nlines:
+                self._write('\n')
+
+        if lineno == self.nlines:
+            self._reset_line()
+            if lineno != 1:
+                self._up(1)
+
+        for i in range(lineno + 1, self.nlines + 1):
+            k = self.lineno2key[i - 1] = self.lineno2key[i]
+            self.key2lineno[k] -= 1
+
+            self._write("{} {}".format(self.key2body[k], k))
+            if i < self.nlines:
+                self._write('\n')
+
+        self.nlines -= 1
+        self._up(self.nlines - 1)
+
+        if self.nlines == 1:
+            self._write("\033[G")
+
+        del self.key2lineno[key], self.key2body[key]
+
+    def clean(self):
+        self._reset_line()
+        for i in range(self.nlines - 1):
+            self._down(1)
+            self._reset_line()
+        for i in range(self.nlines - 1):
+            self._up(1)
+
+
+class ReadCountProgressBar(ProgressBar, MultiLineProgressManager):
+    enable = False
+
+    def __init__(self, g_body="^@@@@@@@@@" * 10, g_prefix='', g_suffix='^',
+                 c_body="<1II1>" * 12, c_prefix='>', c_suffix='< {}', output=sys.stderr):
+        MultiLineProgressManager.__init__(self, output)
+        if not self.enable:
+            self.set_chrom = self.set_genome = self.update = self.finish = self._pass
+            return None
+
+        self.genome_body = g_body
+        self.genome_fmt = g_prefix + "{:<" + str(len(g_body)) + "}" + g_suffix
+        self.chrom_body = c_body
+        self.chrom_fmt = c_prefix + "{:<" + str(len(c_body)) + "}" + c_suffix
+
+        if self.enable:
+            self.enable_bar()
+        else:
+            self.disable_bar()
+
+        self.output = output
+        self._genome_offset = None
+
+    def set_chrom(self, maxval, name):
+        if self._genome_offset is None:
+            self._genome_offset = 0
+        else:
+            self._genome_offset += self._chrom_maxval
+        self._chrom = name
+        self._chrom_maxval = maxval
+        self._chrom_unit = maxval / len(self.chrom_body)
+        self.chrom_pos = 0
+        self._chrom_next_update = self._chrom_unit
+
+        self._reset_line()
+        self._write(self.chrom_fmt.format('', self._chrom))
+        self._write('\n')
+        self._reset_line()
+        self._write(self.genome_fmt.format(self.genome_body[:self.genome_pos]))
+        self._up(1)
+
+    def set_genome(self, maxval):
+        self._genome_unit = maxval / len(self.genome_body)
+        self.genome_pos = 0
+        self._genome_next_update = self._genome_unit
+
+    def _update(self, val):
+        if val > self._chrom_next_update:
+            while val > self._chrom_next_update:
+                self.chrom_pos += 1
+                self._chrom_next_update += self._chrom_unit
+            self._write(self.chrom_fmt.format(self.chrom_body[:self.chrom_pos], self._chrom))
+            self._write('\n')
+
+            if val + self._genome_offset > self._genome_next_update:
+                while val + self._genome_offset > self._genome_next_update:
+                    self.genome_pos += 1
+                    self._genome_next_update += self._genome_unit
+                self._write(self.genome_fmt.format(self.genome_body[:self.genome_pos]))
+
+            self._up(1)
+            self._write("\033[G")
+
+    def finish(self):
+        self._down(1)
+        self._reset_line()
+        self._up(1)
+        self._reset_line()

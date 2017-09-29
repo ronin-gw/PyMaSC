@@ -6,7 +6,7 @@ from itertools import izip_longest
 from PyMaSC import VERSION
 from PyMaSC.utils.logfmt import set_rootlogger
 from PyMaSC.utils.parsearg import get_parser
-from PyMaSC.utils.progress import ProgressBar, ReadCountProgressBar
+from PyMaSC.utils.progress import ProgressBar, ReadCountProgressBar, MultiLineProgressManager
 from PyMaSC.handler.mappability import MappabilityHandler, BWIOError, JSONIOError
 from PyMaSC.handler.masc import CCCalcHandler, InputUnseekable
 from PyMaSC.handler.result import CCResult, ReadsTooFew
@@ -30,7 +30,7 @@ def _main():
     parser = get_parser()
     args = parser.parse_args()
 
-    if args.skip_ncc and args.mappable is None:
+    if args.skip_ncc and args.mappability is None:
         parser.error("argument --skip-ncc: -m/--mappable must be specified.")
 
     # set up logging
@@ -45,17 +45,18 @@ def _main():
     logger.info("PyMaSC version " + VERSION)
 
     # check args
-    if args.mappable:
-        args.mappable = args.mappable[0]
-    if args.map_path and args.map_path == args.mappable:
-        args.map_path = None
+    if args.mappability:
+        args.mappability = args.mappability[0]
+    if args.mappability_stats and args.mappability_stats == args.mappability:
+        args.mappability_stats = None
     if args.library_length and args.library_length > args.max_shift:
         logger.error("Specified expected library length > max shift. Ignore expected length setting.")
         args.library_length = None
     #
     if sys.stderr.isatty():
         ProgressBar.enable = True
-
+        ReadCountProgressBar.enable = True
+        MultiLineProgressManager.enable = True
     #
     basenames = prepare_output(args)
 
@@ -88,10 +89,10 @@ def _main():
 
     #
     mappability_handler = None
-    if args.mappable:
+    if args.mappability:
         try:
             mappability_handler = MappabilityHandler(
-                args.mappable, args.max_shift, max_readlen, args.map_path, args.process
+                args.mappability, args.max_shift, max_readlen, args.mappability_stats, args.process
             )
         except (BWIOError, JSONIOError):
             sys.exit(1)

@@ -39,7 +39,9 @@ cdef class MappableLengthCalculator(BigWigReader):
 
         public object _progress
 
-    def __init__(self, str path, unsigned int max_shift=0):
+        object logger_lock
+
+    def __init__(self, str path, unsigned int max_shift=0, logger_lock=None):
         self.MAPPABILITY_THRESHOLD = 1.
 
         super(MappableLengthCalculator, self).__init__(path)
@@ -57,6 +59,7 @@ cdef class MappableLengthCalculator(BigWigReader):
         self._buff = np.zeros(self.max_shift, dtype=np.long)
 
         self._progress = ProgressBar()
+        self.logger_lock = logger_lock
 
     def enable_progress_bar(self):
         self._progress.enable_bar()
@@ -69,9 +72,13 @@ cdef class MappableLengthCalculator(BigWigReader):
         self._buff_tail_pos = -1
         self._buff = np.zeros(self.max_shift, dtype=np.long)
 
+        if self.logger_lock:
+            self.logger_lock.acquire()
         logger.info("Calc {} mappable length...".format(chrom))
+        if self.logger_lock:
+            self.logger_lock.release()
         self._chr = chrom
-        self._progress.set(self.chromsizes[chrom])
+        self._progress.set(chrom, self.chromsizes[chrom])
 
     cpdef flush(self):
         if self._chr:
@@ -201,7 +208,11 @@ cdef class BWFeederWithMappableRegionSum(MappableLengthCalculator):
                 try:
                     yield wig
                 except ContinueCalculation:
+                    if self.logger_lock:
+                        self.logger_lock.acquire()
                     logger.info("Continue calc mappability for {}...".format(chrom))
+                    if self.logger_lock:
+                        self.logger_lock.release()
                     stop_yield = True
                     self.enable_progress_bar()
 

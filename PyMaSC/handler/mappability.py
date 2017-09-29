@@ -4,7 +4,7 @@ import json
 from multiprocessing import Process, Queue, Lock
 
 from PyMaSC.core.mappability import MappableLengthCalculator
-from PyMaSC.utils.progress import ProgressHook
+from PyMaSC.utils.progress import ProgressHook, MultiLineProgressManager
 
 logger = logging.getLogger(__name__)
 
@@ -139,6 +139,7 @@ class MappabilityHandler(MappableLengthCalculator):
         order_queue = Queue()
         report_queue = Queue()
         logger_lock = Lock()
+        progress = MultiLineProgressManager()
 
         workers = [MappabilityCalcWorker(self.path, self.max_shift, order_queue, report_queue, logger_lock)
                    for _ in range(min(self.nworker, len(target_chroms)))]
@@ -152,28 +153,35 @@ class MappabilityHandler(MappableLengthCalculator):
                 order_queue.put(None)
 
             while not self.is_called:
-                chrom, length = report_queue.get()
+                chrom, obj = report_queue.get()
                 if chrom is None:  # update progress
-                    pass
+                    chrom, body = obj
+                    with logger_lock:
+                        progress.update(chrom, body)
                 else:
+                    length = obj
                     self.chrom2mappable_len[chrom] = tuple(length)
                     for i in xrange(self.max_shift + 1):
                         self.mappable_len[i] += length[i]
                     self.chrom2is_called[chrom] = True
                     if all(self.chrom2is_called.values()):
                         self.is_called = True
+                    with logger_lock:
+                        progress.erase(chrom)
         except:
             for w in workers:
                 if w.is_alive():
                     w.terminate()
             raise
 
+        progress.clean()
+
 
 class MappabilityCalcWorker(Process):
     def __init__(self, path, max_shift, order_queue, report_queue, logger_lock):
         super(MappabilityCalcWorker, self).__init__()
 
-        self.calculator = MappableLengthCalculator(path, max_shift)
+        self.calculator = MappableLengthCalculator(path, max_shift, logger_lock)
         self.calculator._progress.disable_bar()
         self.order_queue = order_queue
         self.report_queue = report_queue

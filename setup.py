@@ -74,7 +74,6 @@ def _setup():
             "PyMaSC.core.ncc",
             "PyMaSC.core.mscc"
         )] + cythonize([
-            "PyMaSC/reader/bam.pyx",
             "PyMaSC/reader/bx/bpt_file.pyx",
             "PyMaSC/core/readlen.pyx",
             "PyMaSC/utils/bx/binary_file.pyx"

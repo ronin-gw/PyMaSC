@@ -3,7 +3,6 @@ import distutils
 import subprocess
 import os
 import sys
-import shutil
 from setuptools import setup, Extension
 from setuptools.command import build_ext
 
@@ -45,12 +44,6 @@ class BuildExtCommand(build_ext.build_ext):
         build_ext.build_ext.run(self)
 
 
-def _make_link():
-    for ext in ".pyx", ".pxd":
-        shutil.copy2(_basedir("PyMaSC/utils/bx/binary_{}_endian".format(sys.byteorder) + ext),
-                     _basedir("PyMaSC/utils/bx/binary_file" + ext))
-
-
 def _define_extension(name, include_numpy=False):
     include_dirs = [NUMPY_INCLUDE] if include_numpy else []
 
@@ -76,7 +69,8 @@ def _setup():
         )] + cythonize([
             "PyMaSC/reader/bx/bpt_file.pyx",
             "PyMaSC/core/readlen.pyx",
-            "PyMaSC/utils/bx/binary_file.pyx"
+            "PyMaSC/utils/bx/binary_big_endian.pyx",
+            "PyMaSC/utils/bx/binary_little_endian.pyx"
         ]),
         entry_points={
             "console_scripts": [
@@ -88,5 +82,4 @@ def _setup():
 
 
 if __name__ == "__main__":
-    _make_link()
     _setup()

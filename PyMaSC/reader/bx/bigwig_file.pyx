@@ -1,9 +1,14 @@
 #cython: profile=True
+import sys
+if sys.byteorder == "little":
+    from PyMaSC.utils.bx.binary_little_endian cimport BinaryFileReader
+else:
+    from PyMaSC.utils.bx.binary_big_endian cimport BinaryFileReader
+
 cimport numpy
 
 from bx.bbi.types cimport bits32, bits16
 
-from PyMaSC.utils.bx.binary_file cimport BinaryFileReader
 from .bbi_file cimport BlockHandler, BBIFile, interval
 
 DEF big_wig_sig = 0x888FFC26

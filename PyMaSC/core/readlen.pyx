@@ -57,6 +57,11 @@ def estimate_readlen(path, esttype, unsigned int mapq_criteria):
     cdef unsigned long length
     cdef AlignedSegment read
 
+    cdef unsigned long nreads = 0
+    cdef unsigned long nunmapped = 0
+    cdef unsigned long npaired = 0
+    cdef unsigned long nread2 = 0
+
     with AlignmentFile(path) as stream:
         chrom = None
         chrom2length = dict(zip(stream.references, stream.lengths))
@@ -70,13 +75,22 @@ def estimate_readlen(path, esttype, unsigned int mapq_criteria):
                 _chrom = read.reference_name
             except ValueError:
                 continue
+
+            nreads += 1
+            if read.is_paired:
+                npaired += 1
+                if read.is_read2:
+                    nread2 += 1
+
             if chrom != _chrom:
                 chrom = _chrom
                 progress.set_chrom(chrom2length[chrom], chrom)
             progress.update(read.reference_start)
 
-            if not read.is_duplicate and read.mapping_quality >= mapq_criteria:
-                readlen = read.query_length + 1
+            if read.is_unmapped:
+                nunmapped += 1
+            elif not read.is_duplicate and read.mapping_quality >= mapq_criteria:
+                readlen = read.query_length
                 if readlen in counter:
                     counter[readlen] += 1
                 else:
@@ -85,5 +99,12 @@ def estimate_readlen(path, esttype, unsigned int mapq_criteria):
 
     length = estfunc(counter)
 
-    logger.info("Estimated read length = {}".format(length))
+    logger.info("Scan {:,} reads, {:,} reads were unmapped and {:,} reads >= MAPQ {}.".format(nreads, nunmapped, sum(counter.values()), mapq_criteria))
+    if npaired > 0:
+        logger.info("{:,} reads were paired: {:,} reads were 1st and {:,} reads were last segment.".format(npaired, npaired - nread2, nread2))
+        logger.info("Note that only 1st reads in the templates will be used for calculation.")
+    else:
+        logger.info("All reads were single-ended.")
+    logger.info("Estimated read length = {:,}".format(length))
+
     return length

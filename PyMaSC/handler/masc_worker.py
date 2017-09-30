@@ -51,7 +51,8 @@ class CalcWorkerBase(Process):
                 for read in alignfile.fetch(chrom):
                     self._progress.update(read.pos)
 
-                    if read.mapping_quality < self.mapq_criteria or read.is_duplicate:
+                    if (read.is_read2 or read.mapping_quality < self.mapq_criteria or
+                            read.is_unmapped or read.is_duplicate):
                         continue
 
                     try:

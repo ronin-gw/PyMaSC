@@ -79,7 +79,8 @@ class SingleProcessCalculator(object):
                 self._progress.clean()
                 self._progress.disable_bar()
 
-                if read.mapping_quality < self.mapq_criteria or read.is_duplicate:
+                if (read.is_read2 or read.mapping_quality < self.mapq_criteria or
+                        read.is_unmapped or read.is_duplicate):
                     continue
 
                 self._feed_read(read.is_reverse, read.reference_name,
@@ -125,10 +126,8 @@ class SingleProcessCalculator(object):
 class CCCalcHandler(SingleProcessCalculator):
     def __init__(self, path, esttype, max_shift, mapq_criteria, nworker=1, skip_ncc=False):
         self.path = path
-        self.max_shift = max_shift
-        self.mapq_criteria = mapq_criteria
-
         self.esttype = esttype
+        self.max_shift = max_shift
         self.mapq_criteria = mapq_criteria
         self.nworker = nworker
         self.skip_ncc = skip_ncc

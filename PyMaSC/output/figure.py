@@ -115,10 +115,10 @@ def plot_masc(ccr, name=None):
     lower, upper = axes.set_ylim((lower, upper * 1.1))
     height = upper - lower
 
-    masc_max = max(ccr.masc)
+    masc_ll = ccr.masc[ccr.estimated_library_len - 1]
 
     _annotate_point(
-        ccr.estimated_library_len - 1, masc_max, " cc(estimated lib len) = {:.5f}".format(masc_max),
+        ccr.estimated_library_len - 1, masc_ll, " cc(estimated lib len) = {:.5f}".format(masc_ll),
         lower + height/25, ' estimated lib len: {}'.format(ccr.estimated_library_len),
         "blue", height/50
     )

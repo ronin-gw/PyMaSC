@@ -1,4 +1,3 @@
-#cython: profile=True
 from bx.bbi.bpt_file cimport BPTFile as bxBPTFile
 from bx.bbi.types cimport UBYTE, bits16, bits64
 

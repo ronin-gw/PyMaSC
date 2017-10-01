@@ -1,4 +1,3 @@
-#cython: profile=True
 import logging
 
 cimport numpy as np

@@ -1,4 +1,3 @@
-#cython: profile=True
 cimport numpy
 from bx.bbi.types cimport bits32, bits16, UBYTE
 

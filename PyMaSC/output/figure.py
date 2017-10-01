@@ -1,4 +1,5 @@
 import logging
+import os.path
 
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
@@ -15,7 +16,10 @@ logger = logging.getLogger(__name__)
 
 
 @catch_IOError(logger, "figure")
-def plot_figures(outfile, ccr, name):
+def plot_figures(outfile, ccr):
+    logger.info("Output '{}'".format(outfile))
+    name = os.path.basename(outfile)
+
     with PdfPages(outfile) as pp:
         if not ccr.skip_ncc:
             plot_naive_cc(ccr, name)
@@ -136,11 +140,12 @@ def plot_ncc_vs_masc(pp, ccr, name):
     if name:
         title += " for " + name
 
-    _plot_ncc_vs_masc(
-        pp, "Naive CC vs MSCC", ccr.max_shift, ccr.read_len,
-        ccr.cc, ccr.cc_min, ccr.masc, ccr.masc_min,
-        ccr.nsc, ccr.rsc, ccr.estimated_library_len, ccr.expected_library_len
-    )
+    if ccr.calc_masc:
+        _plot_ncc_vs_masc(
+            pp, "Naive CC vs MSCC", ccr.max_shift, ccr.read_len,
+            ccr.cc, ccr.cc_min, ccr.masc, ccr.masc_min,
+            ccr.nsc, ccr.rsc, ccr.estimated_library_len, ccr.expected_library_len
+        )
 
     for ref in sorted(ccr.ref2genomelen):
         try:

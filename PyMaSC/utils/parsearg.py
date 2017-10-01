@@ -81,5 +81,7 @@ def get_parser():
                         help="Output file base name(s). (Default: input file name without extension)")
     output.add_argument("-o", "--outdir", nargs='?', default='.',
                         help="Output directory. (Default: current directory)")
+    output.add_argument("--skip-plots", action="store_true",
+                        help="Skip output figures.")
 
     return parser

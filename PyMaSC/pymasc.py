@@ -11,15 +11,16 @@ from PyMaSC.utils.progress import ProgressBar, ReadCountProgressBar, MultiLinePr
 from PyMaSC.handler.mappability import MappabilityHandler, BWIOError, JSONIOError
 from PyMaSC.handler.masc import CCCalcHandler, InputUnseekable
 from PyMaSC.handler.result import CCResult, ReadsTooFew
-from PyMaSC.output.stats import output_cc, output_stats
+from PyMaSC.output.stats import output_cc, output_mscc, output_stats
 from PyMaSC.output.figure import plot_figures
 
 logger = logging.getLogger(__name__)
 
 PLOTFILE_SUFFIX = ".pdf"
 CCOUTPUT_SUFFIX = "_cc.tab"
+MSCCOUTPUT_SUFFIX = "_mscc.tab"
 STATSFILE_SUFFIX = "_stats.tab"
-EXPECT_OUTFILE_SUFFIXES = (PLOTFILE_SUFFIX, CCOUTPUT_SUFFIX, STATSFILE_SUFFIX)
+EXPECT_OUTFILE_SUFFIXES = (PLOTFILE_SUFFIX, CCOUTPUT_SUFFIX, MSCCOUTPUT_SUFFIX, STATSFILE_SUFFIX)
 
 
 def _get_output_basename(dirpath, filepath):
@@ -59,7 +60,15 @@ def _main():
         ReadCountProgressBar.enable = True
         MultiLineProgressManager.enable = True
     #
-    basenames = prepare_output(args)
+    suffixes = list(EXPECT_OUTFILE_SUFFIXES)
+    if args.mappability:
+        if args.skip_ncc:
+            suffixes.remove(CCOUTPUT_SUFFIX)
+    else:
+        suffixes.remove(MSCCOUTPUT_SUFFIX)
+    if args.skip_plots:
+        suffixes.remove(PLOTFILE_SUFFIX)
+    basenames = prepare_output(args.reads, args.name, args.outdir, suffixes)
 
     #
     calc_handlers = []
@@ -115,7 +124,13 @@ def _main():
         if result_handler is None:
             logger.warning("Faild to process {}. Skip this file.".format(f))
             continue
-        output_result(result_handler, output_basename)
+
+        #
+        output_cc(output_basename + CCOUTPUT_SUFFIX, result_handler)
+        output_mscc(output_basename + MSCCOUTPUT_SUFFIX, result_handler)
+        output_stats(output_basename + STATSFILE_SUFFIX, result_handler)
+        if not args.skip_plots:
+            plot_figures(output_basename + PLOTFILE_SUFFIX, result_handler)
 
     #
     if mappability_handler:
@@ -124,45 +139,38 @@ def _main():
         mappability_handler.close()
 
 
-def prepare_output(args):
-    if os.path.exists(args.outdir):
-        if not os.path.isdir(args.outdir):
+def prepare_output(reads, names, outdir, suffixes=EXPECT_OUTFILE_SUFFIXES):
+    if os.path.exists(outdir):
+        if not os.path.isdir(outdir):
             logger.critical("Specified path as a output directory is not directory.")
-            logger.critical(args.outdir)
+            logger.critical(outdir)
             sys.exit(1)
     else:
-        logger.info("Make output directory: {}".format(args.outdir))
+        logger.info("Make output directory: {}".format(outdir))
         try:
-            os.mkdir(args.outdir)
+            os.mkdir(outdir)
         except IOError as e:
             logger.critical("Faild to make output directory: [Errno {}] {}".format(e.errno, e.message))
             sys.exit(1)
 
-    if not os.access(args.outdir, os.W_OK):
-        logger.critical("Output directory '{}' is not writable.".format(args.outdir))
+    if not os.access(outdir, os.W_OK):
+        logger.critical("Output directory '{}' is not writable.".format(outdir))
         sys.exit(1)
 
     basenames = []
-    for f, n in zip_longest(args.reads, args.name):
+    for f, n in zip_longest(reads, names):
         if n is None:
-            output_basename = os.path.join(args.outdir, os.path.splitext(os.path.basename(f))[0])
+            output_basename = os.path.join(outdir, os.path.splitext(os.path.basename(f))[0])
         else:
-            output_basename = os.path.join(args.outdir, n)
-        for suffix in EXPECT_OUTFILE_SUFFIXES:
+            output_basename = os.path.join(outdir, n)
+
+        for suffix in suffixes:
             expect_outfile = output_basename + suffix
             if os.path.exists(expect_outfile):
                 logger.warning("Existing file '{}' will be overwritten.".format(expect_outfile))
         basenames.append(output_basename)
 
     return basenames
-
-
-def output_result(ccc, outfile_prefix):
-    logger.info("Output results to '{}'".format(outfile_prefix))
-
-    output_cc(outfile_prefix + CCOUTPUT_SUFFIX, ccc)
-    output_stats(outfile_prefix + STATSFILE_SUFFIX, ccc)
-    plot_figures(outfile_prefix + PLOTFILE_SUFFIX, ccc, os.path.basename(outfile_prefix))
 
 
 def exec_entrypoint():

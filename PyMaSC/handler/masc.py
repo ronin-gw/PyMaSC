@@ -120,6 +120,7 @@ class SingleProcessCalculator(object):
         try:
             self._stepping_calc(is_reverse, chrom, pos, readlen)
         except ReadUnsortedError:
+            self._progress.clean()
             logger.error("Input alignment file must be sorted.")
             raise
 

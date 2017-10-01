@@ -11,6 +11,7 @@ from PyMaSC.utils.progress import ProgressBar, ReadCountProgressBar, MultiLinePr
 from PyMaSC.handler.mappability import MappabilityHandler, BWIOError, JSONIOError
 from PyMaSC.handler.masc import CCCalcHandler, InputUnseekable
 from PyMaSC.handler.result import CCResult, ReadsTooFew
+from PyMaSC.core.ncc import ReadUnsortedError
 from PyMaSC.output.stats import output_cc, output_mscc, output_stats
 from PyMaSC.output.figure import plot_figures
 
@@ -116,7 +117,11 @@ def _main():
     for handler, output_basename in zip(calc_handlers, basenames):
         logger.info("Process {}".format(handler.path))
 
-        handler.run_calcuration()
+        try:
+            handler.run_calcuration()
+        except ReadUnsortedError:
+            continue
+
         try:
             result_handler = CCResult(handler, args.smooth_window, args.chi2_pval, args.library_length, args.skip_ncc)
         except ReadsTooFew:

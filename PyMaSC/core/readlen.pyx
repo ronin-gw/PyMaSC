@@ -68,6 +68,8 @@ def estimate_readlen(path, esttype, unsigned int mapq_criteria):
         length = sum(chrom2length.values())
 
         progress = ReadCountProgressBar()
+        if not stream.has_index():
+            progress.disable_bar()
         progress.set_genome(length)
 
         for read in stream:

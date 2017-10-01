@@ -226,6 +226,6 @@ class CCResult(object):
     def test_read_balance(self):
         if not self.skip_ncc:
             self._chi2_test(self.forward_sum, self.reverse_sum, "Whole genome", True)
-            for ref in self.ref2genomelen:
-                self._chi2_test(self.ref2forward_sum[ref], self.ref2reverse_sum[ref],
-                                ref, info_logging=False)
+            # for ref in self.ref2genomelen:
+            #     self._chi2_test(self.ref2forward_sum[ref], self.ref2reverse_sum[ref],
+            #                     ref, info_logging=False)

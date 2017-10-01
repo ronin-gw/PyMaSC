@@ -1,6 +1,6 @@
 #cython: profile=True
 cimport numpy
-from bx.bbi.types cimport bits32, bits16
+from bx.bbi.types cimport bits32, bits16, UBYTE
 
 from PyMaSC.utils.bx.binary_file cimport BinaryFileReader
 
@@ -12,7 +12,7 @@ DEF bwg_variable_step = 2
 DEF bwg_fixed_step = 3
 
 import numpy
-from six.moves import cStringIO as StringIO
+from PyMaSC.utils.compatible import StringIO
 
 
 cdef class BigWigBlockGenerationHandler( BlockHandler ):
@@ -39,7 +39,7 @@ cdef class BigWigBlockGenerationHandler( BlockHandler ):
         self.end = end
         self.valfilter = valfilter
 
-    cdef set_handle_block( self, str block_data, BBIFile bbi_file ):
+    cdef set_handle_block( self, bytes block_data, BBIFile bbi_file ):
         cdef bits32 b_chrom_id, b_end, b_valid_count
         cdef bits32 b_item_step
         # Now we parse the block, first the header
@@ -56,7 +56,7 @@ cdef class BigWigBlockGenerationHandler( BlockHandler ):
         self._b_item_count = block_reader.read_uint16()
         self._current_item_count = 0
 
-    cdef interval next(self) except *:
+    cdef interval next(self):
         cdef float val
         cdef bits16 i
 
@@ -101,13 +101,13 @@ cdef class BigWigFile( BBIFile ):
     cpdef get_chrom_sizes( self ):
         return {chrom: size for chrom, _, size in self._yield_all_chrom_key_id_and_size()}
 
-    cpdef get( self, char * chrom, bits32 start, bits32 end, float valfilter ):
+    cpdef get( self, str chrom, bits32 start, bits32 end, float valfilter ):
         """
         Gets all data points over the regions `chrom`:`start`-`end`.
         """
         if start >= end:
             return None
-        chrom_id, chrom_size = self._get_chrom_id_and_size( chrom )
+        chrom_id, chrom_size = self._get_chrom_id_and_size( chrom.encode("utf-8") )
         if chrom_id is None:
             return None
 

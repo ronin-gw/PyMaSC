@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import logging
 import sys
 
@@ -28,7 +30,7 @@ class StrFormatStyle(object):
         return self._fmt.find(self.asctime_search) >= 0
 
     def format(self, record):
-        print self._fmt
+        print(self._fmt)
         return self._fmt.format(**record.__dict__)
 
 

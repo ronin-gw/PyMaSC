@@ -1,5 +1,7 @@
+#cython: profile=True
 from bx.bbi.types cimport bits32
-from PyMaSC.reader.bx.bigwig_file cimport BigWigFile, interval
+from PyMaSC.reader.bx.bbi_file cimport interval
+from PyMaSC.reader.bx.bigwig_file cimport BigWigFile
 
 import os
 import sys
@@ -14,7 +16,7 @@ cdef class BigWigReader(object):
         if path == '-':
             self.file = sys.stdin
         else:
-            self.file = open(path)
+            self.file = open(path, "rb")
         self.closed = False
 
         self.bigwig = BigWigFile(self.file)
@@ -22,8 +24,6 @@ cdef class BigWigReader(object):
 
     cpdef BigWigFile fetch(self, float valfilter, chrom):
         cdef bits32 begin, end
-        cdef list chroms
-        cdef interval i
 
         if chrom not in self.chromsizes:
             raise AttributeError("Reference name '{}' not found.".format(chrom))

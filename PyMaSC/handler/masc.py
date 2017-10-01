@@ -52,6 +52,7 @@ class SingleProcessCalculator(object):
                                        self.references, self.lengths, self.bwfeeder)
             self._stepping_calc = self._feed2both
         else:
+            self.nccc = NaiveCCCalculator(self.max_shift, self.references, self.lengths)
             self.mscc = None
             self._stepping_calc = self._feed2nccc
 

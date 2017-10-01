@@ -41,8 +41,8 @@ class CCResult(object):
 
         for attr in self.CALCULATOR_RESULT_ATTRS:
             setattr(self, attr, getattr(calc_handler, attr))
-        self.forward_sum = sum(self.ref2forward_sum.values())
-        self.reverse_sum = sum(self.ref2reverse_sum.values())
+        self.forward_sum = sum(list(self.ref2forward_sum.values()))
+        self.reverse_sum = sum(list(self.ref2reverse_sum.values()))
         self.ccbins = np.sum(self._skip_none(self.ref2ccbins.values()), axis=0)
 
         ###
@@ -59,7 +59,7 @@ class CCResult(object):
             self.ref2mappable_len = calc_handler.mappability_handler.chrom2mappable_len
             for attr in self.CALCULATOR_RESULT_ATTRS:
                 setattr(self, "mappable_" + attr, getattr(calc_handler, "mappable_" + attr))
-            self.mappable_len = np.sum(self.ref2mappable_len.values(), axis=0)
+            self.mappable_len = np.sum(list(self.ref2mappable_len.values()), axis=0)
             self.mappable_forward_sum = np.sum(self._skip_none(self.mappable_ref2forward_sum.values()), axis=0)
             self.mappable_reverse_sum = np.sum(self._skip_none(self.mappable_ref2reverse_sum.values()), axis=0)
             self.mappable_ccbins = np.sum(self._skip_none(self.mappable_ref2ccbins.values()), axis=0)
@@ -152,13 +152,13 @@ class CCResult(object):
                                      (self.ref2ccrl[ref] - self.ref2cc_min[ref]))
 
     def _calc_masc(self, totlen, forward_sum, reverse_sum, ccbins):
-        totlen = np.array(totlen, dtype=float)
+        totlen = np.array(totlen, dtype=np.float_)
         totlen = np.concatenate((
             totlen[:self.read_len][::-1], totlen[1:]
         ))[:self.max_shift + 1]
 
-        forward_sum = np.array(forward_sum, dtype=float)
-        reverse_sum = np.array(reverse_sum, dtype=float)
+        forward_sum = np.array(forward_sum, dtype=np.float_)
+        reverse_sum = np.array(reverse_sum, dtype=np.float_)
         forward_mean = forward_sum / totlen
         reverse_mean = reverse_sum / totlen
 

@@ -28,7 +28,7 @@ cdef class MSCCCalculator(object):
         dict ref2ccbins
         object logger_lock
     cdef:
-        char _chr[1024]
+        str _chr
         int64 _max_shift_from_f, _forward_buff_size
         np.ndarray _forward_sum, _reverse_sum, _ccbins
         list _forward_buff, _reverse_buff
@@ -67,7 +67,7 @@ cdef class MSCCCalculator(object):
         self.ccbins = []
         self.ref2ccbins = {ref: None for ref in references}
         # internal buff
-        # strcpy(self._chr, '\0')
+        self._chr = ''
         self._forward_sum = np.zeros(self._forward_buff_size, dtype=np.int64)
         self._reverse_sum = np.zeros(self._forward_buff_size, dtype=np.int64)
         self._ccbins = np.zeros(self._forward_buff_size, dtype=np.int64)
@@ -136,18 +136,18 @@ cdef class MSCCCalculator(object):
         if not self._bwiter_stopped and self._feeder:
             try:
                 self._feeder.throw(ContinueCalculation)
-            except StopIteration:
+            except (StopIteration, ContinueCalculation):
                 pass
 
         self._init_pos_buff()
 
-    cdef inline _check_pos(self, char* chrom, int64 pos):
-        if strcmp(chrom, self._chr):
-            if strcmp(self._chr, '\0'):
+    cdef inline _check_pos(self, str chrom, int64 pos):
+        if chrom != self._chr:
+            if self._chr != '':
                 self.flush()
             else:
                 self._init_pos_buff()
-            strcpy(self._chr, chrom)
+            self._chr = chrom
             self._init_bw()
             if not self._bwiter_stopped:
                 if self.logger_lock:
@@ -162,7 +162,7 @@ cdef class MSCCCalculator(object):
         self._last_pos = pos
 
     @boundscheck(False)
-    def feed_forward_read(self, char* chrom, int64 pos, int64 readlen):
+    def feed_forward_read(self, str chrom, int64 pos, int64 readlen):
         cdef int64 offset, read_mappability
         cdef np.ndarray[np.int64_t] mappability
 
@@ -189,7 +189,7 @@ cdef class MSCCCalculator(object):
 
     @wraparound(False)
     @boundscheck(False)
-    def feed_reverse_read(self, char* chrom, int64 pos, int64 readlen):
+    def feed_reverse_read(self, str chrom, int64 pos, int64 readlen):
         cdef int64 offset, revbuff_pos
         cdef np.ndarray[np.int64_t] mappability
 
@@ -277,7 +277,6 @@ cdef class MSCCCalculator(object):
         cdef int64 bwbuff_head = int64_max(0, self._last_pos - self._double_shift_len)
         cdef int64 bwbuff_tail, gap
 
-        cdef char* _chrom
         cdef int64 start, end
         cdef float _val
 

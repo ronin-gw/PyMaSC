@@ -1,9 +1,24 @@
+#cython: profile=True
 from bx.bbi.bpt_file cimport BPTFile as bxBPTFile
 from bx.bbi.types cimport UBYTE, bits16, bits64
 
 
 
 cdef class BPTFile(bxBPTFile):
+    def find( self, key ):
+        """
+        Find the value matching `key` (a bytestring). Returns the matching
+        value as a bytestring if found, or None
+        """
+        # Key is greater than key_size, must not be a match
+        if len(key) > self.key_size:
+            return None
+        # Key is less than key_size, right pad with 0 bytes
+        if len(key) < self.key_size:
+            key += ( b'\0' * ( self.key_size - len(key) ) )
+        # Call the recursive finder
+        return self.r_find( self.root_offset, key )
+
     def r_traverse(self, bits64 block_start):
         """
         """

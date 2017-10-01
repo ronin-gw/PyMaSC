@@ -13,7 +13,7 @@ cdef class NaiveCCCalculator(object):
         list ccbins
         dict ref2ccbins
     cdef:
-        char _chr[1024]
+        str _chr
         int64 _forward_buff_size, _forward_sum, _reverse_sum
         np.ndarray _ccbins
         list _forward_buff, _reverse_buff
@@ -23,7 +23,7 @@ cdef class NaiveCCCalculator(object):
     # def __init__(self, int64 max_shift, references, lengths)
     # def _init_pos_buff(self)
     # def _flush(self)
-    cdef inline _check_pos(self, char* chrom, int64 pos)
+    cdef inline _check_pos(self, str chrom, int64 pos)
     # def feed_forward_read(self, char* chrom, int64 pos, int64 readlen):
     # def feed_reverse_read(self, char* chrom, int64 pos, int64 readlen)
     cdef inline _shift_with_update(self, int64 offset, bint update_forward=False)

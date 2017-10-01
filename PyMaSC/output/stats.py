@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import logging
 
 from PyMaSC.utils.output import catch_IOError
@@ -8,17 +10,17 @@ logger = logging.getLogger(__name__)
 @catch_IOError(logger, "cc table")
 def output_cc(outfile, ccr):
     with open(outfile, 'w') as f:
-        print >>f, "shift\tcc\tmscc"
+        print("shift\tcc\tmscc", file=f)
         if ccr.calc_masc:
             if ccr.skip_ncc:
                 for i, cc in enumerate(ccr.masc):
-                    print >>f, "{}\tnan\t{}".format(i, ccr.masc[i])
+                    print("{}\tnan\t{}".format(i, ccr.masc[i]), file=f)
             else:
                 for i, cc in enumerate(ccr.cc):
-                    print >>f, "{}\t{}\t{}".format(i, cc, ccr.masc[i])
+                    print("{}\t{}\t{}".format(i, cc, ccr.masc[i]), file=f)
         else:
             for i, cc in enumerate(ccr.cc):
-                print >>f, "{}\t{}\tnan".format(i, cc)
+                print("{}\t{}\tnan".format(i, cc), file=f)
 
 
 @catch_IOError(logger, "cc stats")
@@ -32,10 +34,10 @@ def output_stats(outfile, ccr):
             ("minimum cc", "cc_min"),
             ("cc at read length", "ccrl")
         ):
-            print >>f, "{}\t{}".format(row, getattr(ccr, attr, "nan"))
+            print("{}\t{}".format(row, getattr(ccr, attr, "nan")), file=f)
 
         if ccr.expected_library_len:
-            print >>f, "{}\t{}".format("expected library length", ccr.expected_library_len)
+            print("{}\t{}".format("expected library length", ccr.expected_library_len), file=f)
 
         if ccr.calc_masc:
             for row, attr in (
@@ -45,7 +47,7 @@ def output_stats(outfile, ccr):
                 ("NSC", "estimated_nsc"),
                 ("RSC", "estimated_rsc")
             ):
-                print >>f, "{}\t{}".format(row, getattr(ccr, attr, "nan"))
+                print("{}\t{}".format(row, getattr(ccr, attr, "nan")), file=f)
 
         elif ccr.expected_library_len:
             for row, attr in (
@@ -53,9 +55,9 @@ def output_stats(outfile, ccr):
                 ("NSC", "nsc"),
                 ("RSC", "rsc")
             ):
-                print >>f, "{}\t{}".format(row, getattr(ccr, attr, "nan"))
+                print("{}\t{}".format(row, getattr(ccr, attr, "nan")), file=f)
 
         if ccr.calc_masc:
-            print >>f, "\nshift\tforward reads in mappable region\treverse reads in mappable region"
+            print("\nshift\tforward reads in mappable region\treverse reads in mappable region", file=f)
             for i, (forward, reverse) in enumerate(zip(ccr.mappable_forward_sum, ccr.mappable_reverse_sum)):
-                print >>f, "{}\t{}\t{}".format(i, forward, reverse)
+                print("{}\t{}\t{}".format(i, forward, reverse), file=f)

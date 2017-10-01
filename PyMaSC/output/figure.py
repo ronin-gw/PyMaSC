@@ -6,6 +6,11 @@ from matplotlib.backends.backend_pdf import PdfPages
 from PyMaSC.utils.calc import moving_avr_filter
 from PyMaSC.utils.output import catch_IOError
 
+try:
+    xrange
+except NameError:
+    xrange = range
+
 logger = logging.getLogger(__name__)
 
 

@@ -31,7 +31,7 @@ cdef class MappableLengthCalculator(BigWigReader):
         public bint is_called
 
         unsigned int _sum_bin_size
-        char* _chr
+        str _chr
 
         np.ndarray _sumbins
         bits32 _buff_tail_pos
@@ -52,7 +52,7 @@ cdef class MappableLengthCalculator(BigWigReader):
         self.is_called = False
 
         self._sum_bin_size = self.max_shift + 1
-        self._chr = NULL
+        self._chr = ''
 
         self._sumbins = np.zeros(self.max_shift + 1, dtype=np.long)
         self._buff_tail_pos = -1

@@ -1,7 +1,8 @@
 import logging
 import os
 import sys
-from itertools import izip_longest
+
+from PyMaSC.utils.compatible import zip_longest
 
 from PyMaSC import VERSION
 from PyMaSC.utils.logfmt import set_rootlogger
@@ -142,7 +143,7 @@ def prepare_output(args):
         sys.exit(1)
 
     basenames = []
-    for f, n in izip_longest(args.reads, args.name):
+    for f, n in zip_longest(args.reads, args.name):
         if n is None:
             output_basename = os.path.join(args.outdir, os.path.splitext(os.path.basename(f))[0])
         else:

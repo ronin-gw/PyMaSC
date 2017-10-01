@@ -57,7 +57,7 @@ cdef class NaiveCCCalculator(object):
         self.ref2ccbins = {ref: None for ref in references}
         # internal buff
         self._forward_buff_size = max_shift + 1
-        # strcpy(self._chr, '\0')
+        self._chr = ''
         self._forward_sum = self._reverse_sum = 0
         self._ccbins = np.zeros(self._forward_buff_size, dtype=np.int64)
         self._forward_buff = [0] * self._forward_buff_size
@@ -88,11 +88,11 @@ cdef class NaiveCCCalculator(object):
         self.ref2reverse_sum[self._chr] = self._reverse_sum
         self.ref2ccbins[self._chr] = tuple(self._ccbins)
 
-    cdef inline _check_pos(self, char* chrom, int64 pos):
-        if strcmp(chrom, self._chr):
-            if strcmp(self._chr, '\0'):
+    cdef inline _check_pos(self, str chrom, int64 pos):
+        if chrom != self._chr:
+            if self._chr != '':
                 self.flush()
-            strcpy(self._chr, chrom)
+            self._chr = chrom
             self._init_pos_buff()
 
             if self.logger_lock:
@@ -107,7 +107,7 @@ cdef class NaiveCCCalculator(object):
         self._last_pos = pos
 
     @boundscheck(False)
-    def feed_forward_read(self, char* chrom, int64 pos, int64 readlen):
+    def feed_forward_read(self, str chrom, int64 pos, int64 readlen):
         self._check_pos(chrom, pos)
 
         if self._last_forward_pos == pos:
@@ -126,7 +126,7 @@ cdef class NaiveCCCalculator(object):
 
     @wraparound(False)
     @boundscheck(False)
-    def feed_reverse_read(self, char* chrom, int64 pos, int64 readlen):
+    def feed_reverse_read(self, str chrom, int64 pos, int64 readlen):
         cdef int64 offset, revbuff_pos
         # cdef np.ndarray[int64] appendarray
         cdef int64 appendtail

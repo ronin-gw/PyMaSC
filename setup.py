@@ -9,7 +9,7 @@ import pysam
 
 BASEDIR = os.path.dirname(__file__)
 NUMPY_INCLUDE = numpy.get_include()
-PYSAM_INCLUDE = pysam.__path__
+PYSAM_INCLUDE = pysam.__path__[0]
 EXTRA_C_ARGS = ["-O3", "-ffast-math"]
 
 try:
@@ -101,11 +101,6 @@ def _setup():
         ],
         platforms=["POSIX", "Mac OS X"],
         license="MIT",
-        setup_requires=[
-            "numpy>=1.12.0",
-            "pysam>=0.12.0.1",
-            "bx-python>=0.7.3"
-        ],
         install_requires=[
             "numpy>=1.12.0",
             "pysam>=0.12.0.1",

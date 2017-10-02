@@ -5,33 +5,70 @@ import shutil
 from setuptools import setup, Extension
 
 import numpy
-from Cython.Build import cythonize
 
 BASEDIR = os.path.dirname(__file__)
 NUMPY_INCLUDE = numpy.get_include()
 EXTRA_C_ARGS = ["-O3", "-ffast-math"]
 
-sys.path.append(os.path.join(BASEDIR, "external", "bx-python", "lib"))
+try:
+    CYTHON_BUILD = True
+    from Cython.Build import cythonize
+    from Cython.Distutils import build_ext
+    sys.path.append(os.path.join(BASEDIR, "external", "bx-python", "lib"))
+except ImportError:
+    CYTHON_BUILD = False
 
 
 def _basedir(path):
     return os.path.join(BASEDIR, path)
 
 
+def _link_source():
+    exts = (".pyx", ".pxd") if CYTHON_BUILD else (".c", )
+
+    for ext in exts:
+        shutil.copy2(_basedir("PyMaSC/utils/bx/binary_{}_endian".format(sys.byteorder) + ext),
+                     _basedir("PyMaSC/utils/bx/binary_file" + ext))
+
+
 def _define_extension(name, include_numpy=False):
+    ext = ".pyx" if CYTHON_BUILD else ".c"
     include_dirs = [NUMPY_INCLUDE] if include_numpy else []
 
     return Extension(
-        name, sources=[_basedir(name.replace('.', '/') + ".pyx")],
+        name, sources=[_basedir(name.replace('.', '/') + ext)],
         include_dirs=include_dirs, extra_compile_args=EXTRA_C_ARGS
     )
 
 
+def _get_setup_args():
+    cmdclass = {} if not CYTHON_BUILD else {"build_ext": build_ext}
+    ext_modules = [
+        _define_extension(name, include_numpy=True) for name in (
+            "PyMaSC.reader.bx.bbi_file",
+            "PyMaSC.reader.bx.bigwig_file",
+            "PyMaSC.reader.bigwig",
+            "PyMaSC.core.mappability",
+            "PyMaSC.core.ncc",
+            "PyMaSC.core.mscc"
+        )
+    ] + [
+        _define_extension(name) for name in (
+            "PyMaSC.reader.bx.bpt_file",
+            "PyMaSC.core.readlen",
+            "PyMaSC.utils.bx.binary_file"
+        )
+    ]
+
+    return cmdclass, ext_modules
+
+
 def _setup():
     #
-    for ext in ".pyx", ".pxd":
-        shutil.copy2(_basedir("PyMaSC/utils/bx/binary_{}_endian".format(sys.byteorder) + ext),
-                     _basedir("PyMaSC/utils/bx/binary_file" + ext))
+    _link_source()
+    cmdclass, ext_modules = _get_setup_args()
+    if CYTHON_BUILD:
+        ext_modules = cythonize(ext_modules)
 
     #
     setup(
@@ -65,20 +102,8 @@ def _setup():
             "bx-python>=0.7.3",
             "matplotlib>=2.0.0"
         ],
-        ext_modules=cythonize(
-            [_define_extension(name, include_numpy=True) for name in (
-                "PyMaSC.reader.bx.bbi_file",
-                "PyMaSC.reader.bx.bigwig_file",
-                "PyMaSC.reader.bigwig",
-                "PyMaSC.core.mappability",
-                "PyMaSC.core.ncc",
-                "PyMaSC.core.mscc"
-            )] + [_define_extension(name) for name in (
-                "PyMaSC.reader.bx.bpt_file",
-                "PyMaSC.core.readlen",
-                "PyMaSC.utils.bx.binary_file"
-            )]
-        ),
+        cmdclass=cmdclass,
+        ext_modules=ext_modules,
         entry_points={
             "console_scripts": [
                 "pymasc = PyMaSC.pymasc:exec_entrypoint",

@@ -5,9 +5,11 @@ import shutil
 from setuptools import setup, Extension
 
 import numpy
+import pysam
 
 BASEDIR = os.path.dirname(__file__)
 NUMPY_INCLUDE = numpy.get_include()
+PYSAM_INCLUDE = pysam.__path__
 EXTRA_C_ARGS = ["-O3", "-ffast-math"]
 
 try:
@@ -55,10 +57,14 @@ def _get_setup_args():
     ] + [
         _define_extension(name) for name in (
             "PyMaSC.reader.bx.bpt_file",
-            "PyMaSC.core.readlen",
             "PyMaSC.utils.bx.binary_file"
         )
-    ]
+    ] + [Extension(
+        "PyMaSC.core.readlen",
+        sources=[_basedir("PyMaSC/core/readlen" + ".pyx" if CYTHON_BUILD else ".c")],
+        include_dirs=[PYSAM_INCLUDE],
+        extra_compile_args=EXTRA_C_ARGS
+    )]
 
     return cmdclass, ext_modules
 

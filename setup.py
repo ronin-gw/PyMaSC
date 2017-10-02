@@ -35,6 +35,36 @@ def _setup():
 
     #
     setup(
+        name="PyMaSC",
+        version="0.1.0",
+        author="Hayato Anzawa",
+        author_email="anzawa@sb.ecei.tohoku.ac.jp",
+        description="Python implementation to calc mappability-sensitive cross-correlation "
+                    "for fragment length estimation and quality control for ChIP-Seq.",
+        download_url="https://github.com/ronin-gw/PyMaSC",
+        classifiers=[
+            "Development Status :: 4 - Beta",
+            "Environment :: Console",
+            "Intended Audience :: Developers",
+            "Intended Audience :: Science/Research",
+            "License :: OSI Approved :: MIT License",
+            "Operating System :: MacOS :: MacOS X",
+            "Operating System :: POSIX",
+            "Programming Language :: Cython",
+            "Programming Language :: Python :: 2.7",
+            "Programming Language :: Python :: 3.6",
+            "Programming Language :: Python :: Implementation :: CPython",
+            "Topic :: Scientific/Engineering :: Bio-Informatics"
+        ],
+        platforms=["POSIX", "Mac OS X"],
+        license="MIT",
+        install_requires=[
+            "numpy>=1.12.0",
+            "pysam>=0.12.0.1",
+            "scipy>=0.18.1",
+            "bx-python>=0.7.3",
+            "matplotlib>=2.0.0"
+        ],
         ext_modules=cythonize(
             [_define_extension(name, include_numpy=True) for name in (
                 "PyMaSC.reader.bx.bbi_file",

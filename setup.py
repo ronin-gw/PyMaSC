@@ -61,7 +61,7 @@ def _get_setup_args():
         )
     ] + [Extension(
         "PyMaSC.core.readlen",
-        sources=[_basedir("PyMaSC/core/readlen" + ".pyx" if CYTHON_BUILD else ".c")],
+        sources=[_basedir("PyMaSC/core/readlen" + (".pyx" if CYTHON_BUILD else ".c"))],
         include_dirs=[PYSAM_INCLUDE],
         extra_compile_args=EXTRA_C_ARGS
     )]

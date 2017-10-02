@@ -95,6 +95,11 @@ def _setup():
         ],
         platforms=["POSIX", "Mac OS X"],
         license="MIT",
+        setup_requires=[
+            "numpy>=1.12.0",
+            "pysam>=0.12.0.1",
+            "bx-python>=0.7.3"
+        ],
         install_requires=[
             "numpy>=1.12.0",
             "pysam>=0.12.0.1",

@@ -9,7 +9,8 @@ import pysam
 
 BASEDIR = os.path.dirname(__file__)
 NUMPY_INCLUDE = numpy.get_include()
-PYSAM_INCLUDE = pysam.__path__[0]
+PYSAM_PATH = pysam.__path__[0]
+PYSAM_INCLUDES = [PYSAM_PATH, os.path.join(PYSAM_PATH, "include", "htslib")]
 EXTRA_C_ARGS = ["-O3", "-ffast-math"]
 
 try:
@@ -62,7 +63,7 @@ def _get_setup_args():
     ] + [Extension(
         "PyMaSC.core.readlen",
         sources=[_basedir("PyMaSC/core/readlen" + (".pyx" if CYTHON_BUILD else ".c"))],
-        include_dirs=[PYSAM_INCLUDE],
+        include_dirs=PYSAM_INCLUDES,
         extra_compile_args=EXTRA_C_ARGS
     )]
 

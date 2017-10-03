@@ -1,0 +1,3 @@
+include setup.py requirements.txt README.md LICENSE
+recursive-include PyMaSC *.py *.pyx *.pxd *.c
+recursive-include external/bx-python/lib/bx *.py *.pyx *.pxd *.c *.h

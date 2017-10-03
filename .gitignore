@@ -1,3 +1,4 @@
+*.c
 PyMaSC/utils/bx/binary_file*
 
 test*

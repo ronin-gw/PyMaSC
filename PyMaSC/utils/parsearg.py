@@ -64,7 +64,7 @@ def get_parser():
     add_mappability_args(input_args)
 
     params = parser.add_argument_group("Parameters")
-    params.add_argument("-l", "--library_length", nargs='?', type=int, action=ForceNaturalNumber,
+    params.add_argument("-l", "--library-length", nargs='?', type=int, action=ForceNaturalNumber,
                         help="Expected library length to clac NSC and RSC if library length estimation couldn't perform.")
     add_shift_arg(params)
     params.add_argument("-q", "--mapq", nargs='?', type=int, default=1,

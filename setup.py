@@ -85,6 +85,7 @@ def _setup():
         author_email="anzawa@sb.ecei.tohoku.ac.jp",
         description="Python implementation to calc mappability-sensitive cross-correlation "
                     "for fragment length estimation and quality control for ChIP-Seq.",
+        url="https://github.com/ronin-gw/PyMaSC",
         download_url="https://github.com/ronin-gw/PyMaSC",
         classifiers=[
             "Development Status :: 4 - Beta",
@@ -100,6 +101,7 @@ def _setup():
             "Programming Language :: Python :: Implementation :: CPython",
             "Topic :: Scientific/Engineering :: Bio-Informatics"
         ],
+        keywords="NGS ChIP-Seq",
         platforms=["POSIX", "Mac OS X"],
         license="MIT",
         install_requires=[

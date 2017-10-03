@@ -4,7 +4,7 @@ import os
 import shutil
 from setuptools import setup, Extension, find_packages
 
-IMPORTERROR_FMT = "Failed to import {}. Install build time dependencies " \
+IMPORTERROR_FMT = "Failed to import {}. Install build time dependencies first " \
                   "(e.g. `pip install cython numpy pysam`) and try again."
 try:
     from Cython.Build import cythonize
@@ -72,7 +72,9 @@ def _setup():
             "Operating System :: MacOS :: MacOS X",
             "Operating System :: POSIX",
             "Programming Language :: Cython",
+            "Programming Language :: Python :: 2",
             "Programming Language :: Python :: 2.7",
+            "Programming Language :: Python :: 3",
             "Programming Language :: Python :: 3.6",
             "Programming Language :: Python :: Implementation :: CPython",
             "Topic :: Scientific/Engineering :: Bio-Informatics"

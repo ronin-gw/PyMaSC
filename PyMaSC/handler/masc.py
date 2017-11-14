@@ -201,31 +201,20 @@ class CCCalcHandler(SingleProcessCalculator):
         logger_lock = Lock()
         progress = MultiLineProgressManager()
 
-        if self.mappability_handler is None:
-            workers = [
-                NaiveCCCalcWorker(
-                    order_queue, report_queue, logger_lock, self.path,
-                    self.mapq_criteria, self.max_shift, self.references, self.lengths
-                ) for _ in range(min(self.nworker, len(self.references)))
-            ]
-        elif self.skip_ncc:
-            workers = [
-                MSCCCalcWorker(
-                    order_queue, report_queue, logger_lock, self.path,
-                    self.mapq_criteria, self.max_shift, self.references, self.lengths,
-                    self.mappability_handler.path, self.read_len,
-                    self.mappability_handler.chrom2mappable_len
-                ) for _ in range(min(self.nworker, len(self.references)))
-            ]
+        worker_args = [order_queue, report_queue, logger_lock, self.path,
+                       self.mapq_criteria, self.max_shift, self.references, self.lengths]
+        if self.mappability_handler:
+            worker_args += [self.mappability_handler.path, self.read_len,
+                            self.mappability_handler.chrom2mappable_len]
+            if self.skip_ncc:
+                worker_class = MSCCCalcWorker
+            else:
+                worker_class = NCCandMSCCCalcWorker
         else:
-            workers = [
-                NCCandMSCCCalcWorker(
-                    order_queue, report_queue, logger_lock, self.path,
-                    self.mapq_criteria, self.max_shift, self.references, self.lengths,
-                    self.mappability_handler.path, self.read_len,
-                    self.mappability_handler.chrom2mappable_len
-                ) for _ in range(min(self.nworker, len(self.references)))
-            ]
+            worker_class = NaiveCCCalcWorker
+
+        workers = [worker_class(*worker_args)
+                   for _ in range(min(self.nworker, len(self.references)))]
 
         for w in workers:
             w.start()
@@ -242,21 +231,8 @@ class CCCalcHandler(SingleProcessCalculator):
                     with logger_lock:
                         progress.update(chrom, body)
                 else:
-                    _m_len, (_f_sum, _r_sum, _ccbins), (_mf_sum, _mr_sum, _m_ccbins) = obj
-
-                    if _m_len is not None:
-                        self.mappability_handler.chrom2mappable_len[chrom] = _m_len
-                        self.mappability_handler.chrom2is_called[chrom] = True
-
-                    if None not in (_f_sum, _r_sum, _ccbins):
-                        self.ref2forward_sum[chrom] = _f_sum
-                        self.ref2reverse_sum[chrom] = _r_sum
-                        self.ref2ccbins[chrom] = _ccbins
-
-                    if None not in (_m_len, _mf_sum, _mr_sum, _m_ccbins):
-                        self.mappable_ref2forward_sum[chrom] = _mf_sum
-                        self.mappable_ref2reverse_sum[chrom] = _mr_sum
-                        self.mappable_ref2ccbins[chrom] = _m_ccbins
+                    mappable_len, cc_stats, masc_stats = obj
+                    self._receive_results(chrom, mappable_len, cc_stats, masc_stats)
 
                     _chrom2finished[chrom] = True
                     if all(_chrom2finished.values()):
@@ -275,3 +251,21 @@ class CCCalcHandler(SingleProcessCalculator):
         if self.mappability_handler is not None and not self.mappability_handler.is_called:
             self.mappability_handler.is_called = all(self.mappability_handler.chrom2is_called.values())
             self.mappability_handler.calc_mappability()
+
+    def _receive_results(self, chrom, mappable_len, cc_stats, masc_stats):
+        f_sum, r_sum, ccbins = cc_stats
+        mf_sum, mr_sum, mccbins = masc_stats
+
+        if mappable_len is not None:
+            self.mappability_handler.chrom2mappable_len[chrom] = mappable_len
+            self.mappability_handler.chrom2is_called[chrom] = True
+
+        if None not in (f_sum, r_sum, ccbins):
+            self.ref2forward_sum[chrom] = f_sum
+            self.ref2reverse_sum[chrom] = r_sum
+            self.ref2ccbins[chrom] = ccbins
+
+        if None not in (mappable_len, mf_sum, mr_sum, mccbins):
+            self.mappable_ref2forward_sum[chrom] = mf_sum
+            self.mappable_ref2reverse_sum[chrom] = mr_sum
+            self.mappable_ref2ccbins[chrom] = mccbins

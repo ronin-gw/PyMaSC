@@ -5,6 +5,7 @@ from multiprocessing import Process, Queue, Lock
 
 from PyMaSC.core.mappability import MappableLengthCalculator
 from PyMaSC.utils.progress import ProgressHook, MultiLineProgressManager
+from PyMaSC.utils.compatible import tostr, xrange
 
 logger = logging.getLogger(__name__)
 
@@ -132,7 +133,7 @@ class MappabilityHandler(MappableLengthCalculator):
         self.need_save_stats = False
 
     def calc_mappability(self):
-        target_chroms = [c for c, b in self.chrom2is_called.items() if b is False]
+        target_chroms = [tostr(c) for c, b in self.chrom2is_called.items() if b is False]
         if not target_chroms:
             return None
 

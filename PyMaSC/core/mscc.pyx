@@ -137,8 +137,9 @@ cdef class MSCCCalculator(object):
         if not self._bwiter_stopped and self._feeder:
             try:
                 self._feeder.throw(ContinueCalculation)
-            except (StopIteration, ContinueCalculation):
+            except StopIteration:
                 pass
+            self._bwiter_stopped = True
 
         self._init_pos_buff()
 

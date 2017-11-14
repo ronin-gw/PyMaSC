@@ -154,19 +154,17 @@ class MultiLineProgressManager(ProgressBase):
 
         if lineno == self.nlines:
             self._reset_line()
-            if lineno != 1:
-                self._up(1)
 
         for i in range(lineno + 1, self.nlines + 1):
             k = self.lineno2key[i - 1] = self.lineno2key[i]
             self.key2lineno[k] -= 1
 
             self._write("{} {}".format(self.key2body[k], k))
-            if i < self.nlines:
-                self._write('\n')
+            self._write('\n')
 
         self.nlines -= 1
-        self._up(self.nlines - 1)
+        self._reset_line()
+        self._up(self.nlines)
 
         if self.nlines == 1:
             self._write("\033[G")

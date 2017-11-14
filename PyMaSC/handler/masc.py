@@ -115,6 +115,7 @@ class SingleProcessCalculator(object):
             self.mappable_ref2reverse_sum = self.mscc.ref2reverse_sum
             self.mappable_ref2ccbins = self.mscc.ref2ccbins
             self.mappability_handler.chrom2mappable_len = self.bwfeeder.chrom2mappable_len
+            self.mappability_handler.mappable_len = self.bwfeeder.mappable_len
 
     def _feed_read(self, is_reverse, chrom, pos, readlen):
         try:

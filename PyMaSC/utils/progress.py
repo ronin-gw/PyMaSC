@@ -204,13 +204,15 @@ class ReadCountProgressBar(ProgressBar, MultiLineProgressManager):
         self._genome_offset = None
 
     def enable_bar(self):
+        self.set_chrom = self._set_chrom
+        self.set_genome = self._set_genome
         self.finish = self._finish
         self.update = self._update
 
     def disable_bar(self):
-        self.finish = self.update = self._pass
+        self.set_chrom = self.set_genome = self.finish = self.update = self._pass
 
-    def set_chrom(self, maxval, name):
+    def _set_chrom(self, maxval, name):
         if self._genome_offset is None:
             self._genome_offset = 0
         else:
@@ -228,7 +230,7 @@ class ReadCountProgressBar(ProgressBar, MultiLineProgressManager):
         self._write(self.genome_fmt.format(self.genome_body[:self.genome_pos]))
         self._up(1)
 
-    def set_genome(self, maxval):
+    def _set_genome(self, maxval):
         self._genome_unit = maxval / len(self.genome_body)
         self.genome_pos = 0
         self._genome_next_update = self._genome_unit

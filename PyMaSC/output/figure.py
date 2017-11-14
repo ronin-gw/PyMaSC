@@ -3,11 +3,7 @@ import os.path
 
 from PyMaSC.utils.calc import moving_avr_filter
 from PyMaSC.utils.output import catch_IOError
-
-try:
-    xrange
-except NameError:
-    xrange = range
+from PyMaSC.utils.compatible import xrange
 
 logger = logging.getLogger(__name__)
 

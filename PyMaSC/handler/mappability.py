@@ -3,6 +3,8 @@ import os
 import json
 from multiprocessing import Process, Queue, Lock
 
+import numpy as np
+
 from PyMaSC.core.mappability import MappableLengthCalculator
 from PyMaSC.utils.progress import ProgressHook, MultiLineProgressManager
 from PyMaSC.utils.compatible import tostr, xrange
@@ -20,6 +22,16 @@ class JSONIOError(IOError):
 
 class NeedUpdate(Exception):
     pass
+
+
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, (np.long, np.float, np.float_)):
+            return float(obj)
+        elif isinstance(obj, (np.uint, np.int32, np.int64)):
+            return int(obj)
+        else:
+            return super(self, NumpyEncoder).default(obj)
 
 
 class MappabilityHandler(MappableLengthCalculator):
@@ -125,7 +137,7 @@ class MappabilityHandler(MappableLengthCalculator):
                     "max_shift": self.max_shift,
                     "__whole__": self.mappable_len,
                     "references": self.chrom2mappable_len
-                }, f, indent=4, sort_keys=True)
+                }, f, indent=4, sort_keys=True, cls=NumpyEncoder)
         except IOError as e:
             logger.error("Faild to output: {}\n[Errno {}] {}".format(
                          e.filename, e.errno, e.message))

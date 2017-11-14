@@ -16,7 +16,7 @@ cdef class NaiveCCCalculator(object):
         str _chr
         int64 _forward_buff_size, _forward_sum, _reverse_sum
         np.ndarray _ccbins
-        list _forward_buff, _reverse_buff
+        list _forward_buff, _reverse_buff, _solved_chr
         int64 _fb_tail_pos, _last_pos, _last_forward_pos, _last_reverse_pos
         object logger_lock
 

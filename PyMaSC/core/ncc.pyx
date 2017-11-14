@@ -61,6 +61,7 @@ cdef class NaiveCCCalculator(object):
         self._ccbins = np.zeros(self._forward_buff_size, dtype=np.int64)
         self._forward_buff = [0] * self._forward_buff_size
         self._reverse_buff = [0] * self._forward_buff_size
+        self._solved_chr = []
 
         self._init_pos_buff()
 
@@ -90,6 +91,9 @@ cdef class NaiveCCCalculator(object):
     cdef inline _check_pos(self, str chrom, int64 pos):
         if chrom != self._chr:
             if self._chr != '':
+                if chrom in self._solved_chr:
+                    raise ReadUnsortedError
+                self._solved_chr.append(self._chr)
                 self.flush()
             self._chr = chrom
             self._init_pos_buff()

@@ -30,7 +30,7 @@ cdef class MSCCCalculator(object):
         str _chr
         int64 _max_shift_from_f, _forward_buff_size
         np.ndarray _forward_sum, _reverse_sum, _ccbins
-        list _forward_buff, _reverse_buff
+        list _forward_buff, _reverse_buff, _solved_chr
         int64 _fb_tail_pos, _last_pos, _last_forward_pos, _last_reverse_pos
 
         object _bwfeeder, _feeder
@@ -73,6 +73,8 @@ cdef class MSCCCalculator(object):
         # None for read absence
         self._forward_buff = [None for _ in range(self._forward_buff_size)]
         self._reverse_buff = [None for _ in range(self._forward_buff_size)]
+        #
+        self._solved_chr = []
 
         # mappability
         self._bwfeeder = bwfeeder
@@ -143,6 +145,9 @@ cdef class MSCCCalculator(object):
     cdef inline _check_pos(self, str chrom, int64 pos):
         if chrom != self._chr:
             if self._chr != '':
+                if chrom in self._solved_chr:
+                    raise ReadUnsortedError
+                self._solved_chr.append(self._chr)
                 self.flush()
             else:
                 self._init_pos_buff()

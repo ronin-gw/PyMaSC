@@ -13,7 +13,6 @@ from PyMaSC.handler.masc import CCCalcHandler, InputUnseekable
 from PyMaSC.handler.result import CCResult, ReadsTooFew
 from PyMaSC.core.ncc import ReadUnsortedError
 from PyMaSC.output.stats import output_cc, output_mscc, output_stats
-from PyMaSC.output.figure import plot_figures
 
 logger = logging.getLogger(__name__)
 
@@ -135,7 +134,13 @@ def _main():
         output_mscc(output_basename + MSCCOUTPUT_SUFFIX, result_handler)
         output_stats(output_basename + STATSFILE_SUFFIX, result_handler)
         if not args.skip_plots:
-            plot_figures(output_basename + PLOTFILE_SUFFIX, result_handler)
+            plotfile_path = output_basename + PLOTFILE_SUFFIX
+            try:
+                from PyMaSC.output.figure import plot_figures
+            except ImportError:
+                logger.error("Skip output plots '{}'".format(plotfile_path))
+            else:
+                plot_figures(plotfile_path, result_handler)
 
     #
     if mappability_handler:

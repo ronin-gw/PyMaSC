@@ -4,6 +4,8 @@ import os
 import shutil
 from setuptools import setup, Extension, find_packages
 
+from PyMaSC import VERSION
+
 IMPORTERROR_FMT = "Failed to import {}. Install build time dependencies first " \
                   "(e.g. `pip install cython numpy pysam`) and try again."
 try:
@@ -56,7 +58,7 @@ def _setup():
     #
     setup(
         name="PyMaSC",
-        version="0.1.0",
+        version=VERSION,
         author="Hayato Anzawa",
         author_email="anzawa@sb.ecei.tohoku.ac.jp",
         description="Python implementation to calc mappability-sensitive cross-correlation "

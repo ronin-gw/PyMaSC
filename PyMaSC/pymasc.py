@@ -44,7 +44,8 @@ def _main():
         colorize = sys.stderr.isatty()
 
     set_rootlogger(colorize, args.log_level)
-    logger.info("PyMaSC version " + VERSION)
+    logger.info("PyMaSC version {} with Python{}.{}.{}".format(
+                *[VERSION] + list(sys.version_info[:3])))
 
     # check args
     if args.mappability:

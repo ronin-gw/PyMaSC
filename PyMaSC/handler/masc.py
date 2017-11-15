@@ -6,7 +6,7 @@ import pysam
 from PyMaSC.handler.masc_noindex_worker import SingleProcessCalculator
 from PyMaSC.handler.masc_worker import NaiveCCCalcWorker, MSCCCalcWorker, NCCandMSCCCalcWorker
 from PyMaSC.core.readlen import estimate_readlen
-from PyMaSC.utils.progress import MultiLineProgressManager
+from PyMaSC.utils.progress import MultiLineProgressManager, ProgressBar, ProgressHook
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +75,9 @@ class CCCalcHandler(object):
 
     def run_calcuration(self):
         if self.nworker > 1:
+            # to avoid interfering mappability progress bar with multiline progress bar
+            ProgressBar.global_switch = False
+            ProgressHook.global_switch = True
             self._run_multiprocess_calcuration()
         else:
             self._run_singleprocess_calculation()

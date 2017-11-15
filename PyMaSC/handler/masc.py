@@ -174,6 +174,10 @@ class CCCalcHandler(object):
             self.mappable_ref2ccbins[chrom] = mccbins
 
     def _calc_unsolved_mappabilty(self):
-        if self.mappability_handler is not None and not self.mappability_handler.is_called:
-            self.mappability_handler.is_called = all(self.mappability_handler.chrom2is_called.values())
-            self.mappability_handler.calc_mappability()
+        if self.mappability_handler is not None:
+            if not self.mappability_handler.is_called:
+                self.mappability_handler.is_called = all(
+                    self.mappability_handler.chrom2is_called.values()
+                )
+                self.mappability_handler.calc_mappability()
+            self.ref2mappable_len = self.mappability_handler.chrom2mappable_len

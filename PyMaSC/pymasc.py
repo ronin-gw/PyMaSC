@@ -123,7 +123,13 @@ def _main():
             continue
 
         try:
-            result_handler = CCResult(handler, args.smooth_window, args.chi2_pval, args.library_length, args.skip_ncc)
+            result_handler = CCResult(
+                handler.references, handler.lengths, handler.read_len,
+                handler.ref2forward_sum, handler.ref2reverse_sum, handler.ref2ccbins,
+                handler.mappable_ref2forward_sum, handler.mappable_ref2reverse_sum,
+                handler.mappable_ref2ccbins, handler.ref2mappable_len,
+                args.smooth_window, args.chi2_pval, args.library_length
+            )
         except ReadsTooFew:
             result_handler = None
         if result_handler is None:

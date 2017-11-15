@@ -46,6 +46,7 @@ def _main():
     set_rootlogger(colorize, args.log_level)
     logger.info("PyMaSC version {} with Python{}.{}.{}".format(
                 *[VERSION] + list(sys.version_info[:3])))
+    logger.debug(sys.version)
 
     # check args
     if args.mappability:
@@ -55,9 +56,11 @@ def _main():
     if args.library_length and args.library_length > args.max_shift:
         logger.error("Specified expected library length > max shift. Ignore expected length setting.")
         args.library_length = None
+
     #
     if sys.stderr.isatty():
         ProgressBase.global_switch = True
+
     #
     suffixes = list(EXPECT_OUTFILE_SUFFIXES)
     if args.mappability:

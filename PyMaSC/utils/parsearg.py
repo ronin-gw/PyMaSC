@@ -28,6 +28,8 @@ def add_common_args(parser):
     parser.add_argument("-v", "--log-level", nargs='?', type=_make_upper, default=logging.INFO, action=StoreLoggingLevel,
                         choices=("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"),
                         help="Set verbosity. (Default: INFO)")
+    parser.add_argument("--disable-progress", action="store_true",
+                        help="Disable progress bar")
     parser.add_argument("--color", nargs='?', type=_make_upper, default=None, choices=("TRUE", "FALSE"),
                         help="Coloring log. (Default: auto)")
     parser.add_argument("--version", action="version", version="PyMaSC " + PyMaSC.VERSION)

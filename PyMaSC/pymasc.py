@@ -58,7 +58,7 @@ def _main():
         args.library_length = None
 
     #
-    if sys.stderr.isatty():
+    if sys.stderr.isatty() and not args.disable_progress:
         ProgressBase.global_switch = True
 
     #

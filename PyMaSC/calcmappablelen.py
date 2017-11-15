@@ -43,7 +43,7 @@ def _main():
         args.mappability_stats = None
 
     #
-    if sys.stderr.isatty():
+    if sys.stderr.isatty() and not args.disable_progress:
         ProgressBase.global_switch = True
 
     #

@@ -7,7 +7,7 @@ from PyMaSC.utils.compatible import zip_longest
 from PyMaSC import VERSION
 from PyMaSC.utils.logfmt import set_rootlogger
 from PyMaSC.utils.parsearg import get_parser
-from PyMaSC.utils.progress import ProgressBar, ReadCountProgressBar, MultiLineProgressManager
+from PyMaSC.utils.progress import ProgressBase
 from PyMaSC.handler.mappability import MappabilityHandler, BWIOError, JSONIOError
 from PyMaSC.handler.masc import CCCalcHandler, InputUnseekable
 from PyMaSC.handler.result import CCResult, ReadsTooFew
@@ -57,9 +57,7 @@ def _main():
         args.library_length = None
     #
     if sys.stderr.isatty():
-        ProgressBar.enable = True
-        ReadCountProgressBar.enable = True
-        MultiLineProgressManager.enable = True
+        ProgressBase.global_switch = True
     #
     suffixes = list(EXPECT_OUTFILE_SUFFIXES)
     if args.mappability:

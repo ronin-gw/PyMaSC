@@ -5,7 +5,7 @@ from termios import TIOCGWINSZ
 
 
 class ProgressBase(object):
-    enable = False
+    global_switch = False
 
     @classmethod
     def _pass(self, *args, **kwargs):
@@ -18,15 +18,16 @@ class ProgressBar(ProgressBase):
         self.fmt = "\r" + prefix + "{:<" + str(len(body)) + "}" + suffix
         self.output = output
 
-        if self.enable:
+        if self.global_switch:
             self.enable_bar()
         else:
             self.disable_bar()
 
     def enable_bar(self):
-        self.format = self._format
-        self.clean = self._clean
-        self.update = self._update
+        if self.global_switch:
+            self.format = self._format
+            self.clean = self._clean
+            self.update = self._update
 
     def disable_bar(self):
         self.format = self.clean = self.update = self._pass
@@ -59,7 +60,7 @@ class ProgressHook(ProgressBar):
         self.output = queue  # multiprocessing.Queue
         self.name = None
 
-        if self.enable:
+        if self.global_switch:
             self.enable_bar()
         else:
             self.disable_bar()
@@ -85,7 +86,7 @@ class MultiLineProgressManager(ProgressBase):
             self.enable = False
 
         #
-        if not self.enable:
+        if not self.global_switch:
             self.erase = self.clean = self.update = self._pass
             return None
 
@@ -181,8 +182,6 @@ class MultiLineProgressManager(ProgressBase):
 
 
 class ReadCountProgressBar(ProgressBar, MultiLineProgressManager):
-    enable = False
-
     def __init__(self, g_body="^@@@@@@@@@" * 10, g_prefix='', g_suffix='^',
                  c_body="<1II1>" * 12, c_prefix='>', c_suffix='< {}', output=sys.stderr):
         MultiLineProgressManager.__init__(self, output)
@@ -195,7 +194,7 @@ class ReadCountProgressBar(ProgressBar, MultiLineProgressManager):
         self.chrom_body = c_body
         self.chrom_fmt = c_prefix + "{:<" + str(len(c_body)) + "}" + c_suffix
 
-        if self.enable:
+        if self.global_switch:
             self.enable_bar()
         else:
             self.disable_bar()
@@ -204,10 +203,11 @@ class ReadCountProgressBar(ProgressBar, MultiLineProgressManager):
         self._genome_offset = None
 
     def enable_bar(self):
-        self.set_chrom = self._set_chrom
-        self.set_genome = self._set_genome
-        self.finish = self._finish
-        self.update = self._update
+        if self.global_switch:
+            self.set_chrom = self._set_chrom
+            self.set_genome = self._set_genome
+            self.finish = self._finish
+            self.update = self._update
 
     def disable_bar(self):
         self.set_chrom = self.set_genome = self.finish = self.update = self._pass

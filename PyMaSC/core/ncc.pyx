@@ -24,7 +24,6 @@ cdef class NaiveCCCalculator(object):
     #     int64 forward_sum, reverse_sum
     #     dict ref2forward_sum, ref2reverse_sum
     #     int64 forward_read_len_sum, reverse_read_len_sum
-    #     list ccbins
     #     dict ref2ccbins
     # cdef:
     #     char _chr[1024]
@@ -52,7 +51,6 @@ cdef class NaiveCCCalculator(object):
         self.ref2forward_sum = {ref: 0 for ref in references}
         self.ref2reverse_sum = {ref: 0 for ref in references}
         self.forward_read_len_sum = self.reverse_read_len_sum = 0
-        self.ccbins = []
         self.ref2ccbins = {ref: None for ref in references}
         # internal buff
         self._forward_buff_size = max_shift + 1
@@ -181,6 +179,3 @@ cdef class NaiveCCCalculator(object):
 
     def finishup_calculation(self):
         self.flush()
-
-        for bins in zip(*[v for v in self.ref2ccbins.values() if v]):
-            self.ccbins.append(sum(bins))

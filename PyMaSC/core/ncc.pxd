@@ -10,7 +10,6 @@ cdef class NaiveCCCalculator(object):
         int64 forward_sum, reverse_sum
         dict ref2forward_sum, ref2reverse_sum
         int64 forward_read_len_sum, reverse_read_len_sum
-        list ccbins
         dict ref2ccbins
     cdef:
         str _chr

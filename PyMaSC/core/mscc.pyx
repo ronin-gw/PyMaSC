@@ -20,7 +20,6 @@ cdef class MSCCCalculator(object):
         dict ref2genomelen
         int64 genomelen
         int64 read_len
-        np.ndarray forward_sum, reverse_sum
         dict ref2forward_sum, ref2reverse_sum
         int64 forward_read_len_sum, reverse_read_len_sum
         list ccbins
@@ -56,14 +55,11 @@ cdef class MSCCCalculator(object):
 
         # stats
         # {forward,reverse}_sum[d[0...i]] = Number of reads in Md
-        self.forward_sum = np.repeat(0, self._forward_buff_size)
-        self.reverse_sum = np.repeat(0, self._forward_buff_size)
         self.ref2forward_sum = {ref: None for ref in references}
         self.ref2reverse_sum = {ref: None for ref in references}
         #
         self.forward_read_len_sum = self.reverse_read_len_sum = 0
         # ccbins[d[1...i]] = Number of doubly mapped region in Md
-        self.ccbins = []
         self.ref2ccbins = {ref: None for ref in references}
         # internal buff
         self._chr = ''
@@ -127,8 +123,6 @@ cdef class MSCCCalculator(object):
         if self._reverse_buff:
             self._shift_with_update(self._forward_buff_size)
 
-        self.forward_sum += self._forward_sum
-        self.reverse_sum += self._reverse_sum
         self.ref2forward_sum[self._chr] = tuple(self._forward_sum)
         self.ref2reverse_sum[self._chr] = tuple(self._reverse_sum)
         self.ref2ccbins[self._chr] = tuple(self._ccbins)
@@ -341,9 +335,6 @@ cdef class MSCCCalculator(object):
 
     def finishup_calculation(self):
         self.flush()
-
-        for bins in zip(*[v for v in self.ref2ccbins.values() if v]):
-            self.ccbins.append(sum(bins))
 
         if not self._bwiter_stopped:
             try:

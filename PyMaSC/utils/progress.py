@@ -83,7 +83,7 @@ class MultiLineProgressManager(ProgressBase):
         #
         self.output = output
         if not self.output.isatty():
-            self.enable = False
+            self.global_switch = False
 
         #
         if not self.global_switch:
@@ -185,7 +185,7 @@ class ReadCountProgressBar(ProgressBar, MultiLineProgressManager):
     def __init__(self, g_body="^@@@@@@@@@" * 10, g_prefix='', g_suffix='^',
                  c_body="<1II1>" * 12, c_prefix='>', c_suffix='< {}', output=sys.stderr):
         MultiLineProgressManager.__init__(self, output)
-        if not self.enable:
+        if not self.global_switch:
             self.set_chrom = self.set_genome = self.update = self.finish = self._pass
             return None
 

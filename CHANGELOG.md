@@ -20,4 +20,4 @@
  - serialize error for python3
 
 ## v0.1.0 (2017-10-03)
-- First eelease.
+- First release.

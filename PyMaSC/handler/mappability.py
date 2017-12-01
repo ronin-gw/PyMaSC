@@ -147,7 +147,7 @@ class MappabilityHandler(MappableLengthCalculator):
     def calc_mappability(self):
         target_chroms = [tostr(c) for c, b in self.chrom2is_called.items() if b is False]
         if not target_chroms:
-            return None
+            return self._sumup_mappability()
 
         order_queue = Queue()
         report_queue = Queue()
@@ -174,8 +174,6 @@ class MappabilityHandler(MappableLengthCalculator):
                 else:
                     length = obj
                     self.chrom2mappable_len[chrom] = tuple(length)
-                    for i in xrange(self.max_shift + 1):
-                        self.mappable_len[i] += length[i]
                     self.chrom2is_called[chrom] = True
                     if all(self.chrom2is_called.values()):
                         self.is_called = True
@@ -188,6 +186,12 @@ class MappabilityHandler(MappableLengthCalculator):
             raise
 
         progress.clean()
+        self._sumup_mappability()
+
+    def _sumup_mappability(self):
+        for length in self.chrom2mappable_len.values():
+            for i in xrange(self.max_shift + 1):
+                self.mappable_len[i] += length[i]
 
 
 class MappabilityCalcWorker(Process):

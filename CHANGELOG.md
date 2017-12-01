@@ -1,6 +1,6 @@
 # Change Log
 
-## v0.1.1 (2017-11-16)
+## v0.1.1 (2017-12-01)
 **Implemented enhancements:**
 - matplotlib delay import and now import error is not critical for calculation
 - Add `--disable-progress` option

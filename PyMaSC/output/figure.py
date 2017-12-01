@@ -1,18 +1,21 @@
 import logging
 import os.path
 
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_pdf import PdfPages
-
 from PyMaSC.utils.calc import moving_avr_filter
 from PyMaSC.utils.output import catch_IOError
-
-try:
-    xrange
-except NameError:
-    xrange = range
+from PyMaSC.utils.compatible import xrange
 
 logger = logging.getLogger(__name__)
+
+try:
+    import matplotlib.pyplot as plt
+    from matplotlib.backends.backend_pdf import PdfPages
+except:
+    logger.error("Failed to import matplotlib.")
+    import traceback
+    logger.warning("Exception traceback:\n|" +
+                   traceback.format_exc().replace('\n', "\n|"))
+    raise
 
 
 @catch_IOError(logger, "figure")

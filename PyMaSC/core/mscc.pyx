@@ -20,7 +20,6 @@ cdef class MSCCCalculator(object):
         dict ref2genomelen
         int64 genomelen
         int64 read_len
-        np.ndarray forward_sum, reverse_sum
         dict ref2forward_sum, ref2reverse_sum
         int64 forward_read_len_sum, reverse_read_len_sum
         list ccbins
@@ -30,7 +29,7 @@ cdef class MSCCCalculator(object):
         str _chr
         int64 _max_shift_from_f, _forward_buff_size
         np.ndarray _forward_sum, _reverse_sum, _ccbins
-        list _forward_buff, _reverse_buff
+        list _forward_buff, _reverse_buff, _solved_chr
         int64 _fb_tail_pos, _last_pos, _last_forward_pos, _last_reverse_pos
 
         object _bwfeeder, _feeder
@@ -56,14 +55,11 @@ cdef class MSCCCalculator(object):
 
         # stats
         # {forward,reverse}_sum[d[0...i]] = Number of reads in Md
-        self.forward_sum = np.repeat(0, self._forward_buff_size)
-        self.reverse_sum = np.repeat(0, self._forward_buff_size)
         self.ref2forward_sum = {ref: None for ref in references}
         self.ref2reverse_sum = {ref: None for ref in references}
         #
         self.forward_read_len_sum = self.reverse_read_len_sum = 0
         # ccbins[d[1...i]] = Number of doubly mapped region in Md
-        self.ccbins = []
         self.ref2ccbins = {ref: None for ref in references}
         # internal buff
         self._chr = ''
@@ -73,6 +69,8 @@ cdef class MSCCCalculator(object):
         # None for read absence
         self._forward_buff = [None for _ in range(self._forward_buff_size)]
         self._reverse_buff = [None for _ in range(self._forward_buff_size)]
+        #
+        self._solved_chr = []
 
         # mappability
         self._bwfeeder = bwfeeder
@@ -125,8 +123,6 @@ cdef class MSCCCalculator(object):
         if self._reverse_buff:
             self._shift_with_update(self._forward_buff_size)
 
-        self.forward_sum += self._forward_sum
-        self.reverse_sum += self._reverse_sum
         self.ref2forward_sum[self._chr] = tuple(self._forward_sum)
         self.ref2reverse_sum[self._chr] = tuple(self._reverse_sum)
         self.ref2ccbins[self._chr] = tuple(self._ccbins)
@@ -135,14 +131,18 @@ cdef class MSCCCalculator(object):
         if not self._bwiter_stopped and self._feeder:
             try:
                 self._feeder.throw(ContinueCalculation)
-            except (StopIteration, ContinueCalculation):
+            except StopIteration:
                 pass
+            self._bwiter_stopped = True
 
         self._init_pos_buff()
 
     cdef inline _check_pos(self, str chrom, int64 pos):
         if chrom != self._chr:
             if self._chr != '':
+                if chrom in self._solved_chr:
+                    raise ReadUnsortedError
+                self._solved_chr.append(self._chr)
                 self.flush()
             else:
                 self._init_pos_buff()
@@ -335,9 +335,6 @@ cdef class MSCCCalculator(object):
 
     def finishup_calculation(self):
         self.flush()
-
-        for bins in zip(*[v for v in self.ref2ccbins.values() if v]):
-            self.ccbins.append(sum(bins))
 
         if not self._bwiter_stopped:
             try:

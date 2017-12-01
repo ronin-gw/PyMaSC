@@ -30,7 +30,7 @@ MaSC algorithm.
 
 Install
 -------
-Python version 2.7 or >=3.6 are recommended.  
+Python version 2.7 or >=3.5 are recommended.  
 C compiler needs to build C sources (recommend GCC).  
 
 ### Install using pip
@@ -54,6 +54,7 @@ cross-correlation.
     pymasc [-h]
            [-p [PROCESS]]
            [-v [{DEBUG,INFO,WARNING,ERROR,CRITICAL}]]  
+           [--disable-progress]
            [--color [{TRUE,FALSE}]]
            [--version]
            [-r [READ_LENGTH]]  
@@ -102,6 +103,9 @@ For indexed BAM file, PyMaSC parallel process each reference (chromosome).
 
 ##### -v / --log-level {DEBUG,INFO,WARNING,ERROR,CRITICAL}
 Set logging message level. (Default: info)  
+
+##### --disable-progress
+Disable progress bars.  
 Note that progress bar will be disabled automatically if stderr is not connected to terminal.
 
 ##### --color {TRUE,FALSE}
@@ -187,6 +191,7 @@ Skip output figures. (Default: False)
     pymasc-precalc [-h]
                    [-p [PROCESS]]
                    [-v [{DEBUG,INFO,WARNING,ERROR,CRITICAL}]]
+                   [--disable-progress]
                    [--color [{TRUE,FALSE}]]
                    [--version]
                    [-m REGION_FILE]
@@ -203,5 +208,5 @@ Calculate total length of doubly mappable region.
 #### Options
 Almost same as `pymasc` command.  
 Note that actual max shift size is,
-- 0 to `read length` (if `max shift` >= `read len` * 2)
-- 0 to `max shift` - `read len` + 1 (if `max shift` =< `read len` * 2)
+- 0 to `read_length` (if `max_shift` < `read_len` * 2)
+- 0 to `max_shift` - `read_len` + 1 (if `max_shift` => `read_len` * 2)

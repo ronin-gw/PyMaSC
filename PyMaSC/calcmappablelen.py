@@ -5,7 +5,7 @@ import sys
 from PyMaSC import VERSION
 from PyMaSC.utils.parsearg import add_common_args, add_mappability_args, add_shift_arg, ForceNaturalNumber
 from PyMaSC.utils.logfmt import set_rootlogger
-from PyMaSC.utils.progress import ProgressBar, MultiLineProgressManager
+from PyMaSC.utils.progress import ProgressBase
 from PyMaSC.handler.mappability import MappabilityHandler
 
 logger = logging.getLogger(__name__)
@@ -33,7 +33,9 @@ def _main():
         colorize = sys.stderr.isatty()
 
     set_rootlogger(colorize, args.log_level)
-    logger.info("PyMaSC version " + VERSION)
+    logger.info("PyMaSC version {} with Python{}.{}.{}".format(
+                *[VERSION] + list(sys.version_info[:3])))
+    logger.debug(sys.version)
 
     # check args
     args.mappability = args.mappability[0]
@@ -41,12 +43,12 @@ def _main():
         args.mappability_stats = None
 
     #
-    if sys.stderr.isatty():
-        ProgressBar.enable = True
-        MultiLineProgressManager.enable = True
+    if sys.stderr.isatty() and not args.disable_progress:
+        ProgressBase.global_switch = True
 
     #
-    alh = MappabilityHandler(args.mappability, args.max_shift, args.max_readlen, args.mappability_stats, args.process)
+    alh = MappabilityHandler(args.mappability, args.max_shift, args.max_readlen,
+                             args.mappability_stats, args.process)
     alh.calc_mappability()
     alh.save_mappability_stats()
     alh.close()

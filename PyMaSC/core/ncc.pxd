@@ -10,13 +10,12 @@ cdef class NaiveCCCalculator(object):
         int64 forward_sum, reverse_sum
         dict ref2forward_sum, ref2reverse_sum
         int64 forward_read_len_sum, reverse_read_len_sum
-        list ccbins
         dict ref2ccbins
     cdef:
         str _chr
         int64 _forward_buff_size, _forward_sum, _reverse_sum
         np.ndarray _ccbins
-        list _forward_buff, _reverse_buff
+        list _forward_buff, _reverse_buff, _solved_chr
         int64 _fb_tail_pos, _last_pos, _last_forward_pos, _last_reverse_pos
         object logger_lock
 

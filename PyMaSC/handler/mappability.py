@@ -3,8 +3,11 @@ import os
 import json
 from multiprocessing import Process, Queue, Lock
 
+import numpy as np
+
 from PyMaSC.core.mappability import MappableLengthCalculator
 from PyMaSC.utils.progress import ProgressHook, MultiLineProgressManager
+from PyMaSC.utils.compatible import tostr, xrange
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +22,16 @@ class JSONIOError(IOError):
 
 class NeedUpdate(Exception):
     pass
+
+
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, (np.long, np.float, np.float_)):
+            return float(obj)
+        elif isinstance(obj, (np.uint, np.int32, np.int64)):
+            return int(obj)
+        else:
+            return super(self, NumpyEncoder).default(obj)
 
 
 class MappabilityHandler(MappableLengthCalculator):
@@ -124,7 +137,7 @@ class MappabilityHandler(MappableLengthCalculator):
                     "max_shift": self.max_shift,
                     "__whole__": self.mappable_len,
                     "references": self.chrom2mappable_len
-                }, f, indent=4, sort_keys=True)
+                }, f, indent=4, sort_keys=True, cls=NumpyEncoder)
         except IOError as e:
             logger.error("Faild to output: {}\n[Errno {}] {}".format(
                          e.filename, e.errno, e.message))
@@ -132,9 +145,9 @@ class MappabilityHandler(MappableLengthCalculator):
         self.need_save_stats = False
 
     def calc_mappability(self):
-        target_chroms = [c for c, b in self.chrom2is_called.items() if b is False]
+        target_chroms = [tostr(c) for c, b in self.chrom2is_called.items() if b is False]
         if not target_chroms:
-            return None
+            return self._sumup_mappability()
 
         order_queue = Queue()
         report_queue = Queue()
@@ -161,8 +174,6 @@ class MappabilityHandler(MappableLengthCalculator):
                 else:
                     length = obj
                     self.chrom2mappable_len[chrom] = tuple(length)
-                    for i in xrange(self.max_shift + 1):
-                        self.mappable_len[i] += length[i]
                     self.chrom2is_called[chrom] = True
                     if all(self.chrom2is_called.values()):
                         self.is_called = True
@@ -175,6 +186,12 @@ class MappabilityHandler(MappableLengthCalculator):
             raise
 
         progress.clean()
+        self._sumup_mappability()
+
+    def _sumup_mappability(self):
+        for length in self.chrom2mappable_len.values():
+            for i in xrange(self.max_shift + 1):
+                self.mappable_len[i] += length[i]
 
 
 class MappabilityCalcWorker(Process):

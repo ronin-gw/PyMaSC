@@ -7,13 +7,12 @@ from PyMaSC.utils.compatible import zip_longest
 from PyMaSC import VERSION
 from PyMaSC.utils.logfmt import set_rootlogger
 from PyMaSC.utils.parsearg import get_parser
-from PyMaSC.utils.progress import ProgressBar, ReadCountProgressBar, MultiLineProgressManager
+from PyMaSC.utils.progress import ProgressBase
 from PyMaSC.handler.mappability import MappabilityHandler, BWIOError, JSONIOError
 from PyMaSC.handler.masc import CCCalcHandler, InputUnseekable
 from PyMaSC.handler.result import CCResult, ReadsTooFew
 from PyMaSC.core.ncc import ReadUnsortedError
 from PyMaSC.output.stats import output_cc, output_mscc, output_stats
-from PyMaSC.output.figure import plot_figures
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +44,9 @@ def _main():
         colorize = sys.stderr.isatty()
 
     set_rootlogger(colorize, args.log_level)
-    logger.info("PyMaSC version " + VERSION)
+    logger.info("PyMaSC version {} with Python{}.{}.{}".format(
+                *[VERSION] + list(sys.version_info[:3])))
+    logger.debug(sys.version)
 
     # check args
     if args.mappability:
@@ -55,11 +56,11 @@ def _main():
     if args.library_length and args.library_length > args.max_shift:
         logger.error("Specified expected library length > max shift. Ignore expected length setting.")
         args.library_length = None
+
     #
-    if sys.stderr.isatty():
-        ProgressBar.enable = True
-        ReadCountProgressBar.enable = True
-        MultiLineProgressManager.enable = True
+    if sys.stderr.isatty() and not args.disable_progress:
+        ProgressBase.global_switch = True
+
     #
     suffixes = list(EXPECT_OUTFILE_SUFFIXES)
     if args.mappability:
@@ -123,7 +124,13 @@ def _main():
             continue
 
         try:
-            result_handler = CCResult(handler, args.smooth_window, args.chi2_pval, args.library_length, args.skip_ncc)
+            result_handler = CCResult(
+                handler.references, handler.lengths, handler.read_len,
+                handler.ref2forward_sum, handler.ref2reverse_sum, handler.ref2ccbins,
+                handler.mappable_ref2forward_sum, handler.mappable_ref2reverse_sum,
+                handler.mappable_ref2ccbins, handler.ref2mappable_len,
+                args.smooth_window, args.chi2_pval, args.library_length
+            )
         except ReadsTooFew:
             result_handler = None
         if result_handler is None:
@@ -135,7 +142,13 @@ def _main():
         output_mscc(output_basename + MSCCOUTPUT_SUFFIX, result_handler)
         output_stats(output_basename + STATSFILE_SUFFIX, result_handler)
         if not args.skip_plots:
-            plot_figures(output_basename + PLOTFILE_SUFFIX, result_handler)
+            plotfile_path = output_basename + PLOTFILE_SUFFIX
+            try:
+                from PyMaSC.output.figure import plot_figures
+            except ImportError:
+                logger.error("Skip output plots '{}'".format(plotfile_path))
+            else:
+                plot_figures(plotfile_path, result_handler)
 
     #
     if mappability_handler:

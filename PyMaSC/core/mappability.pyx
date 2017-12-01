@@ -12,6 +12,7 @@ from .utils cimport bits32_min
 
 import numpy as np
 from PyMaSC.utils.progress import ProgressBar
+from PyMaSC.utils.compatible import tostr
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +94,7 @@ cdef class MappableLengthCalculator(BigWigReader):
 
     def calc_mappability(self, chrom=None):
         if not chrom:
-            chroms = [c for c, b in self.chrom2is_called.items() if b is False]
+            chroms = [tostr(c) for c, b in self.chrom2is_called.items() if b is False]
         elif self.chrom2is_called[chrom]:
             return None
         else:

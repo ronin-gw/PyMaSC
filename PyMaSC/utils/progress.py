@@ -5,7 +5,7 @@ from termios import TIOCGWINSZ
 
 
 class ProgressBase(object):
-    enable = False
+    global_switch = False
 
     @classmethod
     def _pass(self, *args, **kwargs):
@@ -18,15 +18,16 @@ class ProgressBar(ProgressBase):
         self.fmt = "\r" + prefix + "{:<" + str(len(body)) + "}" + suffix
         self.output = output
 
-        if self.enable:
+        if self.global_switch:
             self.enable_bar()
         else:
             self.disable_bar()
 
     def enable_bar(self):
-        self.format = self._format
-        self.clean = self._clean
-        self.update = self._update
+        if self.global_switch:
+            self.format = self._format
+            self.clean = self._clean
+            self.update = self._update
 
     def disable_bar(self):
         self.format = self.clean = self.update = self._pass
@@ -59,7 +60,7 @@ class ProgressHook(ProgressBar):
         self.output = queue  # multiprocessing.Queue
         self.name = None
 
-        if self.enable:
+        if self.global_switch:
             self.enable_bar()
         else:
             self.disable_bar()
@@ -82,10 +83,10 @@ class MultiLineProgressManager(ProgressBase):
         #
         self.output = output
         if not self.output.isatty():
-            self.enable = False
+            self.global_switch = False
 
         #
-        if not self.enable:
+        if not self.global_switch:
             self.erase = self.clean = self.update = self._pass
             return None
 
@@ -154,19 +155,17 @@ class MultiLineProgressManager(ProgressBase):
 
         if lineno == self.nlines:
             self._reset_line()
-            if lineno != 1:
-                self._up(1)
 
         for i in range(lineno + 1, self.nlines + 1):
             k = self.lineno2key[i - 1] = self.lineno2key[i]
             self.key2lineno[k] -= 1
 
             self._write("{} {}".format(self.key2body[k], k))
-            if i < self.nlines:
-                self._write('\n')
+            self._write('\n')
 
         self.nlines -= 1
-        self._up(self.nlines - 1)
+        self._reset_line()
+        self._up(self.nlines)
 
         if self.nlines == 1:
             self._write("\033[G")
@@ -183,12 +182,10 @@ class MultiLineProgressManager(ProgressBase):
 
 
 class ReadCountProgressBar(ProgressBar, MultiLineProgressManager):
-    enable = False
-
     def __init__(self, g_body="^@@@@@@@@@" * 10, g_prefix='', g_suffix='^',
                  c_body="<1II1>" * 12, c_prefix='>', c_suffix='< {}', output=sys.stderr):
         MultiLineProgressManager.__init__(self, output)
-        if not self.enable:
+        if not self.global_switch:
             self.set_chrom = self.set_genome = self.update = self.finish = self._pass
             return None
 
@@ -197,7 +194,7 @@ class ReadCountProgressBar(ProgressBar, MultiLineProgressManager):
         self.chrom_body = c_body
         self.chrom_fmt = c_prefix + "{:<" + str(len(c_body)) + "}" + c_suffix
 
-        if self.enable:
+        if self.global_switch:
             self.enable_bar()
         else:
             self.disable_bar()
@@ -206,13 +203,16 @@ class ReadCountProgressBar(ProgressBar, MultiLineProgressManager):
         self._genome_offset = None
 
     def enable_bar(self):
-        self.finish = self._finish
-        self.update = self._update
+        if self.global_switch:
+            self.set_chrom = self._set_chrom
+            self.set_genome = self._set_genome
+            self.finish = self._finish
+            self.update = self._update
 
     def disable_bar(self):
-        self.finish = self.update = self._pass
+        self.set_chrom = self.set_genome = self.finish = self.update = self._pass
 
-    def set_chrom(self, maxval, name):
+    def _set_chrom(self, maxval, name):
         if self._genome_offset is None:
             self._genome_offset = 0
         else:
@@ -230,7 +230,7 @@ class ReadCountProgressBar(ProgressBar, MultiLineProgressManager):
         self._write(self.genome_fmt.format(self.genome_body[:self.genome_pos]))
         self._up(1)
 
-    def set_genome(self, maxval):
+    def _set_genome(self, maxval):
         self._genome_unit = maxval / len(self.genome_body)
         self.genome_pos = 0
         self._genome_next_update = self._genome_unit

@@ -90,7 +90,8 @@ def _setup():
             "pysam>=0.12.0.1",
             "scipy>=0.18.1",
             "bx-python>=0.7.3",
-            "matplotlib>=2.0.0"
+            "matplotlib>=2.0.0",
+            "bitarray_ph4>=0.8.11"
         ],
         packages=find_packages(),
         cmdclass={"build_ext": build_ext},
@@ -106,7 +107,8 @@ def _setup():
         ] + [
             _define_extension(name) for name in (
                 "PyMaSC.reader.bx.bpt_file",
-                "PyMaSC.utils.bx.binary_file"
+                "PyMaSC.utils.bx.binary_file",
+                "PyMaSC.bacore.ncc"
             )
         ] + [
             Extension(

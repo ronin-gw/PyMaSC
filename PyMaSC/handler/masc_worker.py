@@ -65,7 +65,7 @@ class CalcWorkerBase(Process):
 
         with self.logger_lock:
             logger.debug("{}: Goodbye.".format(self.name))
-        self._deconstructor()
+        self._deconstruct()
 
     def _feed_read(self, read):
         if read.is_reverse:
@@ -84,7 +84,7 @@ class CalcWorkerBase(Process):
     def _put_result_to_report_queue(self, chrom):
         pass
 
-    def _deconstructor(self):
+    def _deconstruct(self):
         pass
 
 
@@ -150,7 +150,7 @@ class MSCCCalcWorker(NaiveCCCalcWorker):
             )
         ))
 
-    def _deconstructor(self):
+    def _deconstruct(self):
         self.bwfeeder.close()
 
 

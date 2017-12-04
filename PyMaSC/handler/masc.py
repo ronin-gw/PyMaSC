@@ -66,9 +66,10 @@ class CCCalcHandler(object):
             self.read_len = estimate_readlen(self.path, self.esttype, self.mapq_criteria)
 
         if self.read_len > self.max_shift:
-            logger.warning("Read lengh ({}) seems to be longer than shift size ({}).".format(
+            logger.error("Read lengh ({}) seems to be longer than shift size ({}).".format(
                 self.read_len, self.max_shift
             ))
+            raise ValueError
 
     def set_mappability_handler(self, mappability_handler):
         self.mappability_handler = mappability_handler

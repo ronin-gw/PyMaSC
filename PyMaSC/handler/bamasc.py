@@ -127,4 +127,5 @@ class BACalcWorker(CalcWorkerBase):
         ))
 
     def _deconstruct(self):
-        self._bwfeeder.close()
+        if self._bwfeeder:
+            self._bwfeeder.close()

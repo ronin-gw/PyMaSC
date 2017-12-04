@@ -77,6 +77,8 @@ def get_parser():
                         help="Moving average window size for smoothing MSCC to estimate library length. (Default: 15)")
     params.add_argument("--skip-ncc", action="store_true",
                         help="Skip naive cross-correlation calculation. Mappability region file must be specified.")
+    params.add_argument("--successive", action="store_true",
+                        help="Calc with successive algorithm instead of bit array implementation")
 
     output = parser.add_argument_group("Output file arguments")
     output.add_argument("-n", "--name", nargs='*', default=[],

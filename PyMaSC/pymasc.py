@@ -10,6 +10,7 @@ from PyMaSC.utils.parsearg import get_parser
 from PyMaSC.utils.progress import ProgressBase
 from PyMaSC.handler.mappability import MappabilityHandler, BWIOError, JSONIOError
 from PyMaSC.handler.masc import CCCalcHandler, InputUnseekable
+from PyMaSC.handler.bamasc import BACalcHandler
 from PyMaSC.handler.result import CCResult, ReadsTooFew
 from PyMaSC.core.ncc import ReadUnsortedError
 from PyMaSC.output.stats import output_cc, output_mscc, output_stats
@@ -74,12 +75,13 @@ def _main():
     basenames = prepare_output(args.reads, args.name, args.outdir, suffixes)
 
     #
+    handler_class = CCCalcHandler if args.successive else BACalcHandler
     calc_handlers = []
     need_logging_unseekable_error = False
     for f in args.reads:
         try:
             calc_handlers.append(
-                CCCalcHandler(f, args.estimation_type, args.max_shift, args.mapq,
+                handler_class(f, args.estimation_type, args.max_shift, args.mapq,
                               args.process, args.skip_ncc)
             )
         except ValueError:

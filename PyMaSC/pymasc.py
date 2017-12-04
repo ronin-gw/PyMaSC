@@ -95,9 +95,15 @@ def _main():
     readlens = []
     if args.read_length is None:
         logger.info("Check read length: Get {} from read length distribution".format(args.estimation_type.lower()))
-    for handler in calc_handlers:
-        handler.set_readlen(args.read_length)
+    for i, handler in enumerate(calc_handlers):
+        try:
+            handler.set_readlen(args.read_length)
+        except ValueError:
+            calc_handlers.pop(i)
+            continue
         readlens.append(handler.read_len)
+    if not calc_handlers:
+        return None
     max_readlen = max(readlens)
 
     #

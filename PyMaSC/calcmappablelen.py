@@ -35,7 +35,8 @@ def _main():
     set_rootlogger(colorize, args.log_level)
     logger.info("PyMaSC version {} with Python{}.{}.{}".format(
                 *[VERSION] + list(sys.version_info[:3])))
-    logger.debug(sys.version)
+    for line in sys.version.split('\n'):
+        logger.debug(line)
 
     # check args
     args.mappability = args.mappability[0]

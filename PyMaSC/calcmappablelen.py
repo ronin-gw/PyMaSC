@@ -25,14 +25,7 @@ def _main():
         parser.error("argument -m/--mappable: expected 1 argument(s)")
 
     # set up logging
-    if args.color == "TRUE":
-        colorize = True
-    elif args.color == "FALSE":
-        colorize = False
-    else:
-        colorize = sys.stderr.isatty()
-
-    set_rootlogger(colorize, args.log_level)
+    set_rootlogger(args.color, args.log_level)
     logger.info("PyMaSC version {} with Python{}.{}.{}".format(
                 *[VERSION] + list(sys.version_info[:3])))
     for line in sys.version.split('\n'):

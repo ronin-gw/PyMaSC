@@ -39,7 +39,7 @@ class CCResult(object):
 
         #
         ncc_max_shift = masc_max_shift = None
-        mappability_max_shift = None
+        self.mappability_max_shift = None
         if not self.skip_ncc:
             self.max_shift = ncc_max_shift = min(map(len, self._skip_none(ref2ccbins.values()))) - 1
         if self.calc_masc:
@@ -47,7 +47,7 @@ class CCResult(object):
                 min(map(len, self._skip_none(d.values())))
                 for d in (mappable_ref2forward_sum, mappable_ref2reverse_sum, mappable_ref2ccbins)
             ]) - 1
-            mappability_max_shift = min(map(len, ref2mappable_len.values()))
+            self.mappability_max_shift = min(map(len, ref2mappable_len.values()))
         if (not self.skip_ncc) and self.calc_masc:
             self.max_shift = min(ncc_max_shift, masc_max_shift)
 
@@ -60,7 +60,16 @@ class CCResult(object):
         self.ref2forward_sum = ref2forward_sum
         self.ref2reverse_sum = ref2reverse_sum
         self.ref2ccbins = ref2ccbins
+        self._init_naive_cc()
 
+        #
+        self.mappable_ref2forward_sum = mappable_ref2forward_sum
+        self.mappable_ref2reverse_sum = mappable_ref2reverse_sum
+        self.mappable_ref2ccbins = mappable_ref2ccbins
+        self.ref2mappable_len = ref2mappable_len
+        self._init_masc()
+
+    def _init_naive_cc(self):
         self.cc = self.cc_min = self.ccrl = None
         self.ref2cc = {}
         self.ref2cc_min = {}
@@ -87,12 +96,7 @@ class CCResult(object):
             self.test_read_balance()
             self._calc_stats()
 
-        #
-        self.mappable_ref2forward_sum = mappable_ref2forward_sum
-        self.mappable_ref2reverse_sum = mappable_ref2reverse_sum
-        self.mappable_ref2ccbins = mappable_ref2ccbins
-        self.ref2mappable_len = ref2mappable_len
-
+    def _init_masc(self):
         self.masc = self.masc_min = self.mascrl = None
         self.estimated_library_len = None
         self.ref2masc = {}
@@ -111,7 +115,7 @@ class CCResult(object):
             required_shift_size = MappabilityHandler.calc_mappable_len_required_shift_size(
                 self.read_len, self.max_shift
             )
-            assert required_shift_size <= mappability_max_shift
+            assert required_shift_size <= self.mappability_max_shift
             #
             self.mappable_forward_sum = np.sum(self._skip_none(self.mappable_ref2forward_sum.values()), axis=0)
             self.mappable_reverse_sum = np.sum(self._skip_none(self.mappable_ref2reverse_sum.values()), axis=0)

@@ -7,32 +7,28 @@ from PyMaSC.utils.output import catch_IOError
 logger = logging.getLogger(__name__)
 
 
+def _output_cctable(outfile, whole_cc, ref2cc):
+    logger.info("Output '{}'".format(outfile))
+    with open(outfile, 'w') as f:
+        keys = sorted(ref2cc)
+        print('\t'.join(["shift", "whole"] + keys), file=f)
+        fmt = '{}\t' * (len(keys) + 1) + '{}'
+        for i, cc in enumerate(whole_cc):
+            print(fmt.format(i, cc, *[ref2cc[k][i] for k in keys]), file=f)
+
+
 @catch_IOError(logger, "CC table")
 def output_cc(outfile, ccr):
     if ccr.skip_ncc:
         return None
-
-    logger.info("Output '{}'".format(outfile))
-    with open(outfile, 'w') as f:
-        keys = sorted(ccr.ref2cc)
-        print('\t'.join(["shift", "whole"] + keys), file=f)
-        fmt = '{}\t' * (len(keys) + 1) + '{}'
-        for i, cc in enumerate(ccr.cc):
-            print(fmt.format(i, cc, *[ccr.ref2cc[k][i] for k in keys]), file=f)
+    _output_cctable(outfile, ccr.cc, ccr.ref2cc)
 
 
 @catch_IOError(logger, "MSCC table")
 def output_mscc(outfile, ccr):
     if not ccr.calc_masc:
         return None
-
-    logger.info("Output '{}'".format(outfile))
-    with open(outfile, 'w') as f:
-        keys = sorted(ccr.ref2masc)
-        print('\t'.join(["shift", "whole"] + keys), file=f)
-        fmt = '{}\t' * (len(keys) + 1) + '{}'
-        for i, cc in enumerate(ccr.masc):
-            print(fmt.format(i, cc, *[ccr.ref2masc[k][i] for k in keys]), file=f)
+    _output_cctable(outfile, ccr.masc, ccr.ref2masc)
 
 
 @catch_IOError(logger, "stats")

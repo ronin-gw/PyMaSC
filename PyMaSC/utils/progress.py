@@ -55,15 +55,8 @@ class ProgressBar(ProgressBase):
 
 class ProgressHook(ProgressBar):
     def __init__(self, queue, body="<1II1>" * 12, prefix='>', suffix='<'):
-        self.body = body
-        self.fmt = "\r" + prefix + "{:<" + str(len(body)) + "}" + suffix
-        self.output = queue  # multiprocessing.Queue
+        super(ProgressHook, self).__init__(body, prefix, suffix, queue)
         self.name = None
-
-        if self.global_switch:
-            self.enable_bar()
-        else:
-            self.disable_bar()
 
     def _clean(self):
         pass
@@ -120,6 +113,14 @@ class MultiLineProgressManager(ProgressBase):
         self.output.write(l[:self.max_width])
         self.output.flush()
 
+    def _refresh_lines(self, from_, to):
+        for i in range(from_, to):
+            k = self.lineno2key[i]
+            self._reset_line()
+            self._write("{} {}".format(self.key2body[k], k))
+            if i < self.nlines:
+                self._write('\n')
+
     def update(self, key, body):
         if key not in self.key2lineno:
             self.nlines += 1
@@ -129,12 +130,7 @@ class MultiLineProgressManager(ProgressBase):
             lineno = self.key2lineno[key]
         self.key2body[key] = body
 
-        for i in range(1, self.nlines + 1):
-            k = self.lineno2key[i]
-            self._reset_line()
-            self._write("{} {}".format(self.key2body[k], k))
-            if i < self.nlines:
-                self._write('\n')
+        self._refresh_lines(1, self.nlines + 1)
 
         self._up(self.nlines - 1)
         if self.nlines == 1:
@@ -146,12 +142,7 @@ class MultiLineProgressManager(ProgressBase):
         except KeyError:
             return None
 
-        for i in range(1, lineno):
-            k = self.lineno2key[i]
-            self._reset_line()
-            self._write("{} {}".format(self.key2body[k], k))
-            if i < self.nlines:
-                self._write('\n')
+        self._refresh_lines(1, lineno)
 
         if lineno == self.nlines:
             self._reset_line()

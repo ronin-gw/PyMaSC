@@ -8,6 +8,7 @@ from .bitarray cimport bit_index_t, bitarray
 from PyMaSC.reader.bx.bigwig_file cimport BigWigFile
 
 from PyMaSC.core.ncc import ReadUnsortedError
+from PyMaSC.utils.progress import ProgressBar
 
 logger = logging.getLogger(__name__)
 
@@ -29,13 +30,13 @@ cdef class CCBitArrayCalculator(object):
         str _chr
         list _solved_chr
         bitarray _forward_array, _reverse_array
-        object _bwfeeder, logger_lock
+        object _bwfeeder, logger_lock, _progress
 
         int64 _last_pos, _last_forward_pos, _last_reverse_pos
-        bint _buff_flashed
+        bint _buff_flashed, _allow_bitarray_progress
 
     def __init__(self, int64 max_shift, references, lengths,
-                 bwfeeder=None, skip_ncc=False, logger_lock=None):
+                 bwfeeder=None, skip_ncc=False, logger_lock=None, progress_bar=None):
         self.MAPPABILITY_THRESHOLD = 1.
 
         self.max_shift = max_shift
@@ -62,6 +63,9 @@ cdef class CCBitArrayCalculator(object):
         self._bwfeeder = bwfeeder
         self.skip_ncc = skip_ncc
         self.logger_lock = logger_lock
+        self._progress = progress_bar if progress_bar else ProgressBar()
+        # Issue: bitarray progress stacks in multiprocessing
+        self._allow_bitarray_progress = progress_bar is None
 
     def _logging_info(self, msg):
         if self.logger_lock:
@@ -69,6 +73,21 @@ cdef class CCBitArrayCalculator(object):
         logger.info(msg)
         if self.logger_lock:
             self.logger_lock.release()
+
+    def _init_progress(self, body, prefix, suffix, maxval):
+        self._progress.body = body
+        self._progress.fmt = "\r" + prefix + "{:<" + str(len(body)) + "}" + suffix
+        self._progress.set(self._chr, maxval)
+
+    def _init_mappability_progress(self):
+        self._progress.enable_bar()
+        self._init_progress("@@@@@^" * 12, '^', ' ', self.ref2genomelen[self._chr])
+
+    def _init_bitarray_progress(self):
+        if self._allow_bitarray_progress:
+            self._init_progress("xxxxxX" * 12, 'X', ' ', self.max_shift)
+        else:
+            self._progress.disable_bar()
 
     def _init_buff(self):
         # To access by 1-based index, allocate arrays with 1 more size.
@@ -148,6 +167,10 @@ cdef class CCBitArrayCalculator(object):
                 ccbin.append(self._forward_array.acount(self._reverse_array))
                 self._reverse_array.rshift(1)
 
+            self._progress.update(i)
+
+        self._progress.clean()
+
     cdef inline bitarray _load_mappability(self):
         cdef bitarray mappability
         cdef BigWigFile feeder
@@ -159,9 +182,15 @@ cdef class CCBitArrayCalculator(object):
         # KeyError raises if there is no mappability tracks for _chr
         feeder = self._bwfeeder.fetch(self.MAPPABILITY_THRESHOLD, self._chr)
         self._logging_info("Loading {} mappability to bit array...".format(self._chr))
+
         mappability = bitarray(self.ref2genomelen[self._chr] + 1)
+        self._init_mappability_progress()
         for begin, end, _val in feeder:
             mappability.set(begin, end)
+            self._progress.update(end)
+        self._progress.update(self.ref2genomelen[self._chr])
+        self._progress.clean()
+
         return mappability
 
     cdef inline _check_pos(self, str chrom, int64 pos):

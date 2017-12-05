@@ -6,7 +6,7 @@ from PyMaSC.bacore.mscc import CCBitArrayCalculator
 from PyMaSC.handler.masc_noindex_worker import SingleProcessCalculator
 from PyMaSC.handler.masc_worker import CalcWorkerBase
 from PyMaSC.reader.bigwig import BigWigReader
-from PyMaSC.utils.progress import ProgressBar
+from PyMaSC.utils.progress import ProgressBar, ProgressHook
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +106,8 @@ class BACalcWorker(CalcWorkerBase):
         self.skip_ncc = skip_ncc
         self._bwfeeder = BigWigReader(mappability_handler.path) if mappability_handler else None
         self.calculator = CCBitArrayCalculator(
-            max_shift, references, lengths, self._bwfeeder, self.skip_ncc, logger_lock
+            max_shift, references, lengths, self._bwfeeder, self.skip_ncc,
+            logger_lock, ProgressHook(report_queue)
         )
 
     def _put_result_to_report_queue(self, chrom):

@@ -66,9 +66,10 @@ class CCCalcHandler(object):
             self.read_len = estimate_readlen(self.path, self.esttype, self.mapq_criteria)
 
         if self.read_len > self.max_shift:
-            logger.warning("Read lengh ({}) seems to be longer than shift size ({}).".format(
+            logger.error("Read lengh ({}) seems to be longer than shift size ({}).".format(
                 self.read_len, self.max_shift
             ))
+            raise ValueError
 
     def set_mappability_handler(self, mappability_handler):
         self.mappability_handler = mappability_handler
@@ -103,14 +104,11 @@ class CCCalcHandler(object):
         self._calc_unsolved_mappabilty()
 
     def _run_multiprocess_calcuration(self):
-        _chrom2finished = {c: False for c in self.references}
+        self._order_queue = Queue()
+        self._report_queue = Queue()
+        self._logger_lock = Lock()
 
-        order_queue = Queue()
-        report_queue = Queue()
-        logger_lock = Lock()
-        progress = MultiLineProgressManager()
-
-        worker_args = [order_queue, report_queue, logger_lock, self.path,
+        worker_args = [self._order_queue, self._report_queue, self._logger_lock, self.path,
                        self.mapq_criteria, self.max_shift, self.references, self.lengths]
         if self.mappability_handler:
             worker_args += [self.mappability_handler.path, self.read_len,
@@ -125,19 +123,26 @@ class CCCalcHandler(object):
         workers = [worker_class(*worker_args)
                    for _ in range(min(self.nworker, len(self.references)))]
 
+        self._run_calculation_with_workers(workers)
+        self._calc_unsolved_mappabilty()
+
+    def _run_calculation_with_workers(self, workers):
+        _chrom2finished = {c: False for c in self.references}
+        progress = MultiLineProgressManager()
+
         for w in workers:
             w.start()
         for chrom in self.references:
-            order_queue.put(chrom)
+            self._order_queue.put(chrom)
         for _ in range(self.nworker):
-            order_queue.put(None)
+            self._order_queue.put(None)
 
         try:
             while True:
-                chrom, obj = report_queue.get()
+                chrom, obj = self._report_queue.get()
                 if chrom is None:  # update progress
                     chrom, body = obj
-                    with logger_lock:
+                    with self._logger_lock:
                         progress.update(chrom, body)
                 else:
                     mappable_len, cc_stats, masc_stats = obj
@@ -147,7 +152,7 @@ class CCCalcHandler(object):
                     if all(_chrom2finished.values()):
                         break
 
-                    with logger_lock:
+                    with self._logger_lock:
                         progress.erase(chrom)
         except:
             for w in workers:
@@ -156,7 +161,6 @@ class CCCalcHandler(object):
             raise
 
         progress.clean()
-        self._calc_unsolved_mappabilty()
 
     def _receive_results(self, chrom, mappable_len, cc_stats, masc_stats):
         f_sum, r_sum, ccbins = cc_stats

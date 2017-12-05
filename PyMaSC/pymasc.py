@@ -10,6 +10,7 @@ from PyMaSC.utils.parsearg import get_parser
 from PyMaSC.utils.progress import ProgressBase
 from PyMaSC.handler.mappability import MappabilityHandler, BWIOError, JSONIOError
 from PyMaSC.handler.masc import CCCalcHandler, InputUnseekable
+from PyMaSC.handler.bamasc import BACalcHandler
 from PyMaSC.handler.result import CCResult, ReadsTooFew
 from PyMaSC.core.ncc import ReadUnsortedError
 from PyMaSC.output.stats import output_cc, output_mscc, output_stats
@@ -36,17 +37,11 @@ def _main():
         parser.error("argument --skip-ncc: -m/--mappable must be specified.")
 
     # set up logging
-    if args.color == "TRUE":
-        colorize = True
-    elif args.color == "FALSE":
-        colorize = False
-    else:
-        colorize = sys.stderr.isatty()
-
-    set_rootlogger(colorize, args.log_level)
+    set_rootlogger(args.color, args.log_level)
     logger.info("PyMaSC version {} with Python{}.{}.{}".format(
                 *[VERSION] + list(sys.version_info[:3])))
-    logger.debug(sys.version)
+    for line in sys.version.split('\n'):
+        logger.debug(line)
 
     # check args
     if args.mappability:
@@ -73,12 +68,13 @@ def _main():
     basenames = prepare_output(args.reads, args.name, args.outdir, suffixes)
 
     #
+    handler_class = CCCalcHandler if args.successive else BACalcHandler
     calc_handlers = []
     need_logging_unseekable_error = False
     for f in args.reads:
         try:
             calc_handlers.append(
-                CCCalcHandler(f, args.estimation_type, args.max_shift, args.mapq,
+                handler_class(f, args.estimation_type, args.max_shift, args.mapq,
                               args.process, args.skip_ncc)
             )
         except ValueError:
@@ -94,9 +90,15 @@ def _main():
     readlens = []
     if args.read_length is None:
         logger.info("Check read length: Get {} from read length distribution".format(args.estimation_type.lower()))
-    for handler in calc_handlers:
-        handler.set_readlen(args.read_length)
+    for i, handler in enumerate(calc_handlers):
+        try:
+            handler.set_readlen(args.read_length)
+        except ValueError:
+            calc_handlers.pop(i)
+            continue
         readlens.append(handler.read_len)
+    if not calc_handlers:
+        return None
     max_readlen = max(readlens)
 
     #

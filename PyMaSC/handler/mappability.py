@@ -43,11 +43,9 @@ class MappabilityHandler(MappableLengthCalculator):
         max_shift = self.calc_mappable_len_required_shift_size(readlen, max_shift)
         self.nworker = nworker
 
-        if not os.path.isfile(path):
-            logger.critical("Failed to open '{}': no such file.".format(path))
-            raise BWIOError
-        elif not os.access(path, os.R_OK):
-            logger.critical("Failed to open '{}': file is unreadable.".format(path))
+        if not os.access(path, os.R_OK):
+            reason = "no such file." if os.path.isfile(path) else "file is unreadable."
+            logger.critical("Failed to open '{}': {}".format(path, reason))
             raise BWIOError
 
         super(MappabilityHandler, self).__init__(path, max_shift)
@@ -61,11 +59,7 @@ class MappabilityHandler(MappableLengthCalculator):
             self.map_path = os.path.splitext(path)[0] + "_mappability.json"
 
         if not os.path.exists(self.map_path):
-            dirname = os.path.dirname(self.map_path)
-            dirname = dirname if dirname else '.'
-            if not os.access(dirname, os.W_OK):
-                logger.critical("Directory is not writable: '{}'".format(dirname))
-                raise JSONIOError
+            self._check_saving_directory_is_writable()
             logger.info("Calcurate mappable length with max shift size {}.".format(max_shift))
         elif not os.path.isfile(self.map_path):
             logger.critical("Specified path is not file: '{}'".format(self.map_path))
@@ -74,25 +68,31 @@ class MappabilityHandler(MappableLengthCalculator):
             if not os.access(self.map_path, os.R_OK):
                 logger.error("Failed to read '{}'".format(self.map_path))
             else:
-                try:
-                    self._load_mappability_stats()
-                except IOError as e:
-                    logger.error("Failed to read '{}'".format(self.map_path))
-                    logger.error("[Errno {}] {}".format(e.errno, e.message))
-                except (TypeError, OverflowError, ValueError, KeyError, IndexError) as e:
-                    logger.error("Failed to load json file: '{}'".format(self.map_path))
-                except NeedUpdate:
-                    pass
+                self._try_load_mappability_stats()
 
                 if self.need_save_stats:
-                    if not os.access(self.map_path, os.W_OK):
-                        logger.critical("Failed to overwrite '{}'".format(self.map_path))
-                        raise JSONIOError
-                    else:
-                        logger.warning("Existing file '{}' will be overwritten.".format(self.map_path))
+                    self._check_stats_is_overwritable()
                     logger.info("Calcurate mappable length with max shift size {}.".format(max_shift))
                 else:
                     logger.info("Use mappability stats read from '{}'".format(self.map_path))
+
+    def _check_saving_directory_is_writable(self):
+        dirname = os.path.dirname(self.map_path)
+        dirname = dirname if dirname else '.'
+        if not os.access(dirname, os.W_OK):
+            logger.critical("Directory is not writable: '{}'".format(dirname))
+            raise JSONIOError
+
+    def _try_load_mappability_stats(self):
+        try:
+            self._load_mappability_stats()
+        except IOError as e:
+            logger.error("Failed to read '{}'".format(self.map_path))
+            logger.error("[Errno {}] {}".format(e.errno, e.message))
+        except (TypeError, OverflowError, ValueError, KeyError, IndexError) as e:
+            logger.error("Failed to load json file: '{}'".format(self.map_path))
+        except NeedUpdate:
+            pass
 
     def _load_mappability_stats(self):
         with open(self.map_path) as f:
@@ -125,6 +125,13 @@ class MappabilityHandler(MappableLengthCalculator):
         self.chrom2is_called = {ref: True for ref in self.chromsizes}
         self.is_called = True
         self.need_save_stats = False
+
+    def _check_stats_is_overwritable(self):
+        if not os.access(self.map_path, os.W_OK):
+            logger.critical("Failed to overwrite '{}'".format(self.map_path))
+            raise JSONIOError
+        else:
+            logger.warning("Existing file '{}' will be overwritten.".format(self.map_path))
 
     def save_mappability_stats(self):
         if not self.need_save_stats:

@@ -54,6 +54,8 @@ def get_parser():
     )
 
     add_common_args(parser)
+    parser.add_argument("--successive", action="store_true",
+                        help="Calc with successive algorithm instead of bit array implementation")
 
     input_args = parser.add_argument_group("Input file arguments")
     input_args.add_argument("reads", nargs="+",
@@ -73,8 +75,8 @@ def get_parser():
                         help="Filter out reads which have less than specified MAPQ. (Default: 1)")
     params.add_argument("--chi2-pval", nargs='?', type=float, default=0.05,
                         help="p-value threshold for Chi-squared test to check strand specificity. (Default: 0.05)")
-    params.add_argument("-w", "--smooth-window", nargs='?', type=int, action=ForceNaturalNumber, default=30,
-                        help="Moving average window size for smoothing MSCC to estimate library length. (Default: 30)")
+    params.add_argument("-w", "--smooth-window", nargs='?', type=int, action=ForceNaturalNumber, default=15,
+                        help="Moving average window size for smoothing MSCC to estimate library length. (Default: 15)")
     params.add_argument("--skip-ncc", action="store_true",
                         help="Skip naive cross-correlation calculation. Mappability region file must be specified.")
 

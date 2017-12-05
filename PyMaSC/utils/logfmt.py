@@ -6,7 +6,14 @@ import sys
 LOGGING_FORMAT = "[%(asctime)s | %(levelname)s] %(name)10s : %(message)s"
 
 
-def set_rootlogger(colorize, log_level):
+def set_rootlogger(args_color, log_level):
+    if args_color == "TRUE":
+        colorize = True
+    elif args_color == "FALSE":
+        colorize = False
+    else:
+        colorize = sys.stderr.isatty()
+
     rl = logging.getLogger('')
 
     h = logging.StreamHandler()

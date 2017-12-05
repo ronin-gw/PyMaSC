@@ -82,20 +82,26 @@ def plot_naive_cc(ccr, name=None, xlim=None):
         "red", height/50
     )
 
-    if ccr.estimated_library_len:
+    if ccr.estimated_library_len or ccr.expected_library_len:
+        if ccr.estimated_library_len:
+            library_len = ccr.estimated_library_len
+            ccfl = ccr.estimated_ccfl
+            nsc = ccr.estimated_nsc
+            rsc = ccr.estimated_rsc
+            color = "blue"
+        elif ccr.expected_library_len:
+            library_len = ccr.expected_library_len
+            ccfl = ccr.ccfl
+            nsc = ccr.nsc
+            rsc = ccr.rsc
+            color = "green"
+
         _annotate_point(
-            ccr.estimated_library_len - 1, ccr.estimated_ccfl, " cc(lib length) = {:.5f}".format(ccr.estimated_ccfl),
-            upper - height/10, 'estimated lib len: {}'.format(ccr.estimated_library_len),
-            "blue", height/50
+            library_len - 1, ccfl, " cc(lib length) = {:.5f}".format(ccfl),
+            upper - height/10, 'estimated lib len: {}'.format(library_len),
+            color, height/50
         )
-        _annotate_params(ccr.estimated_nsc, ccr.estimated_rsc)
-    elif ccr.expected_library_len:
-        _annotate_point(
-            ccr.expected_library_len - 1, ccr.ccfl, " cc(lib length) = {:.5f}".format(ccr.ccfl),
-            upper - height/10, 'estimated lib len: {}'.format(ccr.expected_library_len),
-            "green", height/50
-        )
-        _annotate_params(ccr.nsc, ccr.rsc)
+        _annotate_params(nsc, rsc)
 
 
 def plot_naive_cc_just(ccr, name=None):

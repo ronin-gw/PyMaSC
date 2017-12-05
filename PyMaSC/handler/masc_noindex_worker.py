@@ -108,16 +108,7 @@ class SingleProcessCalculator(object):
 
         self._progress.clean()
         self.align_file.close()
-
-        if not self.skip_ncc:
-            self.nccc.finishup_calculation()
-
-        if self.mscc:
-            self.mscc.finishup_calculation()
-            self._bwfeeder.close()
-            self.ref2mappable_len = self._bwfeeder.chrom2mappable_len
-            self.mappability_handler.chrom2mappable_len = self._bwfeeder.chrom2mappable_len
-            self.mappability_handler.mappable_len = self._bwfeeder.mappable_len
+        self._deconstruct()
 
     def _feed_read(self, is_reverse, chrom, pos, readlen):
         try:
@@ -128,3 +119,14 @@ class SingleProcessCalculator(object):
             self._bwfeeder.close()
             self._progress.clean()
             raise
+
+    def _deconstruct(self):
+        if not self.skip_ncc:
+            self.nccc.finishup_calculation()
+
+        if self.mscc:
+            self.mscc.finishup_calculation()
+            self._bwfeeder.close()
+            self.ref2mappable_len = self._bwfeeder.chrom2mappable_len
+            self.mappability_handler.chrom2mappable_len = self._bwfeeder.chrom2mappable_len
+            self.mappability_handler.mappable_len = self._bwfeeder.mappable_len

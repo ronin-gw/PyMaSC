@@ -1,5 +1,18 @@
 # Change Log
 
+## V0.2.0 (2017-12-05)
+**Implemented enhancements:**
+- Add BitArray implementation
+- Some refactoring
+
+**Fixed bugs:**
+- Shift size shorter than read length is not acceptable now
+- Default window size for smoothing changes 30 to 15
+
+**Known issues:**
+- Progress display for bitarray calculation with multiprocessing is currently  
+  disabled due to `multiprocessing.Queue` stuffing
+
 ## v0.1.1 (2017-12-01)
 **Implemented enhancements:**
 - matplotlib delay import and now import error is not critical for calculation

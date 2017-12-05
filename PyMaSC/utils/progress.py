@@ -40,7 +40,7 @@ class ProgressBar(ProgressBase):
         self.output.flush()
 
     def set(self, name, maxval):
-        self._unit = maxval / len(self.body)
+        self._unit = float(maxval) / len(self.body)
         self.pos = 0
         self._next_update = self._unit
         self.format('')
@@ -55,15 +55,8 @@ class ProgressBar(ProgressBase):
 
 class ProgressHook(ProgressBar):
     def __init__(self, queue, body="<1II1>" * 12, prefix='>', suffix='<'):
-        self.body = body
-        self.fmt = "\r" + prefix + "{:<" + str(len(body)) + "}" + suffix
-        self.output = queue  # multiprocessing.Queue
+        super(ProgressHook, self).__init__(body, prefix, suffix, queue)
         self.name = None
-
-        if self.global_switch:
-            self.enable_bar()
-        else:
-            self.disable_bar()
 
     def _clean(self):
         pass
@@ -120,6 +113,14 @@ class MultiLineProgressManager(ProgressBase):
         self.output.write(l[:self.max_width])
         self.output.flush()
 
+    def _refresh_lines(self, from_, to):
+        for i in range(from_, to):
+            k = self.lineno2key[i]
+            self._reset_line()
+            self._write("{} {}".format(self.key2body[k], k))
+            if i < self.nlines:
+                self._write('\n')
+
     def update(self, key, body):
         if key not in self.key2lineno:
             self.nlines += 1
@@ -129,12 +130,7 @@ class MultiLineProgressManager(ProgressBase):
             lineno = self.key2lineno[key]
         self.key2body[key] = body
 
-        for i in range(1, self.nlines + 1):
-            k = self.lineno2key[i]
-            self._reset_line()
-            self._write("{} {}".format(self.key2body[k], k))
-            if i < self.nlines:
-                self._write('\n')
+        self._refresh_lines(1, self.nlines + 1)
 
         self._up(self.nlines - 1)
         if self.nlines == 1:
@@ -146,12 +142,7 @@ class MultiLineProgressManager(ProgressBase):
         except KeyError:
             return None
 
-        for i in range(1, lineno):
-            k = self.lineno2key[i]
-            self._reset_line()
-            self._write("{} {}".format(self.key2body[k], k))
-            if i < self.nlines:
-                self._write('\n')
+        self._refresh_lines(1, lineno)
 
         if lineno == self.nlines:
             self._reset_line()
@@ -219,7 +210,7 @@ class ReadCountProgressBar(ProgressBar, MultiLineProgressManager):
             self._genome_offset += self._chrom_maxval
         self._chrom = name
         self._chrom_maxval = maxval
-        self._chrom_unit = maxval / len(self.chrom_body)
+        self._chrom_unit = float(maxval) / len(self.chrom_body)
         self.chrom_pos = 0
         self._chrom_next_update = self._chrom_unit
 
@@ -231,7 +222,7 @@ class ReadCountProgressBar(ProgressBar, MultiLineProgressManager):
         self._up(1)
 
     def _set_genome(self, maxval):
-        self._genome_unit = maxval / len(self.genome_body)
+        self._genome_unit = float(maxval) / len(self.genome_body)
         self.genome_pos = 0
         self._genome_next_update = self._genome_unit
 

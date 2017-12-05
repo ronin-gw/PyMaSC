@@ -25,7 +25,7 @@ cdef class BigWigReader(object):
         cdef bits32 begin, end
 
         if chrom not in self.chromsizes:
-            raise AttributeError("Reference name '{}' not found.".format(chrom))
+            raise KeyError("Reference name '{}' not found.".format(chrom))
 
         begin = 0
         end = self.chromsizes[chrom]

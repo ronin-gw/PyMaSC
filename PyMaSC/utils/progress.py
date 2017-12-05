@@ -40,7 +40,7 @@ class ProgressBar(ProgressBase):
         self.output.flush()
 
     def set(self, name, maxval):
-        self._unit = maxval / len(self.body)
+        self._unit = float(maxval) / len(self.body)
         self.pos = 0
         self._next_update = self._unit
         self.format('')
@@ -219,7 +219,7 @@ class ReadCountProgressBar(ProgressBar, MultiLineProgressManager):
             self._genome_offset += self._chrom_maxval
         self._chrom = name
         self._chrom_maxval = maxval
-        self._chrom_unit = maxval / len(self.chrom_body)
+        self._chrom_unit = float(maxval) / len(self.chrom_body)
         self.chrom_pos = 0
         self._chrom_next_update = self._chrom_unit
 
@@ -231,7 +231,7 @@ class ReadCountProgressBar(ProgressBar, MultiLineProgressManager):
         self._up(1)
 
     def _set_genome(self, maxval):
-        self._genome_unit = maxval / len(self.genome_body)
+        self._genome_unit = float(maxval) / len(self.genome_body)
         self.genome_pos = 0
         self._genome_next_update = self._genome_unit
 

@@ -55,7 +55,7 @@ def _link_source():
 
 class BuildExtCommand(build_ext.build_ext):
     def run(self):
-        command = ' '.join(["cd", BITARRAY_DIR, "&&", "make"])
+        command = ' '.join(["cd", BITARRAY_DIR, "&&", "make", "libbitarr.a"])
         subprocess.check_call(command, shell=True)
         build_ext.build_ext.run(self)
 

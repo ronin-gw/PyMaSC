@@ -57,6 +57,7 @@ cross-correlation.
            [--disable-progress]
            [--color [{TRUE,FALSE}]]
            [--version]
+           [--successive]
            [-r [READ_LENGTH]]  
            [--estimation-type [{MEAN,MEDIAN,MODE,MIN,MAX}]]  
            [-m REGION_FILE]
@@ -89,11 +90,12 @@ Output `ENCFF000VPI_mscc.tab` Additionally.
 
 
 #### Input file
-SAM and BAM file format are acceptable. Input alignment file must be sorted.  
-For parallel processing, input file must be BAM format and indexed.  
-If multiple files specified, PyMaSC processes each file with common parameters.  
-Unmapped or duplicated reads will be discarded.  
-If input file contains paired-end reads, the last (second) segment read will be discarded.
+SAM and BAM file format are acceptable.
+* Input alignment file must be sorted.  
+ * Additionally, for parallel processing, input file must be BAM format and indexed.  
+* If multiple files specified, PyMaSC processes each file with common parameters.  
+* Unmapped or duplicated reads will be discarded.  
+* If input file contains paired-end reads, the last (second) segment read will be discarded.
 
 #### General options
 
@@ -111,6 +113,13 @@ Note that progress bar will be disabled automatically if stderr is not connected
 ##### --color {TRUE,FALSE}
 Switch coloring log output. (Default: auto; enable if stderr is connected to terminal)
 
+#### --version
+Show program's version number and exit
+
+#### --successive
+Calc with successive algorithm instead of bitarray implementation (Default: false)
+Bitarray implementation is recommended　in most situation. See `Computation details`
+for more information.
 
 #### Read length settings
 
@@ -210,3 +219,31 @@ Almost same as `pymasc` command.
 Note that actual max shift size is,
 - 0 to `read_length` (if `max_shift` < `read_len` * 2)
 - 0 to `max_shift` - `read_len` + 1 (if `max_shift` => `read_len` * 2)
+
+
+Computation details
+-------------------
+
+### BitArray and successive implementation
+PyMaSC provides two algorithms for calculation.
+
+#### BitArray
+BitArray approach is based on
+allocated binary arrays with length of references and computation time mostly
+depends on the size of reference genome and the maximum shift size. Typically
+(hg19, chr1), PyMaSC consumes about 250MB RAM per worker.  
+
+#### Successive implementation
+Successive implementation is based on buffer with length of maximum shift size
+and calculate overwrapped bases successively while reading reads and mappable
+regions. Computation time mostly depends on number of reads and tracks in input
+files and BitArray implementation is faster in most cases.
+Successive approach surpasses in processing small input data, quite low memory
+efficiency and robustness for shift size.
+
+
+References
+----------
+* Ramachandran, Parameswaran, et al. "MaSC: mappability-sensitive cross-correlation
+  for estimating mean fragment length of single-end short-read sequencing data."
+  Bioinformatics 29.4 (2013): 444-450.

@@ -1,3 +1,9 @@
-include setup.py requirements.txt README.md LICENSE
-recursive-include PyMaSC *.py *.pyx *.pxd *.c
-recursive-include external/bx-python/lib/bx *.py *.pyx *.pxd *.c *.h
+include external/BitArray/AUTHORS
+include external/BitArray/bit_array.c
+include external/BitArray/bit_array.h
+include external/BitArray/bit_macros.h
+include external/BitArray/LICENSE
+include external/BitArray/Makefile
+include external/BitArray/README.md
+
+include external/bitcnt.h

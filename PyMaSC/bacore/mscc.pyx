@@ -86,7 +86,7 @@ cdef class CCBitArrayCalculator(object):
         self._calc_correlation()
         self._buff_flashed = True
 
-    cdef inline void _calc_correlation(self):
+    cdef inline int _calc_correlation(self) except -1:
         chromsize = self.ref2genomelen[self._chr] + 1
 
         cdef bit_index_t forward_sum, reverse_sum
@@ -126,6 +126,8 @@ cdef class CCBitArrayCalculator(object):
 
         # calc cross-correlation
         self._logging_info("Calculate cross-correlation for {}...".format(self._chr))
+        self._init_bitarray_progress()
+
         for i in xrange(self.max_shift + 1):
             # calc mappability-sensitive cross-correlation
             if mappability:

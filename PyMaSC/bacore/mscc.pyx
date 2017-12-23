@@ -105,7 +105,10 @@ cdef class CCBitArrayCalculator(object):
         if self._buff_flashed:
             return None
 
-        self._calc_correlation()
+        # keep this method safe to call; for chroms which have no reads.
+        if self._chr != '':
+            self._calc_correlation()
+
         self._buff_flashed = True
 
     cdef inline int _calc_correlation(self) except -1:

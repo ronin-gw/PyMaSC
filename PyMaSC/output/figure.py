@@ -179,7 +179,7 @@ def _plot_ncc_vs_masc(pp, title, max_shift, read_len,
 
     plt.title(title)
     plt.xlabel("Reverse Strand Shift")
-    plt.ylabel("Relative Cross-Correlation from Infimum")
+    plt.ylabel("Relative Cross-Correlation from each minimum")
 
     if cc is not None:
         plt.plot(xrange(max_shift + 1), cc - cc_min, color="black", linewidth=0.5, label="Naive CC")

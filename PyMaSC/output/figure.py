@@ -1,6 +1,8 @@
 import logging
 import os.path
 
+import numpy as np
+
 from PyMaSC.utils.calc import moving_avr_filter
 from PyMaSC.utils.output import catch_IOError
 from PyMaSC.utils.compatible import xrange
@@ -170,7 +172,10 @@ def plot_ncc_vs_masc(pp, ccr, name):
 def _plot_ncc_vs_masc(pp, title, max_shift, read_len,
                       cc=None, cc_min=None, masc=None, masc_min=None,
                       nsc=None, rsc=None, estimated_library_len=None, expected_library_len=None):
-    assert (cc is not None) or (masc is not None)
+    assert (
+        (cc is not None and not np.all(np.isnan(cc))) or
+        (masc is not None and not np.all(np.isnan(masc)))
+    )
 
     plt.title(title)
     plt.xlabel("Reverse Strand Shift")

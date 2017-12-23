@@ -13,6 +13,17 @@ class ReadsTooFew(IndexError):
     pass
 
 
+def _npcalc_with_logging_warn(func):
+    try:
+        with np.errstate(divide="raise", invalid="raise"):
+            return func()
+    except FloatingPointError as e:
+        logger.debug("catch numpy warning: " + e.message)
+        logger.debug("continue anyway.")
+        with np.errstate(divide="ignore", invalid="ignore"):
+            return func()
+
+
 class CCResult(object):
     @staticmethod
     def _skip_none(i):
@@ -140,16 +151,12 @@ class CCResult(object):
         reverse_var = reverse_mean * (1 - reverse_mean)
 
         sum_prod = forward_mean * reverse_mean
-        var_geomean = (forward_var * reverse_var) ** 0.5
-
-        try:
-            with np.errstate(divide="raise", invalid="raise"):
-                cc = (ccbins / denom - sum_prod) / var_geomean
-        except FloatingPointError as e:
-            logger.debug("catch numpy warning: " + e.message)
-            logger.debug("continue anyway.")
-            with np.errstate(divide="ignore", invalid="ignore"):
-                cc = (ccbins / denom - sum_prod) / var_geomean
+        var_geomean = _npcalc_with_logging_warn(
+            lambda: (forward_var * reverse_var) ** 0.5
+        )
+        cc = _npcalc_with_logging_warn(
+            lambda: (ccbins / denom - sum_prod) / var_geomean
+        )
 
         cc_min = min(cc)
 

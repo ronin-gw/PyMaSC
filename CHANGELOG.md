@@ -1,6 +1,11 @@
 # Change Log
 
-## V0.2.0 (2017-12-05)
+## v0.2.1 (2017-12-23)
+**Fixed bugs:**
+- BitArray length shortage for reverse strand reads
+- BitArray implementation fails for chromosomes which have no mapped reads
+
+## v0.2.0 (2017-12-05)
 **Implemented enhancements:**
 - Add BitArray implementation
 - Some refactoring

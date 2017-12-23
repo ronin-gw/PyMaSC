@@ -11,6 +11,7 @@ from PyMaSC.core.ncc import ReadUnsortedError
 from PyMaSC.utils.progress import ProgressBar
 
 logger = logging.getLogger(__name__)
+MAX_READLEN = 1000
 
 
 cdef class CCBitArrayCalculator(object):
@@ -91,7 +92,9 @@ cdef class CCBitArrayCalculator(object):
 
     def _init_buff(self):
         # To access by 1-based index, allocate arrays with 1 more size.
-        chromsize = self.ref2genomelen[self._chr] + 1
+        # Additionally, extra spaces same or more than (read_length - 1)
+        # is needed to contain reverse strand reads.
+        chromsize = self.ref2genomelen[self._chr] + MAX_READLEN
         self._forward_array = bitarray(chromsize)
         self._reverse_array = bitarray(chromsize)
 
@@ -102,7 +105,10 @@ cdef class CCBitArrayCalculator(object):
         if self._buff_flashed:
             return None
 
-        self._calc_correlation()
+        # keep this method safe to call; for chroms which have no reads.
+        if self._chr != '':
+            self._calc_correlation()
+
         self._buff_flashed = True
 
     cdef inline int _calc_correlation(self) except -1:

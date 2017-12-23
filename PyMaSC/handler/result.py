@@ -142,7 +142,14 @@ class CCResult(object):
         sum_prod = forward_mean * reverse_mean
         var_geomean = (forward_var * reverse_var) ** 0.5
 
-        cc = (ccbins / denom - sum_prod) / var_geomean
+        try:
+            with np.errstate(divide="raise", invalid="raise"):
+                cc = (ccbins / denom - sum_prod) / var_geomean
+        except FloatingPointError as e:
+            logger.debug("catch numpy warning: " + e.message)
+            logger.debug("continue anyway.")
+            with np.errstate(divide="ignore", invalid="ignore"):
+                cc = (ccbins / denom - sum_prod) / var_geomean
 
         cc_min = min(cc)
 

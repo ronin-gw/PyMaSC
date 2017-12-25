@@ -31,7 +31,7 @@ class CCCalcHandler(object):
             logger.error("File has no sequences defined.")
             raise
         self.references = self.align_file.references
-        self.lengths = self.align_file.lengths
+        self.lengths = list(self.align_file.lengths)
 
         if not self.align_file.has_index() and self.nworker > 1:
             logger.error("Need indexed alignment file for multi-processng. "
@@ -73,6 +73,25 @@ class CCCalcHandler(object):
 
     def set_mappability_handler(self, mappability_handler):
         self.mappability_handler = mappability_handler
+        bw_chromsizes = self.mappability_handler.chromsizes
+
+        for i, reference in enumerate(self.references):
+            if reference not in bw_chromsizes:
+                logger.debug("mappability for '{}' not found".format(reference))
+                continue
+
+            bw_chr_size = bw_chromsizes[reference]
+            bam_chr_size = self.lengths[i]
+            if bw_chr_size != bam_chr_size:
+                logger.warning(
+                    "'{}' reference length mismatch: SAM/BAM -> {:,}, BigWig -> {:,}".format(
+                        reference, bam_chr_size, bw_chr_size
+                    )
+                )
+                if bam_chr_size < bw_chr_size:
+                    logger.warning("Use longer length '{:d}' for '{}' anyway".format(
+                                   bw_chr_size, reference))
+                    self.lengths[i] = bw_chr_size
 
     def run_calcuration(self):
         if self.nworker > 1:

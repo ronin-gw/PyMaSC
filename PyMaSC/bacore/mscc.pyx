@@ -11,14 +11,16 @@ from PyMaSC.core.ncc import ReadUnsortedError
 from PyMaSC.utils.progress import ProgressBar
 
 logger = logging.getLogger(__name__)
-MAX_READLEN = 1000
 
 
 cdef class CCBitArrayCalculator(object):
-    cdef public double MAPPABILITY_THRESHOLD
+    cdef public:
+        double MAPPABILITY_THRESHOLD
+        int64 EXTRA_ALLOCATE_SIZE
 
     cdef readonly:
         int64 max_shift
+        int64 read_len
         dict ref2genomelen
         int64 genomelen
         int64 forward_sum, reverse_sum
@@ -33,14 +35,17 @@ cdef class CCBitArrayCalculator(object):
         bitarray _forward_array, _reverse_array
         object _bwfeeder, logger_lock, _progress
 
-        int64 _last_pos, _last_forward_pos, _last_reverse_pos
+        int64 _last_pos, _last_forward_pos, _last_reverse_pos, _array_extend_size
         bint _buff_flashed, _allow_bitarray_progress
 
-    def __init__(self, int64 max_shift, references, lengths,
+    def __init__(self, int64 max_shift, int64 read_len, references, lengths,
                  bwfeeder=None, skip_ncc=False, logger_lock=None, progress_bar=None):
         self.MAPPABILITY_THRESHOLD = 1.
+        # bitarary extra allocate size for reads longer than self.read_len
+        self.EXTRA_ALLOCATE_SIZE = 100
 
         self.max_shift = max_shift
+        self.read_len = read_len
         self.ref2genomelen = dict(zip(references, lengths))
         self.genomelen = sum(lengths)
         # stats
@@ -59,6 +64,7 @@ cdef class CCBitArrayCalculator(object):
         self._chr = ''
         self._solved_chr = []
         self._buff_flashed = False
+        self._array_extend_size = self.read_len + self.max_shift + self.EXTRA_ALLOCATE_SIZE
 
         #
         self._bwfeeder = bwfeeder
@@ -94,7 +100,7 @@ cdef class CCBitArrayCalculator(object):
         # To access by 1-based index, allocate arrays with 1 more size.
         # Additionally, extra spaces same or more than (read_length - 1)
         # is needed to contain reverse strand reads.
-        chromsize = self.ref2genomelen[self._chr] + MAX_READLEN
+        chromsize = self.ref2genomelen[self._chr] + self._array_extend_size
         self._forward_array = bitarray(chromsize)
         self._reverse_array = bitarray(chromsize)
 
@@ -148,6 +154,7 @@ cdef class CCBitArrayCalculator(object):
 
             forward_mappability = mappability
             reverse_mappability = mappability.clone()
+            reverse_mappability.lshift(self.read_len - 1)
 
         # calc cross-correlation
         self._logging_info("Calculate cross-correlation for {}...".format(self._chr))
@@ -157,7 +164,8 @@ cdef class CCBitArrayCalculator(object):
             # calc mappability-sensitive cross-correlation
             if mappability:
                 doubly_mappable_region.alloc_and(forward_mappability, reverse_mappability)
-                mappable_len.append(doubly_mappable_region.count())
+                if i >= self.read_len - 1:
+                    mappable_len.append(doubly_mappable_region.count())
 
                 mappable_forward.alloc_and(self._forward_array, doubly_mappable_region)
                 mappable_reverse.alloc_and(self._reverse_array, doubly_mappable_region)
@@ -189,7 +197,9 @@ cdef class CCBitArrayCalculator(object):
         feeder = self._bwfeeder.fetch(self.MAPPABILITY_THRESHOLD, self._chr)
         self._logging_info("Loading {} mappability to bit array...".format(self._chr))
 
-        mappability = bitarray(self.ref2genomelen[self._chr] + 1)
+        # Allocate same size as forward/reverse read array
+        chromsize = self.ref2genomelen[self._chr] + self._array_extend_size
+        mappability = bitarray(chromsize)
         self._init_mappability_progress()
         for begin, end, _val in feeder:
             mappability.set(begin, end)

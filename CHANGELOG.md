@@ -1,5 +1,14 @@
 # Change Log
 
+## v0.2.2 (2017-12-26)
+**Implemented enhancements:**
+- Warn reference lenth discordancy between alignment and mappability file
+
+**Fixed bugs:**
+- Add forgetted initial rotate for mappability array
+- BitArray length shortage if mappability tracks include positions which are out
+  of range of alignment file reference length
+
 ## v0.2.1 (2017-12-23)
 **Fixed bugs:**
 - BitArray length shortage for reverse strand reads
@@ -15,7 +24,7 @@
 - Default window size for smoothing changes 30 to 15
 
 **Known issues:**
-- Progress display for bitarray calculation with multiprocessing is currently  
+- Progress display for bitarray calculation with multiprocessing is currently
   disabled due to `multiprocessing.Queue` stuffing
 
 ## v0.1.1 (2017-12-01)

@@ -45,8 +45,8 @@ class BACalcHandler(CCCalcHandler):
         workers = [
             BACalcWorker(
                 self._order_queue, self._report_queue, self._logger_lock,
-                self.path, self.mapq_criteria, self.max_shift, self.references, self.lengths,
-                self.mappability_handler, self.skip_ncc
+                self.path, self.mapq_criteria, self.max_shift, self.read_len,
+                self.references, self.lengths, self.mappability_handler, self.skip_ncc
             ) for _ in range(min(self.nworker, len(self.references)))
         ]
 
@@ -79,7 +79,8 @@ class BASingleProcessCalculator(SingleProcessCalculator):
 
         #
         self.calculator = CCBitArrayCalculator(
-            self.max_shift, self.references, self.lengths, self._bwfeeder, self.skip_ncc
+            self.max_shift, self.read_len, self.references, self.lengths,
+            self._bwfeeder, self.skip_ncc
         )
 
     def _stepping_calc(self, is_reverse, chrom, pos, readlen):
@@ -96,7 +97,7 @@ class BASingleProcessCalculator(SingleProcessCalculator):
 
 class BACalcWorker(CalcWorkerBase):
     def __init__(self, order_queue, report_queue, logger_lock,
-                 path, mapq_criteria, max_shift, references, lengths,
+                 path, mapq_criteria, max_shift, read_len, references, lengths,
                  mappability_handler=None, skip_ncc=False):
         super(BACalcWorker, self).__init__(
             order_queue, report_queue, logger_lock, path,
@@ -106,7 +107,7 @@ class BACalcWorker(CalcWorkerBase):
         self.skip_ncc = skip_ncc
         self._bwfeeder = BigWigReader(mappability_handler.path) if mappability_handler else None
         self.calculator = CCBitArrayCalculator(
-            max_shift, references, lengths, self._bwfeeder, self.skip_ncc,
+            max_shift, read_len, references, lengths, self._bwfeeder, self.skip_ncc,
             logger_lock, ProgressHook(report_queue)
         )
 

@@ -13,14 +13,11 @@ from PyMaSC.handler.masc import CCCalcHandler, InputUnseekable
 from PyMaSC.handler.bamasc import BACalcHandler
 from PyMaSC.handler.result import CCResult, ReadsTooFew
 from PyMaSC.core.ncc import ReadUnsortedError
-from PyMaSC.output.stats import output_cc, output_mscc, output_stats
+from PyMaSC.output.stats import output_cc, output_mscc, output_stats, CCOUTPUT_SUFFIX, MSCCOUTPUT_SUFFIX, STATSFILE_SUFFIX
 
 logger = logging.getLogger(__name__)
 
 PLOTFILE_SUFFIX = ".pdf"
-CCOUTPUT_SUFFIX = "_cc.tab"
-MSCCOUTPUT_SUFFIX = "_mscc.tab"
-STATSFILE_SUFFIX = "_stats.tab"
 EXPECT_OUTFILE_SUFFIXES = (PLOTFILE_SUFFIX, CCOUTPUT_SUFFIX, MSCCOUTPUT_SUFFIX, STATSFILE_SUFFIX)
 
 
@@ -127,11 +124,7 @@ def _main():
 
         try:
             result_handler = CCResult(
-                handler.references, handler.lengths, handler.read_len,
-                handler.ref2forward_sum, handler.ref2reverse_sum, handler.ref2ccbins,
-                handler.mappable_ref2forward_sum, handler.mappable_ref2reverse_sum,
-                handler.mappable_ref2ccbins, handler.ref2mappable_len,
-                args.smooth_window, args.chi2_pval, args.library_length
+                handler, args.smooth_window, args.chi2_pval, args.library_length
             )
         except ReadsTooFew:
             result_handler = None
@@ -140,9 +133,8 @@ def _main():
             continue
 
         #
-        output_cc(output_basename + CCOUTPUT_SUFFIX, result_handler)
-        output_mscc(output_basename + MSCCOUTPUT_SUFFIX, result_handler)
-        output_stats(output_basename + STATSFILE_SUFFIX, result_handler)
+        for output_func in output_cc, output_mscc, output_stats:
+            output_func(output_basename, result_handler)
         if not args.skip_plots:
             plotfile_path = output_basename + PLOTFILE_SUFFIX
             try:

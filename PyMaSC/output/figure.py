@@ -23,20 +23,20 @@ except:
 @catch_IOError(logger, "figure")
 def plot_figures(outfile, ccr):
     logger.info("Output '{}'".format(outfile))
-    name = os.path.basename(outfile)
+    name = os.path.basename(os.path.splitext(outfile)[0])
 
     with PdfPages(outfile) as pp:
         if not ccr.skip_ncc:
-            plot_naive_cc(ccr, name)
+            plot_naive_cc(ccr.whole, name)
             pp.savefig()
             plt.close()
 
         if ccr.calc_masc:
-            if plot_naive_cc_just(ccr, name):
+            if plot_naive_cc_just(ccr.whole, name):
                 pp.savefig()
                 plt.close()
 
-            plot_masc(ccr, name)
+            plot_masc(ccr.whole, name)
             pp.savefig()
             plt.close()
 
@@ -58,7 +58,7 @@ def _annotate_params(nsc, rsc, loc="lower right"):
     )
 
 
-def plot_naive_cc(ccr, name=None, xlim=None):
+def plot_naive_cc(stats, name=None, xlim=None):
     title = "Cross-Correlation"
     if name:
         title += " for " + name
@@ -67,7 +67,7 @@ def plot_naive_cc(ccr, name=None, xlim=None):
     plt.xlabel("Reverse Strand Shift")
     plt.ylabel("Cross-Correlation")
 
-    plt.plot(xrange(ccr.max_shift + 1), ccr.cc, color="black", linewidth=0.5)
+    plt.plot(xrange(stats.max_shift + 1), stats.cc, color="black", linewidth=0.5)
     axes = plt.gca()
     if xlim:
         axes.set_xlim(xlim)
@@ -75,27 +75,27 @@ def plot_naive_cc(ccr, name=None, xlim=None):
     lower, upper = axes.set_ylim((lower, upper * 1.1))
     height = upper - lower
 
-    plt.axhline(ccr.cc_min, linestyle="dashed", linewidth=0.5)
-    plt.text(0, ccr.cc_min, 'min(cc) = {:.5f}'.format(ccr.cc_min))
+    plt.axhline(stats.cc_min, linestyle="dashed", linewidth=0.5)
+    plt.text(0, stats.cc_min, 'min(cc) = {:.5f}'.format(stats.cc_min))
 
     _annotate_point(
-        ccr.read_len - 1, ccr.ccrl, " cc(read length) = {:.5f}".format(ccr.ccrl),
-        upper - height/25, 'read length: {:.1f}'.format(ccr.read_len),
+        stats.read_len - 1, stats.ccrl, " cc(read length) = {:.5f}".format(stats.ccrl),
+        upper - height/25, 'read length: {:.1f}'.format(stats.read_len),
         "red", height/50
     )
 
-    if ccr.estimated_library_len or ccr.expected_library_len:
-        if ccr.estimated_library_len:
-            library_len = ccr.estimated_library_len
-            ccfl = ccr.estimated_ccfl
-            nsc = ccr.estimated_nsc
-            rsc = ccr.estimated_rsc
+    if stats.est_lib_len or stats.library_len:
+        if stats.est_lib_len:
+            library_len = stats.est_lib_len
+            ccfl = stats.est_ccfl
+            nsc = stats.est_nsc
+            rsc = stats.est_rsc
             color = "blue"
-        elif ccr.expected_library_len:
-            library_len = ccr.expected_library_len
-            ccfl = ccr.ccfl
-            nsc = ccr.nsc
-            rsc = ccr.rsc
+        elif stats.library_len:
+            library_len = stats.library_len
+            ccfl = stats.ccfl
+            nsc = stats.nsc
+            rsc = stats.rsc
             color = "green"
 
         _annotate_point(
@@ -106,14 +106,14 @@ def plot_naive_cc(ccr, name=None, xlim=None):
         _annotate_params(nsc, rsc)
 
 
-def plot_naive_cc_just(ccr, name=None):
-    if not ccr.skip_ncc and ccr.estimated_library_len * 2 < ccr.max_shift + 1:
-        plot_naive_cc(ccr, name, (0, ccr.estimated_library_len * 2))
+def plot_naive_cc_just(stats, name=None):
+    if stats.calc_ncc and stats.est_lib_len * 2 < stats.max_shift + 1:
+        plot_naive_cc(stats, name, (0, stats.est_lib_len * 2))
         return True
     return False
 
 
-def plot_masc(ccr, name=None):
+def plot_masc(stats, name=None):
     title = "MSCC and Library Length Estimation"
     if name:
         title += " for " + name
@@ -122,26 +122,26 @@ def plot_masc(ccr, name=None):
     plt.xlabel("Reverse Strand Shift")
     plt.ylabel("Mappability Sensitive Cross-Correlation")
 
-    plt.plot(xrange(ccr.max_shift + 1), ccr.masc, color="black", linewidth=0.5, label="MSCC")
-    plt.plot(xrange(ccr.max_shift + 1), moving_avr_filter(ccr.masc, ccr.filter_len), alpha=0.8, label="Smoothed")
+    plt.plot(xrange(stats.max_shift + 1), stats.masc, color="black", linewidth=0.5, label="MSCC")
+    plt.plot(xrange(stats.max_shift + 1), moving_avr_filter(stats.masc, stats.filter_len), alpha=0.8, label="Smoothed")
 
     axes = plt.gca()
     lower, upper = axes.get_ylim()
     lower, upper = axes.set_ylim((lower, upper * 1.1))
     height = upper - lower
 
-    masc_ll = ccr.masc[ccr.estimated_library_len - 1]
+    masc_ll = stats.masc[stats.est_lib_len - 1]
 
     _annotate_point(
-        ccr.estimated_library_len - 1, masc_ll, " cc(estimated lib len) = {:.5f}".format(masc_ll),
-        lower + height/25, ' estimated lib len: {}'.format(ccr.estimated_library_len),
+        stats.est_lib_len - 1, masc_ll, " cc(estimated lib len) = {:.5f}".format(masc_ll),
+        lower + height/25, ' estimated lib len: {}'.format(stats.est_lib_len),
         "blue", height/50
     )
 
-    if ccr.expected_library_len:
-        plt.axvline(ccr.expected_library_len, color="green", linestyle="dashed", linewidth=0.5)
-        plt.annotate('expected lib len: {}'.format(ccr.expected_library_len),
-                     (ccr.expected_library_len, upper - height/25))
+    if stats.library_len:
+        plt.axvline(stats.library_len, color="green", linestyle="dashed", linewidth=0.5)
+        plt.annotate('expected lib len: {}'.format(stats.library_len),
+                     (stats.library_len, upper - height/25))
 
     plt.legend(loc="best")
 
@@ -152,26 +152,30 @@ def plot_ncc_vs_masc(pp, ccr, name):
         title += " for " + name
 
     if ccr.calc_masc:
-        _plot_ncc_vs_masc(
-            pp, "Naive CC vs MSCC", ccr.max_shift, ccr.read_len,
-            ccr.cc, ccr.cc_min, ccr.masc, ccr.masc_min,
-            ccr.nsc, ccr.rsc, ccr.estimated_library_len, ccr.expected_library_len
-        )
+        _plot_ncc_vs_masc(pp, "Naive CC vs MSCC", ccr.whole)
 
-    for ref in sorted(ccr.ref2genomelen):
+    for ref in sorted(ccr.references):
         try:
-            _plot_ncc_vs_masc(
-                pp, title.format(ref), ccr.max_shift, ccr.read_len,
-                ccr.ref2cc.get(ref), ccr.ref2cc_min.get(ref), ccr.ref2masc.get(ref), ccr.ref2masc_min.get(ref),
-                ccr.ref2est_nsc.get(ref), ccr.ref2est_rsc.get(ref), ccr.estimated_library_len, ccr.expected_library_len
-            )
+            _plot_ncc_vs_masc(pp, title.format(ref), ccr.ref2stats[ref])
         except AssertionError:
             logger.debug("Skip plot for {}, valid reads unable.".format(ref))
 
 
-def _plot_ncc_vs_masc(pp, title, max_shift, read_len,
-                      cc=None, cc_min=None, masc=None, masc_min=None,
-                      nsc=None, rsc=None, estimated_library_len=None, expected_library_len=None):
+def _plot_ncc_vs_masc(pp, title, stats):
+    try:
+        max_shift = stats.max_shift
+        read_len = stats.read_len
+        cc = stats.cc
+        cc_min = stats.cc_min
+        masc = stats.masc
+        masc_min = stats.masc_min
+        nsc = stats.nsc
+        rsc = stats.rsc
+        estimated_library_len = stats.est_lib_len
+        expected_library_len = stats.library_len
+    except AttributeError:
+        return None
+
     assert (
         (cc is not None and not np.all(np.isnan(cc))) or
         (masc is not None and not np.all(np.isnan(masc)))

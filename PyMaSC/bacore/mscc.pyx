@@ -164,8 +164,7 @@ cdef class CCBitArrayCalculator(object):
             # calc mappability-sensitive cross-correlation
             if mappability:
                 doubly_mappable_region.alloc_and(forward_mappability, reverse_mappability)
-                if i >= self.read_len - 1:
-                    mappable_len.append(doubly_mappable_region.count())
+                mappable_len.append(doubly_mappable_region.count())
 
                 mappable_forward.alloc_and(self._forward_array, doubly_mappable_region)
                 mappable_reverse.alloc_and(self._reverse_array, doubly_mappable_region)
@@ -179,8 +178,8 @@ cdef class CCBitArrayCalculator(object):
             # calc naive cross-correlation
             if not self.skip_ncc:
                 ccbin.append(self._forward_array.acount(self._reverse_array))
-                self._reverse_array.rshift(1)
 
+            self._reverse_array.rshift(1)
             self._progress.update(i)
 
         self._progress.clean()

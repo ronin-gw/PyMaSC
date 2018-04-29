@@ -54,3 +54,9 @@ cdef class bitarray(object):
 
     cdef void alloc_and(bitarray self, bitarray src1, bitarray src2):
         bit_array_and(self.array, src1.array, src2.array)
+
+    cdef int get(self, bit_index_t i):
+      """
+      For debug
+      """
+      return bit_array_get_bit(self.array, i)

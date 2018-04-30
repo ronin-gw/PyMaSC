@@ -46,17 +46,14 @@ cdef class bitarray(object):
         a.array = clone
         return a
 
-    cdef void rshift(self, bit_index_t shift_dist):
-        bit_array_shift_right(self.array, shift_dist, 0)
+    cdef void rshift(self, bit_index_t shift_dist, char fill):
+        bit_array_shift_right(self.array, shift_dist, fill)
 
-    cdef void lshift(self, bit_index_t shift_dist):
-        bit_array_shift_left(self.array, shift_dist, 0)
+    cdef void lshift(self, bit_index_t shift_dist, char fill):
+        bit_array_shift_left(self.array, shift_dist, fill)
 
     cdef void alloc_and(bitarray self, bitarray src1, bitarray src2):
         bit_array_and(self.array, src1.array, src2.array)
 
     cdef int get(self, bit_index_t i):
-      """
-      For debug
-      """
       return bit_array_get_bit(self.array, i)

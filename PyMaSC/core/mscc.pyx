@@ -205,7 +205,7 @@ cdef class MSCCCalculator(object):
         self._reverse_sum += mappability
         self.reverse_read_len_sum += readlen
         offset = pos - self._fb_tail_pos
-        revbuff_pos = self.max_shift + self.read_len - 1
+        revbuff_pos = self.max_shift + readlen - 1  # revbuff_tail_pos
 
         if offset > 0:
             self._shift_with_update(offset)

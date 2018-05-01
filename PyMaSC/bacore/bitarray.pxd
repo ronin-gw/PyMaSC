@@ -47,4 +47,3 @@ cdef class bitarray(object):
     cdef void rshift(self, bit_index_t shift_dist, char fill)
     cdef void lshift(self, bit_index_t shift_dist, char fill)
     cdef void alloc_and(self, bitarray src1, bitarray src2)
-    cdef int get(self, bit_index_t i)

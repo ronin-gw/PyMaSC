@@ -155,7 +155,7 @@ cdef class CCBitArrayCalculator(object):
 
             forward_mappability = mappability
             reverse_mappability = mappability.clone()
-            reverse_mappability_buff = [reverse_mappability.get(i) for i in range(self.read_len - 1)]
+            reverse_mappability_buff = reverse_mappability[:self.read_len - 1]
             reverse_mappability.rshift(self.read_len - 1, 0)
 
         # calc cross-correlation
@@ -253,12 +253,9 @@ cdef class CCBitArrayCalculator(object):
     def feed_reverse_read(self, str chrom, int64 pos, int64 readlen):
         self._check_pos(chrom, pos)
 
-        if self._last_reverse_pos == pos:
-            return None  # duplicated read
-        self._last_reverse_pos = pos
-
-        self.reverse_read_len_sum += readlen
-        self._reverse_array[pos + readlen - 1] = 1
+        if self._reverse_array[pos + readlen - 1] == 0:
+            self._reverse_array[pos + readlen - 1] = 1
+            self.reverse_read_len_sum += readlen
 
     def finishup_calculation(self):
         cdef bitarray mappability, forward_mappability, reverse_mappability

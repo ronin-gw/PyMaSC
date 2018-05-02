@@ -47,6 +47,7 @@ def _main():
 def exec_entrypoint():
     try:
         _main()
+        logger.info("PyMASC precalc finished.")
     except KeyboardInterrupt:
         sys.stderr.write("\r\033[K")
         sys.stderr.flush()

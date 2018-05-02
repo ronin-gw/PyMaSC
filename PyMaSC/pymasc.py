@@ -6,7 +6,7 @@ from PyMaSC.utils.compatible import zip_longest
 
 from PyMaSC import VERSION
 from PyMaSC.utils.logfmt import set_rootlogger
-from PyMaSC.utils.parsearg import get_parser
+from PyMaSC.utils.parsearg import get_pymasc_parser
 from PyMaSC.utils.progress import ProgressBase
 from PyMaSC.handler.mappability import MappabilityHandler, BWIOError, JSONIOError
 from PyMaSC.handler.masc import CCCalcHandler, InputUnseekable
@@ -27,7 +27,7 @@ def _get_output_basename(dirpath, filepath):
 
 def _main():
     # parse args
-    parser = get_parser()
+    parser = get_pymasc_parser()
     args = parser.parse_args()
 
     if args.skip_ncc and args.mappability is None:

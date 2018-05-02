@@ -43,6 +43,46 @@ def output_mscc(outfile, ccr):
     _output_cctable(outfile, ccr, "masc")
 
 
+def _load_table(path):
+    with open(path) as f:
+        header = f.readline().rstrip().split('\t')[1:]
+        table = dict(zip(header, zip(*(map(float, l.split('\t')[1:]) for l in f))))
+    if "whole" not in table:
+        logger.critical()
+    whole = table.pop("whole")
+    return whole, table
+
+
+@catch_IOError(logger, "CC table")
+def load_cc(path):
+    logger.info("Load CC table from '{}'".format(path))
+    return _load_table(path)
+
+
+@catch_IOError(logger, "MSCC table")
+def load_masc(path):
+    logger.info("Load MSCC table from '{}'".format(path))
+    return _load_table(path)
+
+
+STAT_ATTR = (
+    ("Genome length", "genomelen"),
+    ("Forward reads", "forward_sum"),
+    ("Reverse reads", "reverse_sum"),
+    ("Read length", "read_len"),
+    ("Minimum CC", "cc_min"),
+    ("CC at read length", "ccrl"),
+    ("Expected library length", "library_len"),
+    ("CC at library length", "ccfl"),
+    ("NSC", "nsc"),
+    ("RSC", "rsc"),
+    ("Estimated library length", "est_lib_len"),
+    ("Estimated CC at library length", "est_ccfl"),
+    ("Estimated NSC", "est_nsc"),
+    ("Estimated RSC", "est_rsc")
+)
+
+
 @catch_IOError(logger, "stats")
 def output_stats(outfile, ccr):
     basename = os.path.basename(outfile)
@@ -50,21 +90,23 @@ def output_stats(outfile, ccr):
     logger.info("Output '{}'".format(outfile))
 
     with open(outfile, 'w') as f:
-        print("{}\t{}".format("name", basename), file=f)
-        for row, attr in (
-            ("Genome length", "genomelen"),
-            ("Forward reads", "forward_sum"),
-            ("Reverse reads", "reverse_sum"),
-            ("Read length", "read_len"),
-            ("Minimum CC", "cc_min"),
-            ("CC at read length", "ccrl"),
-            ("Expected library length", "library_len"),
-            ("CC at library length", "ccfl"),
-            ("NSC", "nsc"),
-            ("RSC", "rsc"),
-            ("Estimated library length", "est_lib_len"),
-            ("Estimated CC at library length", "est_ccfl"),
-            ("Estimated NSC", "est_nsc"),
-            ("Estimated RSC", "est_rsc")
-        ):
+        print("{}\t{}".format("Name", basename), file=f)
+        for row, attr in STAT_ATTR:
             print("{}\t{}".format(row, getattr(ccr.whole, attr, "nan") or "nan"), file=f)
+
+
+@catch_IOError(logger, "CC table")
+def load_stats(path):
+    logger.info("Load statistics from '{}'.".format(path))
+    stat2attr = {k: v for k, v in STAT_ATTR if v in
+                 ("genomelen", "forward_sum", "reverse_sum", "read_len", "library_len")}
+    attrs = {}
+    with open(path) as f:
+        for l in f:
+            row, val = l.split('\t', 1)
+            if row == "Name":
+                attrs["name"] = val.rstrip()
+            if row in stat2attr:
+                val = int(val) if val.strip().isdigit() else None
+                attrs[stat2attr[row]] = val
+    return attrs

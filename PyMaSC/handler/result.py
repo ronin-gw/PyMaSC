@@ -16,7 +16,7 @@ def _skip_none(i):
 class PyMaSCStats(object):
     def __init__(
         self,
-        read_len, filter_len, expected_library_len=None,
+        read_len, filter_len=15, expected_library_len=None,
         genomelen=None, forward_sum=None, reverse_sum=None, ccbins=None,
         mappable_len=None, mappable_forward_sum=None, mappable_reverse_sum=None, mappable_ccbins=None,
         cc=None, masc=None
@@ -31,14 +31,14 @@ class PyMaSCStats(object):
         self.mappable_forward_sum = mappable_forward_sum
         self.mappable_reverse_sum = mappable_reverse_sum
         self.mappable_ccbins = mappable_ccbins
-        self.cc = cc
+        self.cc = np.array(cc, dtype=np.float_)
         self.cc_min = None
         self.ccrl = None
         self.library_len = expected_library_len
         self.ccfl = None
         self.nsc = None
         self.rsc = None
-        self.masc = masc
+        self.masc = np.array(masc, dtype=np.float_)
         self.masc_min = None
         self.mascrl = None
         self.est_lib_len = None
@@ -63,6 +63,7 @@ class PyMaSCStats(object):
         elif cc or masc:
             self.calc_ncc = cc is not None
             self.calc_masc = masc is not None
+            self.max_shift = min(len(cc), len(masc)) - 1
             self.calc_metrics()
 
     def _calc_from_bins(self):

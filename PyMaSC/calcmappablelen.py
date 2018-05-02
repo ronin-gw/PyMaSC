@@ -1,9 +1,8 @@
 import logging
-import argparse
 import sys
 
 from PyMaSC import VERSION
-from PyMaSC.utils.parsearg import add_common_args, add_mappability_args, add_shift_arg, ForceNaturalNumber
+from PyMaSC.utils.parsearg import get_precalc_parser
 from PyMaSC.utils.logfmt import set_rootlogger
 from PyMaSC.utils.progress import ProgressBase
 from PyMaSC.handler.mappability import MappabilityHandler
@@ -13,12 +12,7 @@ logger = logging.getLogger(__name__)
 
 def _main():
     # parse aregs
-    parser = argparse.ArgumentParser(description="Pre-compute mappability stats for PyMaSC.")
-    add_common_args(parser)
-    add_mappability_args(parser)
-    add_shift_arg(parser)
-    parser.add_argument("-r", "--max-readlen", nargs='?', type=int, action=ForceNaturalNumber, default=1000,
-                        help="Set max read length to calculate mappable region length.")
+    parser = get_precalc_parser()
 
     args = parser.parse_args()
     if not args.mappability:

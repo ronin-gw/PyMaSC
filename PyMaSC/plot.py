@@ -7,7 +7,8 @@ from PyMaSC import VERSION
 from PyMaSC.utils.parsearg import get_plot_parser
 from PyMaSC.utils.logfmt import set_rootlogger
 from PyMaSC.pymasc import prepare_output, PLOTFILE_SUFFIX
-from PyMaSC.output.stats import load_stats, load_cc, load_masc, CCOUTPUT_SUFFIX, MSCCOUTPUT_SUFFIX, STATSFILE_SUFFIX
+from PyMaSC.output.stats import (load_stats, load_cc, load_masc, output_stats,
+                                 CCOUTPUT_SUFFIX, MSCCOUTPUT_SUFFIX, STATSFILE_SUFFIX)
 from PyMaSC.handler.result import PyMaSCStats
 from PyMaSC.output.figure import plot_figures
 
@@ -92,7 +93,7 @@ def _main():
     if name is None:
         logger.critical("")
         sys.exit(1)
-    prepare_output([None], [name], args.outdir, [PLOTFILE_SUFFIX])
+    prepare_output([None], [name], args.outdir, [PLOTFILE_SUFFIX, STATSFILE_SUFFIX])
 
     #
     ccr = CCResult(
@@ -110,6 +111,7 @@ def _main():
     )
 
     #
+    output_stats(os.path.join(args.outdir, name), ccr)
     plot_figures(os.path.join(args.outdir, name + PLOTFILE_SUFFIX), ccr)
 
 

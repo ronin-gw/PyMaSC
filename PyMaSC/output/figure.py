@@ -43,30 +43,39 @@ def plot_figures(outfile, ccr):
         plot_ncc_vs_masc(pp, ccr, name)
 
 
-def _annotate_point(x, y, text, axis_y, axis_text, color, yoffset=0):
+def _annotate_point(x, color, axis_y, axis_text, point_y=None, point_text=None, yoffset=0):
     plt.axvline(x, color=color, linestyle="dashed", linewidth=0.5)
-    plt.scatter(x, y, facecolors="none", edgecolors=color)
-    plt.annotate(text, (x, y + yoffset))
     plt.annotate(axis_text, (x, axis_y))
+    if point_y:
+        plt.scatter(x, point_y, facecolors="none", edgecolors=color)
+        plt.annotate(point_text, (x, point_y + yoffset))
+
+
+def _annotate_bottom_right_box(text):
+    plt.annotate(
+        text,
+        textcoords="axes fraction", xy=(1, plt.gca().get_ylim()[0]), xytext=(0.95, 0.05),
+        bbox=dict(boxstyle="round", fc="w", alpha=0.9), horizontalalignment="right"
+    )
 
 
 def _annotate_params(nsc=None, rsc=None, est_nsc=None, est_rsc=None, loc="lower right"):
     anno = []
-    if nsc:
-        anno.append("NSC = {:.5f}".format(nsc))
-    if rsc:
-        anno.append("RSC = {:.5f}".format(rsc))
-    if est_nsc:
-        anno.append("Est NSC = {:.5f}".format(est_nsc))
-    if est_rsc:
-        anno.append("Est RSC = {:.5f}".format(est_rsc))
+    for stat, label in zip((nsc, rsc, est_nsc, est_rsc),
+                           ("NSC", "RSC", "Est NSC", "Est RSC")):
+        if stat:
+            anno.append("{} = {:.5f}".format(label, stat))
 
     if anno:
-        plt.annotate(
-            '\n'.join(anno),
-            textcoords="axes fraction", xy=(1, plt.gca().get_ylim()[0]), xytext=(0.95, 0.05),
-            bbox=dict(boxstyle="round", fc="w", alpha=0.9), horizontalalignment="right"
-        )
+        _annotate_bottom_right_box('\n'.join(anno))
+
+
+def _set_ylim():
+    axes = plt.gca()
+    lower, upper = axes.get_ylim()
+    lower, upper = axes.set_ylim((lower, upper * 1.1))
+    height = upper - lower
+    return lower, upper, height
 
 
 def plot_naive_cc(stats, name=None, xlim=None):
@@ -82,32 +91,28 @@ def plot_naive_cc(stats, name=None, xlim=None):
     axes = plt.gca()
     if xlim:
         axes.set_xlim(xlim)
-    lower, upper = axes.get_ylim()
-    lower, upper = axes.set_ylim((lower, upper * 1.1))
-    height = upper - lower
+    lower, upper, height = _set_ylim()
 
     plt.axhline(stats.cc_min, linestyle="dashed", linewidth=0.5)
     plt.text(0, stats.cc_min, 'min(cc) = {:.5f}'.format(stats.cc_min))
 
     _annotate_point(
-        stats.read_len - 1, stats.ccrl, " cc(read length) = {:.5f}".format(stats.ccrl),
+        stats.read_len - 1, "red",
         upper - height/25, 'read length: {}'.format(stats.read_len),
-        "red", height/50
+        stats.ccrl, " cc(read length) = {:.5f}".format(stats.ccrl), height/50
     )
 
     if stats.est_lib_len:
         _annotate_point(
-            stats.est_lib_len - 1, stats.est_ccfl,
-            " cc(est lib len) = {:.5f}".format(stats.est_ccfl),
+            stats.est_lib_len - 1, "blue",
             upper - height/10, 'estimated lib len: {}'.format(stats.est_lib_len),
-            "blue", height/50
+            stats.est_ccfl, " cc(est lib len) = {:.5f}".format(stats.est_ccfl), height/50
         )
     if stats.library_len:
         _annotate_point(
-            stats.library_len - 1, stats.ccfl,
-            " cc(lib length) = {:.5f}".format(stats.ccfl),
+            stats.library_len - 1, "green",
             upper - height/6, 'expected lib len: {}'.format(stats.library_len),
-            "green", -height/25
+            stats.ccfl, " cc(lib length) = {:.5f}".format(stats.ccfl), -height/25
         )
     _annotate_params(stats.nsc, stats.rsc, stats.est_nsc, stats.est_rsc)
 
@@ -133,35 +138,25 @@ def plot_masc(stats, name=None):
     plt.plot(xrange(stats.max_shift + 1), moving_avr_filter(stats.masc, stats.filter_len),
              alpha=0.8, label="Smoothed")
 
-    axes = plt.gca()
-    lower, upper = axes.get_ylim()
-    lower, upper = axes.set_ylim((lower, upper * 1.1))
-    height = upper - lower
-
+    lower, upper, height = _set_ylim()
     masc_est_ll = stats.masc[stats.est_lib_len - 1]
 
     _annotate_point(
-        stats.est_lib_len - 1, masc_est_ll,
-        " cc(est lib len) = {:.5f}".format(masc_est_ll),
+        stats.est_lib_len - 1, "blue",
         upper - height/2, 'estimated lib len: {}'.format(stats.est_lib_len),
-        "blue", height/50
+        masc_est_ll, " cc(est lib len) = {:.5f}".format(masc_est_ll), height/50
     )
 
     if stats.library_len:
         masc_ll = stats.masc[stats.library_len - 1]
         _annotate_point(
-            stats.library_len - 1, masc_ll,
-            " cc(lib length) = {:.5f}".format(masc_ll),
+            stats.library_len - 1, "green",
             upper - height/1.75, 'expected lib len: {}'.format(stats.library_len),
-            "green", -height/25
+            masc_ll, " cc(lib length) = {:.5f}".format(masc_ll), -height/25
         )
 
     plt.legend(loc="best")
-    plt.annotate(
-        "Mov avr win size = {}".format(stats.filter_len),
-        textcoords="axes fraction", xy=(1, plt.gca().get_ylim()[0]), xytext=(0.95, 0.05),
-        bbox=dict(boxstyle="round", fc="w", alpha=0.9), horizontalalignment="right"
-    )
+    _annotate_bottom_right_box("Mov avr win size = {}".format(stats.filter_len))
 
 
 def plot_ncc_vs_masc(pp, ccr, name):
@@ -170,16 +165,20 @@ def plot_ncc_vs_masc(pp, ccr, name):
         title += " for " + name
 
     if ccr.calc_masc:
-        _plot_ncc_vs_masc(pp, "Naive CC vs MSCC", ccr.whole)
+        _plot_ncc_vs_masc(ccr.whole, "Naive CC vs MSCC")
+        pp.savefig()
+        plt.close()
 
     for ref in sorted(ccr.references):
         try:
-            _plot_ncc_vs_masc(pp, title.format(ref), ccr.ref2stats[ref])
+            _plot_ncc_vs_masc(ccr.ref2stats[ref], title.format(ref))
+            pp.savefig()
+            plt.close()
         except AssertionError:
             logger.debug("Skip plot for {}, valid reads unable.".format(ref))
 
 
-def _plot_ncc_vs_masc(pp, title, stats):
+def _plot_ncc_vs_masc(stats, title):
     assert (
         (stats.calc_ncc and not np.all(np.isnan(stats.cc))) or
         (stats.calc_masc and not np.all(np.isnan(stats.masc)))
@@ -196,29 +195,24 @@ def _plot_ncc_vs_masc(pp, title, stats):
         plt.plot(xrange(stats.max_shift + 1), stats.masc - stats.masc_min,
                  alpha=1 if not stats.calc_ncc else 0.8, linewidth=0.5, label="MSCC")
 
-    axes = plt.gca()
-    lower, upper = axes.get_ylim()
-    lower, upper = axes.set_ylim((lower, upper * 1.1))
-    height = upper - lower
-    # yoffset = height / 50
+    lower, upper, height = _set_ylim()
 
-    plt.axvline(stats.read_len, color="red", linestyle="dashed", linewidth=0.5)
-    plt.annotate('read length: {}'.format(stats.read_len),
-                 (stats.read_len, upper - height/25))
+    _annotate_point(
+        stats.read_len, "red",
+        upper - height/25, "read length: {}".format(stats.read_len)
+    )
 
     if stats.calc_masc:
-        plt.axvline(stats.est_lib_len, color="blue", linestyle="dashed", linewidth=0.5)
-        plt.annotate('estimated lib len: {}'.format(stats.est_lib_len),
-                     (stats.est_lib_len, upper - height/10))
-
+        _annotate_point(
+            stats.est_lib_len, "blue",
+            upper - height/10, "estimated lib len: {}".format(stats.est_lib_len)
+        )
         plt.legend(loc="best")
 
     if stats.library_len:
-        plt.axvline(stats.library_len, color="green", linestyle="dashed", linewidth=0.5)
-        plt.annotate('expected lib len: {}'.format(stats.library_len),
-                     (stats.library_len, upper - height/6))
+        _annotate_point(
+            stats.library_len, "green",
+            upper - height/6, "expected lib len: {}".format(stats.library_len)
+        )
 
     _annotate_params(stats.nsc, stats.rsc, stats.est_nsc, stats.est_rsc, "best")
-
-    pp.savefig()
-    plt.close()

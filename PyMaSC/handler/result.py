@@ -13,6 +13,21 @@ def _skip_none(i):
     return [x for x in i if x is not None]
 
 
+def chi2_test(a, b, chi2_p_thresh, label, info_logging=False):
+    sum_ = a + b
+    chi2_val = (((a - sum_ / 2.) ** 2) + ((b - sum_ / 2.) ** 2)) / sum_
+    chi2_p = chi2.sf(chi2_val, 1)
+
+    if chi2_p <= chi2_p_thresh:
+        logger.warning("{} Forward/Reverse read count imbalance.".format(label))
+        logger.warning("+/- = {} / {}, Chi-squared test p-val = {} <= {}".format(
+            a, b, chi2_p, chi2_p_thresh
+        ))
+    elif info_logging:
+        logger.info("{} Forward/Reverse read count +/- = {} / {}".format(label, a, b))
+        logger.info("Chi-squared test p-val = {} > {}".format(chi2_p, chi2_p_thresh))
+
+
 class PyMaSCStats(object):
     def __init__(
         self,
@@ -247,7 +262,7 @@ class CCResult(object):
             elif reverse_sum == 0:
                 logger.error("There is no reverse read.")
                 raise ReadsTooFew
-            self._chi2_test(forward_sum, reverse_sum, "Whole genome", True)
+            chi2_test(forward_sum, reverse_sum, self.chi2_p_thresh, "Whole genome", True)
 
         #
         if all((mappable_ref2forward_sum, mappable_ref2reverse_sum, mappable_ref2ccbins, ref2mappable_len)):
@@ -279,17 +294,3 @@ class CCResult(object):
             mappable_reverse_sum=mappable_reverse_sum,
             mappable_ccbins=mappable_ccbins
         )
-
-    def _chi2_test(self, a, b, label, info_logging=False):
-        sum_ = a + b
-        chi2_val = (((a - sum_ / 2.) ** 2) + ((b - sum_ / 2.) ** 2)) / sum_
-        chi2_p = chi2.sf(chi2_val, 1)
-
-        if chi2_p <= self.chi2_p_thresh:
-            logger.warning("{} Forward/Reverse read count imbalance.".format(label))
-            logger.warning("+/- = {} / {}, Chi-squared test p-val = {} <= {}".format(
-                a, b, chi2_p, self.chi2_p_thresh
-            ))
-        elif info_logging:
-            logger.info("{} Forward/Reverse read count +/- = {} / {}".format(label, a, b))
-            logger.info("Chi-squared test p-val = {} > {}".format(chi2_p, self.chi2_p_thresh))

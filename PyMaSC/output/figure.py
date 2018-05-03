@@ -50,9 +50,19 @@ def _annotate_point(x, y, text, axis_y, axis_text, color, yoffset=0):
     plt.annotate(axis_text, (x, axis_y))
 
 
-def _annotate_params(nsc, rsc, loc="lower right"):
+def _annotate_params(nsc=None, rsc=None, est_nsc=None, est_rsc=None, loc="lower right"):
+    anno = []
+    if nsc:
+        anno.append("NSC = {:.5f}".format(nsc))
+    if rsc:
+        anno.append("RSC = {:.5f}".format(rsc))
+    if est_nsc:
+        anno.append("Est NSC = {:.5f}".format(est_nsc))
+    if est_rsc:
+        anno.append("Est RSC = {:.5f}".format(est_rsc))
+
     plt.annotate(
-        '\n'.join(["NSC = {:.5f}".format(nsc), "RSC = {:.5f}".format(rsc)]),
+        '\n'.join(anno),
         textcoords="axes fraction", xy=(1, plt.gca().get_ylim()[0]), xytext=(0.75, 0.05),
         bbox=dict(boxstyle="round", fc="w", alpha=0.9)
     )
@@ -103,7 +113,7 @@ def plot_naive_cc(stats, name=None, xlim=None):
             upper - height/10, 'estimated lib len: {}'.format(library_len),
             color, height/50
         )
-        _annotate_params(nsc, rsc)
+        _annotate_params(stats.nsc, stats.rsc, stats.est_nsc, stats.est_rsc)
 
 
 def plot_naive_cc_just(stats, name=None):
@@ -206,13 +216,13 @@ def _plot_ncc_vs_masc(pp, title, stats):
                      (estimated_library_len, upper - height/10))
 
         plt.legend(loc="best")
-        if None not in (nsc, rsc):
-            _annotate_params(nsc, rsc, "best")
 
     elif expected_library_len:
         plt.axvline(expected_library_len, color="green", linestyle="dashed", linewidth=0.5)
         plt.annotate('expected lib len: {}'.format(expected_library_len),
                      (expected_library_len, upper - height/10))
+
+    _annotate_params(stats.nsc, stats.rsc, stats.est_nsc, stats.est_rsc, "best")
 
     pp.savefig()
     plt.close()

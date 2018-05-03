@@ -101,9 +101,11 @@ def estimate_readlen(path, esttype, unsigned int mapq_criteria):
 
     length = estfunc(counter)
 
-    logger.info("Scan {:,} reads, {:,} reads were unmapped and {:,} reads >= MAPQ {}.".format(nreads, nunmapped, sum(counter.values()), mapq_criteria))
+    logger.info("Scan {:,} reads, {:,} reads were unmapped and {:,} reads >= MAPQ {}."
+                "".format(nreads, nunmapped, sum(counter.values()), mapq_criteria))
     if npaired > 0:
-        logger.info("{:,} reads were paired: {:,} reads were 1st and {:,} reads were last segment.".format(npaired, npaired - nread2, nread2))
+        logger.info("{:,} reads were paired: {:,} reads were 1st and {:,} reads were last segment."
+                    "".format(npaired, npaired - nread2, nread2))
         logger.info("Note that only 1st reads in the templates will be used for calculation.")
     else:
         logger.info("All reads were single-ended.")

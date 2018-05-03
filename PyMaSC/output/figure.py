@@ -20,6 +20,11 @@ except:
     raise
 
 
+def _feed_pdf_page(pp):
+    pp.savefig()
+    plt.close()
+
+
 @catch_IOError(logger, "figure")
 def plot_figures(outfile, ccr):
     logger.info("Output '{}'".format(outfile))
@@ -28,17 +33,14 @@ def plot_figures(outfile, ccr):
     with PdfPages(outfile) as pp:
         if not ccr.skip_ncc:
             plot_naive_cc(ccr.whole, name)
-            pp.savefig()
-            plt.close()
+            _feed_pdf_page(pp)
 
         if ccr.calc_masc:
             if plot_naive_cc_just(ccr.whole, name):
-                pp.savefig()
-                plt.close()
+                _feed_pdf_page(pp)
 
             plot_masc(ccr.whole, name)
-            pp.savefig()
-            plt.close()
+            _feed_pdf_page(pp)
 
         plot_ncc_vs_masc(pp, ccr, name)
 
@@ -166,14 +168,12 @@ def plot_ncc_vs_masc(pp, ccr, name):
 
     if ccr.calc_masc:
         _plot_ncc_vs_masc(ccr.whole, "Naive CC vs MSCC")
-        pp.savefig()
-        plt.close()
+        _feed_pdf_page(pp)
 
     for ref in sorted(ccr.references):
         try:
             _plot_ncc_vs_masc(ccr.ref2stats[ref], title.format(ref))
-            pp.savefig()
-            plt.close()
+            _feed_pdf_page(pp)
         except AssertionError:
             logger.debug("Skip plot for {}, valid reads unable.".format(ref))
 

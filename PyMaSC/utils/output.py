@@ -1,12 +1,15 @@
-def catch_IOError(_logger, label=''):
-    errmsg = "Faild to output" + ((' ' + label) if label else '') + ": {}:\n[Errno {}] {}"
+from functools import wraps
 
+
+def catch_IOError(logger):
     def _inner(func):
-        def _main(*args, **kwargs):
+        @wraps(func)
+        def _io_func(*args, **kwargs):
             try:
                 return func(*args, **kwargs)
             except IOError as e:
-                _logger.error(errmsg.format(e.filename, e.errno, e.message))
-        return _main
-
+                logger.error("Faild to output '{}':\n[Errno {}] {}".format(
+                    e.filename, e.errno, e.message)
+                )
+        return _io_func
     return _inner

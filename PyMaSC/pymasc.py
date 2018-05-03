@@ -132,8 +132,11 @@ def main():
             continue
 
         #
-        for output_func in output_cc, output_mscc, output_stats:
-            output_func(output_basename, result_handler)
+        output_stats(output_basename, result_handler)
+        if not result_handler.skip_ncc:
+            output_cc(output_basename, result_handler)
+        if result_handler.calc_masc:
+            output_mscc(output_basename, result_handler)
         if not args.skip_plots:
             plotfile_path = output_basename + PLOTFILE_SUFFIX
             try:

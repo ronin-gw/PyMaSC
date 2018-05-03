@@ -81,9 +81,9 @@ def add_result_proc_args(group):
              "using number of reads mapped to each strands. (Default: 0.05)"
     )
     group.add_argument(
-        "-w", "--smooth-window", nargs='?', type=int, default=15, action=ForceNaturalNumber,
+        "-w", "--smooth-window", nargs='?', type=int, default=100, action=ForceNaturalNumber,
         help="Moving average window size for smoothing MSCC "
-             "to estimate library length. (Default: 15)"
+             "to estimate library length. (Default: 100)"
     )
 
 

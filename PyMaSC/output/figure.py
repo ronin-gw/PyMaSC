@@ -180,35 +180,21 @@ def plot_ncc_vs_masc(pp, ccr, name):
 
 
 def _plot_ncc_vs_masc(pp, title, stats):
-    try:
-        max_shift = stats.max_shift
-        read_len = stats.read_len
-        cc = stats.cc
-        cc_min = stats.cc_min
-        masc = stats.masc
-        masc_min = stats.masc_min
-        nsc = stats.nsc
-        rsc = stats.rsc
-        estimated_library_len = stats.est_lib_len
-        expected_library_len = stats.library_len
-    except AttributeError:
-        return None
-
     assert (
-        (cc is not None and not np.all(np.isnan(cc))) or
-        (masc is not None and not np.all(np.isnan(masc)))
+        (stats.calc_ncc and not np.all(np.isnan(stats.cc))) or
+        (stats.calc_masc and not np.all(np.isnan(stats.masc)))
     )
 
     plt.title(title)
     plt.xlabel("Reverse Strand Shift")
     plt.ylabel("Relative Cross-Correlation from each minimum")
 
-    if cc is not None:
-        plt.plot(xrange(max_shift + 1), cc - cc_min,
+    if stats.calc_ncc:
+        plt.plot(xrange(stats.max_shift + 1), stats.cc - stats.cc_min,
                  color="black", linewidth=0.5, label="Naive CC")
-    if masc is not None:
-        plt.plot(xrange(max_shift + 1), masc - masc_min,
-                 alpha=1 if cc is None else 0.8, linewidth=0.5, label="MSCC")
+    if stats.calc_masc:
+        plt.plot(xrange(stats.max_shift + 1), stats.masc - stats.masc_min,
+                 alpha=1 if not stats.calc_ncc else 0.8, linewidth=0.5, label="MSCC")
 
     axes = plt.gca()
     lower, upper = axes.get_ylim()
@@ -216,21 +202,21 @@ def _plot_ncc_vs_masc(pp, title, stats):
     height = upper - lower
     # yoffset = height / 50
 
-    plt.axvline(read_len, color="red", linestyle="dashed", linewidth=0.5)
-    plt.annotate('read length: {}'.format(read_len),
-                 (read_len, upper - height/25))
+    plt.axvline(stats.read_len, color="red", linestyle="dashed", linewidth=0.5)
+    plt.annotate('read length: {}'.format(stats.read_len),
+                 (stats.read_len, upper - height/25))
 
-    if masc is not None:
-        plt.axvline(estimated_library_len, color="blue", linestyle="dashed", linewidth=0.5)
-        plt.annotate('estimated lib len: {}'.format(estimated_library_len),
-                     (estimated_library_len, upper - height/10))
+    if stats.calc_masc:
+        plt.axvline(stats.est_lib_len, color="blue", linestyle="dashed", linewidth=0.5)
+        plt.annotate('estimated lib len: {}'.format(stats.est_lib_len),
+                     (stats.est_lib_len, upper - height/10))
 
         plt.legend(loc="best")
 
-    if expected_library_len:
-        plt.axvline(expected_library_len, color="green", linestyle="dashed", linewidth=0.5)
-        plt.annotate('expected lib len: {}'.format(expected_library_len),
-                     (expected_library_len, upper - height/6))
+    if stats.library_len:
+        plt.axvline(stats.library_len, color="green", linestyle="dashed", linewidth=0.5)
+        plt.annotate('expected lib len: {}'.format(stats.library_len),
+                     (stats.library_len, upper - height/6))
 
     _annotate_params(stats.nsc, stats.rsc, stats.est_nsc, stats.est_rsc, "best")
 

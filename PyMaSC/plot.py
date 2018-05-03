@@ -105,7 +105,7 @@ def main():
     #
     if "forward_sum" in statattrs and "reverse_sum" in statattrs:
         chi2_test(statattrs["forward_sum"], statattrs["reverse_sum"],
-                  args.chi2_pval, "Whole genome", info_logging=True)
+                  args.chi2_pval, "Whole genome")
 
     #
     ccr = CCResult(

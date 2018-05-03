@@ -13,7 +13,7 @@ def _skip_none(i):
     return [x for x in i if x is not None]
 
 
-def chi2_test(a, b, chi2_p_thresh, label, info_logging=False):
+def chi2_test(a, b, chi2_p_thresh, label):
     sum_ = a + b
     chi2_val = (((a - sum_ / 2.) ** 2) + ((b - sum_ / 2.) ** 2)) / sum_
     chi2_p = chi2.sf(chi2_val, 1)
@@ -23,7 +23,7 @@ def chi2_test(a, b, chi2_p_thresh, label, info_logging=False):
         logger.warning("+/- = {} / {}, Chi-squared test p-val = {} <= {}".format(
             a, b, chi2_p, chi2_p_thresh
         ))
-    elif info_logging:
+    else:
         logger.info("{} Forward/Reverse read count +/- = {} / {}".format(label, a, b))
         logger.info("Chi-squared test p-val = {} > {}".format(chi2_p, chi2_p_thresh))
 
@@ -262,7 +262,7 @@ class CCResult(object):
             elif reverse_sum == 0:
                 logger.error("There is no reverse read.")
                 raise ReadsTooFew
-            chi2_test(forward_sum, reverse_sum, self.chi2_p_thresh, "Whole genome", True)
+            chi2_test(forward_sum, reverse_sum, self.chi2_p_thresh, "Whole genome")
 
         #
         if all((mappable_ref2forward_sum, mappable_ref2reverse_sum, mappable_ref2ccbins, ref2mappable_len)):

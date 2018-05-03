@@ -1,7 +1,7 @@
 import logging
 import sys
 
-from PyMaSC import VERSION
+from PyMaSC import entrypoint, logging_version
 from PyMaSC.utils.parsearg import get_precalc_parser
 from PyMaSC.utils.logfmt import set_rootlogger
 from PyMaSC.utils.progress import ProgressBase
@@ -10,7 +10,8 @@ from PyMaSC.handler.mappability import MappabilityHandler
 logger = logging.getLogger(__name__)
 
 
-def _main():
+@entrypoint(logger)
+def main():
     # parse aregs
     parser = get_precalc_parser()
 
@@ -20,10 +21,7 @@ def _main():
 
     # set up logging
     set_rootlogger(args.color, args.log_level)
-    logger.info("PyMaSC version {} with Python{}.{}.{}".format(
-                *[VERSION] + list(sys.version_info[:3])))
-    for line in sys.version.split('\n'):
-        logger.debug(line)
+    logging_version(logger)
 
     # check args
     args.mappability = args.mappability[0]
@@ -40,15 +38,3 @@ def _main():
     alh.calc_mappability()
     alh.save_mappability_stats()
     alh.close()
-
-    logger.info("Calc mappable length finished.")
-
-
-def exec_entrypoint():
-    try:
-        _main()
-        logger.info("PyMASC precalc finished.")
-    except KeyboardInterrupt:
-        sys.stderr.write("\r\033[K")
-        sys.stderr.flush()
-        logger.info("Got KeyboardInterrupt. bye")

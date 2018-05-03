@@ -9,7 +9,7 @@ from PyMaSC.utils.logfmt import set_rootlogger
 from PyMaSC.pymasc import prepare_output, PLOTFILE_SUFFIX
 from PyMaSC.output.stats import (load_stats, load_cc, load_masc, output_stats,
                                  CCOUTPUT_SUFFIX, MSCCOUTPUT_SUFFIX, STATSFILE_SUFFIX)
-from PyMaSC.handler.result import PyMaSCStats
+from PyMaSC.handler.result import PyMaSCStats, chi2_test
 from PyMaSC.output.figure import plot_figures
 
 logger = logging.getLogger(__name__)
@@ -94,6 +94,11 @@ def _main():
         logger.critical("")
         sys.exit(1)
     prepare_output([None], [name], args.outdir, [PLOTFILE_SUFFIX, STATSFILE_SUFFIX])
+
+    #
+    if "forward_sum" in statattrs and "reverse_sum" in statattrs:
+        chi2_test(statattrs["forward_sum"], statattrs["reverse_sum"],
+                  args.chi2_pval, "Whole genome", info_logging=True)
 
     #
     ccr = CCResult(

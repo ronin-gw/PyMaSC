@@ -1,5 +1,16 @@
 # Change Log
 
+## v0.2.3 (2018-05-04)
+**Implemented enhancements:**
+- Add `pymasc-plot` command
+- Optimize the default window size for moving average filter for mappability
+  sensitive cross-correlation (change from 15 to 100)
+- Add annotations to figures about expected library length
+
+**Fixed bugs:**
+- Fix bugs relate to mappability sensitive cross-correlation calculation
+  Now `bitarray` and `successive` implementations return exactly same results
+
 ## v0.2.2 (2017-12-26)
 **Implemented enhancements:**
 - Warn reference lenth discordancy between alignment and mappability file

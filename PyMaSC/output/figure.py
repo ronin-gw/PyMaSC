@@ -61,11 +61,12 @@ def _annotate_params(nsc=None, rsc=None, est_nsc=None, est_rsc=None, loc="lower 
     if est_rsc:
         anno.append("Est RSC = {:.5f}".format(est_rsc))
 
-    plt.annotate(
-        '\n'.join(anno),
-        textcoords="axes fraction", xy=(1, plt.gca().get_ylim()[0]), xytext=(0.95, 0.05),
-        bbox=dict(boxstyle="round", fc="w", alpha=0.9), horizontalalignment="right"
-    )
+    if anno:
+        plt.annotate(
+            '\n'.join(anno),
+            textcoords="axes fraction", xy=(1, plt.gca().get_ylim()[0]), xytext=(0.95, 0.05),
+            bbox=dict(boxstyle="round", fc="w", alpha=0.9), horizontalalignment="right"
+        )
 
 
 def plot_naive_cc(stats, name=None, xlim=None):
@@ -94,26 +95,21 @@ def plot_naive_cc(stats, name=None, xlim=None):
         "red", height/50
     )
 
-    if stats.est_lib_len or stats.library_len:
-        if stats.est_lib_len:
-            library_len = stats.est_lib_len
-            ccfl = stats.est_ccfl
-            nsc = stats.est_nsc
-            rsc = stats.est_rsc
-            color = "blue"
-        elif stats.library_len:
-            library_len = stats.library_len
-            ccfl = stats.ccfl
-            nsc = stats.nsc
-            rsc = stats.rsc
-            color = "green"
-
+    if stats.est_lib_len:
         _annotate_point(
-            library_len - 1, ccfl, " cc(lib length) = {:.5f}".format(ccfl),
-            upper - height/10, 'estimated lib len: {}'.format(library_len),
-            color, height/50
+            stats.est_lib_len - 1, stats.est_ccfl,
+            " cc(est lib len) = {:.5f}".format(stats.est_ccfl),
+            upper - height/10, 'estimated lib len: {}'.format(stats.est_lib_len),
+            "blue", height/50
         )
-        _annotate_params(stats.nsc, stats.rsc, stats.est_nsc, stats.est_rsc)
+    if stats.library_len:
+        _annotate_point(
+            stats.library_len - 1, stats.ccfl,
+            " cc(lib length) = {:.5f}".format(stats.ccfl),
+            upper - height/6, 'expected lib len: {}'.format(stats.library_len),
+            "green", -height/25
+        )
+    _annotate_params(stats.nsc, stats.rsc, stats.est_nsc, stats.est_rsc)
 
 
 def plot_naive_cc_just(stats, name=None):
@@ -142,18 +138,23 @@ def plot_masc(stats, name=None):
     lower, upper = axes.set_ylim((lower, upper * 1.1))
     height = upper - lower
 
-    masc_ll = stats.masc[stats.est_lib_len - 1]
+    masc_est_ll = stats.masc[stats.est_lib_len - 1]
 
     _annotate_point(
-        stats.est_lib_len - 1, masc_ll, " cc(estimated lib len) = {:.5f}".format(masc_ll),
-        lower + height/25, ' estimated lib len: {}'.format(stats.est_lib_len),
+        stats.est_lib_len - 1, masc_est_ll,
+        " cc(est lib len) = {:.5f}".format(masc_est_ll),
+        upper - height/2, 'estimated lib len: {}'.format(stats.est_lib_len),
         "blue", height/50
     )
 
     if stats.library_len:
-        plt.axvline(stats.library_len, color="green", linestyle="dashed", linewidth=0.5)
-        plt.annotate('expected lib len: {}'.format(stats.library_len),
-                     (stats.library_len, upper - height/25))
+        masc_ll = stats.masc[stats.library_len - 1]
+        _annotate_point(
+            stats.library_len - 1, masc_ll,
+            " cc(lib length) = {:.5f}".format(masc_ll),
+            upper - height/1.75, 'expected lib len: {}'.format(stats.library_len),
+            "green", -height/25
+        )
 
     plt.legend(loc="best")
     plt.annotate(
@@ -226,10 +227,10 @@ def _plot_ncc_vs_masc(pp, title, stats):
 
         plt.legend(loc="best")
 
-    elif expected_library_len:
+    if expected_library_len:
         plt.axvline(expected_library_len, color="green", linestyle="dashed", linewidth=0.5)
         plt.annotate('expected lib len: {}'.format(expected_library_len),
-                     (expected_library_len, upper - height/10))
+                     (expected_library_len, upper - height/6))
 
     _annotate_params(stats.nsc, stats.rsc, stats.est_nsc, stats.est_rsc, "best")
 

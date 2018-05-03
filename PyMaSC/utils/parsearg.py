@@ -120,7 +120,7 @@ def get_pymasc_parser():
         help="Set read length manually and disable read length estimation."
     )
     input_args.add_argument(
-        "--read-len-estimator", nargs='?', type=_make_upper,
+        "--readlen-estimator", nargs='?', type=_make_upper,
         default="MEDIAN", choices=READLEN_ESTIMATION_TYPES,
         help="Define the statistic used to estimate a read length from observed "
              "read lengths. Choices: mean, median, mode, min, max (Default: median)"

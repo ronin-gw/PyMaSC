@@ -69,7 +69,7 @@ def _main():
     if args.library_length:
         statattrs["expected_library_len"] = args.library_length
     if "read_len" not in statattrs:
-        logger.critical("")
+        logger.critical("Mandatory attribute 'Read length' not found in '{}'.".format(stat_path))
         sys.exit(1)
     if args.smooth_window:
         statattrs["filter_len"] = args.smooth_window
@@ -84,16 +84,25 @@ def _main():
         references = masc_table.keys()
     else:
         masc_whole = masc_table = None
-
     #
     name = None
     if "name" in statattrs:
         name = statattrs.pop("name")
     name = args.name if args.name else name
     if name is None:
-        logger.critical("")
+        logger.critical("Mandatory attribute 'Name' not found in '{}'. "
+                        "Set name manually with -n/--name option.".format(stat_path))
         sys.exit(1)
-    prepare_output([None], [name], args.outdir, [PLOTFILE_SUFFIX, STATSFILE_SUFFIX])
+
+    #
+    check_suffixes = [PLOTFILE_SUFFIX]
+    out_stats_path = os.path.normpath(os.path.join(args.outdir, name) + STATSFILE_SUFFIX)
+    if os.path.normpath(stat_path) == out_stats_path:
+        logger.error("Prevent to overwrite input stats file '{}', "
+                     "output stats file will be skipped.".format(out_stats_path))
+    else:
+        check_suffixes.append(STATSFILE_SUFFIX)
+    prepare_output([None], [name], args.outdir, check_suffixes)
 
     #
     if "forward_sum" in statattrs and "reverse_sum" in statattrs:
@@ -116,7 +125,8 @@ def _main():
     )
 
     #
-    output_stats(os.path.join(args.outdir, name), ccr)
+    if STATSFILE_SUFFIX in check_suffixes:
+        output_stats(os.path.join(args.outdir, name), ccr)
     plot_figures(os.path.join(args.outdir, name + PLOTFILE_SUFFIX), ccr)
 
 

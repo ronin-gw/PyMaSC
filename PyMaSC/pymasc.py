@@ -71,7 +71,7 @@ def _main():
     for f in args.reads:
         try:
             calc_handlers.append(
-                handler_class(f, args.read_len_estimator, args.max_shift, args.mapq,
+                handler_class(f, args.readlen_estimator, args.max_shift, args.mapq,
                               args.process, args.skip_ncc)
             )
         except ValueError:
@@ -86,7 +86,7 @@ def _main():
     #
     readlens = []
     if args.read_length is None:
-        logger.info("Check read length: Get {} from read length distribution".format(args.read_len_estimator.lower()))
+        logger.info("Check read length: Get {} from read length distribution".format(args.readlen_estimator.lower()))
     for i, handler in enumerate(calc_handlers):
         try:
             handler.set_readlen(args.read_length)

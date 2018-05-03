@@ -98,7 +98,7 @@ def _main():
     #
     ccr = CCResult(
         references=references,
-        skip_ncc=bool(cc_table),
+        skip_ncc=not bool(cc_table),
         calc_masc=bool(masc_table),
         whole=PyMaSCStats(cc=cc_whole, masc=masc_whole, **statattrs),
         ref2stats={

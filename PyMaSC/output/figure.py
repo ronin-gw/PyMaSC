@@ -63,8 +63,8 @@ def _annotate_params(nsc=None, rsc=None, est_nsc=None, est_rsc=None, loc="lower 
 
     plt.annotate(
         '\n'.join(anno),
-        textcoords="axes fraction", xy=(1, plt.gca().get_ylim()[0]), xytext=(0.75, 0.05),
-        bbox=dict(boxstyle="round", fc="w", alpha=0.9)
+        textcoords="axes fraction", xy=(1, plt.gca().get_ylim()[0]), xytext=(0.95, 0.05),
+        bbox=dict(boxstyle="round", fc="w", alpha=0.9), horizontalalignment="right"
     )
 
 
@@ -90,7 +90,7 @@ def plot_naive_cc(stats, name=None, xlim=None):
 
     _annotate_point(
         stats.read_len - 1, stats.ccrl, " cc(read length) = {:.5f}".format(stats.ccrl),
-        upper - height/25, 'read length: {:.1f}'.format(stats.read_len),
+        upper - height/25, 'read length: {}'.format(stats.read_len),
         "red", height/50
     )
 
@@ -132,8 +132,10 @@ def plot_masc(stats, name=None):
     plt.xlabel("Reverse Strand Shift")
     plt.ylabel("Mappability Sensitive Cross-Correlation")
 
-    plt.plot(xrange(stats.max_shift + 1), stats.masc, color="black", linewidth=0.5, label="MSCC")
-    plt.plot(xrange(stats.max_shift + 1), moving_avr_filter(stats.masc, stats.filter_len), alpha=0.8, label="Smoothed")
+    plt.plot(xrange(stats.max_shift + 1), stats.masc,
+             color="black", linewidth=0.5, label="MSCC")
+    plt.plot(xrange(stats.max_shift + 1), moving_avr_filter(stats.masc, stats.filter_len),
+             alpha=0.8, label="Smoothed")
 
     axes = plt.gca()
     lower, upper = axes.get_ylim()
@@ -154,6 +156,11 @@ def plot_masc(stats, name=None):
                      (stats.library_len, upper - height/25))
 
     plt.legend(loc="best")
+    plt.annotate(
+        "Mov avr win size = {}".format(stats.filter_len),
+        textcoords="axes fraction", xy=(1, plt.gca().get_ylim()[0]), xytext=(0.95, 0.05),
+        bbox=dict(boxstyle="round", fc="w", alpha=0.9), horizontalalignment="right"
+    )
 
 
 def plot_ncc_vs_masc(pp, ccr, name):
@@ -196,9 +203,11 @@ def _plot_ncc_vs_masc(pp, title, stats):
     plt.ylabel("Relative Cross-Correlation from each minimum")
 
     if cc is not None:
-        plt.plot(xrange(max_shift + 1), cc - cc_min, color="black", linewidth=0.5, label="Naive CC")
+        plt.plot(xrange(max_shift + 1), cc - cc_min,
+                 color="black", linewidth=0.5, label="Naive CC")
     if masc is not None:
-        plt.plot(xrange(max_shift + 1), masc - masc_min, alpha=1 if cc is None else 0.8, linewidth=0.5, label="MSCC")
+        plt.plot(xrange(max_shift + 1), masc - masc_min,
+                 alpha=1 if cc is None else 0.8, linewidth=0.5, label="MSCC")
 
     axes = plt.gca()
     lower, upper = axes.get_ylim()
@@ -207,7 +216,7 @@ def _plot_ncc_vs_masc(pp, title, stats):
     # yoffset = height / 50
 
     plt.axvline(read_len, color="red", linestyle="dashed", linewidth=0.5)
-    plt.annotate('read length: {:.1f}'.format(read_len),
+    plt.annotate('read length: {}'.format(read_len),
                  (read_len, upper - height/25))
 
     if masc is not None:

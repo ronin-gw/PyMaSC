@@ -149,7 +149,7 @@ class CCCalcHandler(object):
         _chrom2finished = {c: False for c in self.references}
         progress = MultiLineProgressManager()
 
-        with exec_worker_pool(workers, self.references, self.order_queue):
+        with exec_worker_pool(workers, self.references, self._order_queue):
             while True:
                 chrom, obj = self._report_queue.get()
                 if chrom is None:  # update progress

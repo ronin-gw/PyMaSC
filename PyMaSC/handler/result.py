@@ -46,14 +46,14 @@ class PyMaSCStats(object):
         self.mappable_forward_sum = mappable_forward_sum
         self.mappable_reverse_sum = mappable_reverse_sum
         self.mappable_ccbins = mappable_ccbins
-        self.cc = np.array(cc, dtype=np.float_)
+        self.cc = np.array(cc, dtype=np.float_) if cc is not None else None
         self.cc_min = None
         self.ccrl = None
         self.library_len = expected_library_len
         self.ccfl = None
         self.nsc = None
         self.rsc = None
-        self.masc = np.array(masc, dtype=np.float_)
+        self.masc = np.array(masc, dtype=np.float_) if masc is not None else None
         self.masc_min = None
         self.mascrl = None
         self.est_lib_len = None

@@ -33,9 +33,7 @@ class BACalcHandler(CCCalcHandler):
             mappable_len = {k: v for k, v in worker.calculator.ref2mappable_len.items() if v is not None}
             self.ref2mappable_len = mappable_len
             self.mappability_handler.chrom2mappable_len = mappable_len
-            self.mappability_handler.mappable_len = [
-                sum(l[i] for i in range(self.max_shift + 1)) for l in mappable_len.values()
-            ]
+            self.mappability_handler.mappable_len = list(map(sum, zip(*mappable_len.values())))
 
     def _run_multiprocess_calcuration(self):
         self._order_queue = Queue()

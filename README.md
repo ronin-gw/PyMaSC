@@ -45,7 +45,7 @@ C compiler needs to build C sources (recommend GCC).
 
 Usage
 -----
-After installation, PyMaSC provides `pymasc` and `pymasc-precalc` command.  
+After installation, PyMaSC provides `pymasc`, `pymasc-precalc` and `pymasc-plot` command.  
 Note that `pymasc-precalc` is not essential to calculate mappability-sensitive
 cross-correlation.
 
@@ -89,7 +89,7 @@ Output `ENCFF000VPI_mscc.tab` Additionally.
     $ pymasc -p 4 -d 1000 -m wgEncodeCrgMapabilityAlign36mer.bigWig ENCFF000VPI.bam
 
 
-#### Input file
+#### Main input file
 SAM and BAM file format are acceptable.
 * Input alignment file must be sorted.  
  * Additionally, for parallel processing, input file must be BAM format and indexed.  
@@ -97,11 +97,10 @@ SAM and BAM file format are acceptable.
 * Unmapped or duplicated reads will be discarded.  
 * If input file contains paired-end reads, the last (second) segment read will be discarded.
 
-#### General options
 
-##### -p / --process [int]
-Set number of worker process. (Default: 1)  
-For indexed BAM file, PyMaSC parallel process each reference (chromosome).
+#### Output files
+
+#### General options
 
 ##### -v / --log-level {DEBUG,INFO,WARNING,ERROR,CRITICAL}
 Set logging message level. (Default: info)  
@@ -116,12 +115,27 @@ Switch coloring log output. (Default: auto; enable if stderr is connected to ter
 #### --version
 Show program's version number and exit
 
+
+#### Processing settings
+
+##### -p / --process [int]
+Set number of worker process. (Default: 1)  
+For indexed BAM file, PyMaSC parallel process each reference (chromosome).
+
 #### --successive
 Calc with successive algorithm instead of bitarray implementation (Default: false)
 Bitarray implementation is recommended　in most situation. See `Computation details`
 for more information.
 
-#### Read length settings
+##### --skip-ncc
+Both `-m/--mappability` and `--skip-ncc` specified, PyMaSC skips calculate naïve cross-correlation
+and calculates only mappability-sensitive cross-correlation. (Default: False)
+
+##### --skip-plots
+Skip output figures. (Default: False)
+
+
+#### Input alignment file settings
 
 ##### -r / --read-length [int]
 Specify read length explicitly. (Default: get representative by scanning)  
@@ -131,11 +145,19 @@ read length to get representative read length. If read length is specified, PyMa
 skips this step.  
 Note that this option must be specified to treat unseekable input (like stdin).
 
-##### --estimation-type {MEAN,MEDIAN,MODE,MIN,MAX}
+##### --readlen-estimator {MEAN,MEDIAN,MODE,MIN,MAX}
 Specify how to get representative value of read length. (Default: median)
 
+##### -q / --mapq [int]
+Input reads which mapping quality less than specified score will be discarded. (Default: 1)  
+MAPQ >= 1 is recommended because MAPQ=0 contains multiple hit reads.
 
-#### Mappability options
+##### -l / --library-length
+Specify expected fragment length. (Default: None)  
+PyMaSC supplies additional NSC and RSC values calculated from this value.
+
+
+#### Input mappability file settings
 
 ##### -m / --mappability [BigWig file]
 Specify mappability (alignability, uniqueness) track to calculate mappability-sensitive
@@ -159,27 +181,14 @@ necessary, of course).
 ##### -d / --max-shift [int]
 PyMaSC calculate cross-correlation with shift size from 0 to this value. (Default: 1000)
 
-##### -q / --mapq [int]
-Specify discarding reads which mapping quality less than specified score. (Default: 1)  
-MAPQ >= 1 is recommended because MAPQ=0 contains multiple hit reads.
+##### --chi2-pval [float]
+P-value threshold to check strand specificity. (Default: 0.05)  
+PyMaSC performs chi-square test between number of reads mapped to positive- and negative-strand.
 
 ##### -w / --smooth-window [int]
 Before mean fragment length estimation, PyMaSC applies moving average filter to
 mappability-sensitive cross-correlation. This option specify filter's window size.
 (Default: 30)
-
-##### --chi2-pval [float]
-P-value threshold to check strand specificity. (Default: 0.05)  
-PyMaSC performs chi-square test between number of reads mapped to positive- and negative-strand.
-
-##### --skip-ncc
-Both `-m/--mappability` and `--skip-ncc` specified, PyMaSC skips calculate naïve cross-correlation
-and calculates only mappability-sensitive cross-correlation. (Default: False)
-
-##### -l / --library-length
-Specify expected fragment length. (Default: None)  
-If mappability region file is not supplied, NSC and RSC estimation will be perform
-with this value instead of estimated mean fragment length.
 
 
 #### Output options
@@ -190,9 +199,6 @@ Specify output directory. (Default: current directory)
 ##### -n / --name [NAME...]
 By default, output files are written to `outdir/input_file_base_name`. This option
 overwrite output file base name.
-
-##### --skip-plots
-Skip output figures. (Default: False)
 
 
 ### `pymasc-precalc` command
@@ -219,6 +225,39 @@ Almost same as `pymasc` command.
 Note that actual max shift size is,
 - 0 to `read_length` (if `max_shift` < `read_len` * 2)
 - 0 to `max_shift` - `read_len` + 1 (if `max_shift` => `read_len` * 2)
+
+
+### `pymasc-plot` command
+
+    pymasc-plot [-h]
+                [-v [{DEBUG,INFO,WARNING,ERROR,CRITICAL}]]
+                [--disable-progress]
+                [--color [{TRUE,FALSE}]]
+                [--version]
+                [-s [STATS]]
+                [-c [CC]]
+                [-m [MASC]]
+                [--chi2-pval
+                [CHI2_PVAL]]
+                [-w [SMOOTH_WINDOW]]
+                [-l [LIBRARY_LENGTH]]
+                [-n [NAME]]
+                [-o [OUTDIR]]
+                [statfile]
+
+#### Usage example
+(Re)plot figures from `pymasc` outputs `output/ENCFF000VPI_*` with the specified
+smoothing window size and library length.
+
+    $ pymasc-plot -w 50 -l 250 output/ENCFF000VPI
+
+#### Input argument
+Specify a prefix to `pymasc` output files. For example, set `output/ENCFF000VPI`
+to plot figures from `output/ENCFF000VPI_stats.tab` and `output/ENCFF000VPI_cc.tab`
+(and/or `output/ENCFF000VPI_masc.tab`). `*_stats.tab` and either or both of `*_cc.tab`
+and `*_masc.tab` must be exist.  
+To specify these files individually, use `-s/--stats`, `-c/--cc` and `-m/--masc`
+options.
 
 
 Computation details

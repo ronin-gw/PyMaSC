@@ -127,6 +127,7 @@ cdef class CCBitArrayCalculator(object):
         cdef bitarray mappable_forward = bitarray(chromsize)
         cdef bitarray mappable_reverse = bitarray(chromsize)
         cdef bitarray doubly_mappable_region = bitarray(chromsize)
+        cdef list reverse_mappability_buff
         cdef int i
 
         # naive cross-correlation
@@ -147,14 +148,15 @@ cdef class CCBitArrayCalculator(object):
                                "Skip calc mappability sensitive CC.".format(e.args[0]))
             mappability = None
         if mappability:
-            mappable_len = self.ref2mappable_len[self._chr] = []
+            mappable_len = self.ref2mappable_len[self._chr] = [None] * self.read_len
             mappable_forward_sum = self.ref2mappable_forward_sum[self._chr] = []
             mappable_reverse_sum = self.ref2mappable_reverse_sum[self._chr] = []
             mascbin = self.ref2mascbins[self._chr] = []
 
             forward_mappability = mappability
             reverse_mappability = mappability.clone()
-            reverse_mappability.lshift(self.read_len - 1)
+            reverse_mappability_buff = reverse_mappability[:self.read_len - 1]
+            reverse_mappability.rshift(self.read_len - 1, 0)
 
         # calc cross-correlation
         self._logging_info("Calculate cross-correlation for {}...".format(self._chr))
@@ -164,7 +166,12 @@ cdef class CCBitArrayCalculator(object):
             # calc mappability-sensitive cross-correlation
             if mappability:
                 doubly_mappable_region.alloc_and(forward_mappability, reverse_mappability)
-                if i >= self.read_len - 1:
+                if i < self.read_len:
+                    mappable_len[self.read_len - i - 1] = doubly_mappable_region.count()
+                elif i < self.read_len * 2 - 1:
+                    # assert mappable_len[i - self.read_len + 1] == doubly_mappable_region.count()
+                    pass
+                else:
                     mappable_len.append(doubly_mappable_region.count())
 
                 mappable_forward.alloc_and(self._forward_array, doubly_mappable_region)
@@ -174,13 +181,16 @@ cdef class CCBitArrayCalculator(object):
                 mappable_reverse_sum.append(mappable_reverse.count())
                 mascbin.append(mappable_forward.acount(mappable_reverse))
 
-                reverse_mappability.rshift(1)
+                reverse_mappability.lshift(
+                    1,
+                    reverse_mappability_buff.pop() if reverse_mappability_buff else 0
+                )
 
             # calc naive cross-correlation
             if not self.skip_ncc:
                 ccbin.append(self._forward_array.acount(self._reverse_array))
-                self._reverse_array.rshift(1)
 
+            self._reverse_array.rshift(1, 0)
             self._progress.update(i)
 
         self._progress.clean()
@@ -202,7 +212,7 @@ cdef class CCBitArrayCalculator(object):
         mappability = bitarray(chromsize)
         self._init_mappability_progress()
         for begin, end, _val in feeder:
-            mappability.set(begin, end)
+            mappability.set(begin + 1, end)
             self._progress.update(end)
         self._progress.update(self.ref2genomelen[self._chr])
         self._progress.clean()
@@ -243,12 +253,9 @@ cdef class CCBitArrayCalculator(object):
     def feed_reverse_read(self, str chrom, int64 pos, int64 readlen):
         self._check_pos(chrom, pos)
 
-        if self._last_reverse_pos == pos:
-            return None  # duplicated read
-        self._last_reverse_pos = pos
-
-        self.reverse_read_len_sum += readlen
-        self._reverse_array[pos + readlen - 1] = 1
+        if self._reverse_array[pos + readlen - 1] == 0:
+            self._reverse_array[pos + readlen - 1] = 1
+            self.reverse_read_len_sum += readlen
 
     def finishup_calculation(self):
         cdef bitarray mappability, forward_mappability, reverse_mappability
@@ -277,4 +284,4 @@ cdef class CCBitArrayCalculator(object):
             self._logging_info("Calc {} mappable length...".format(self._chr))
             for i in xrange(self.max_shift + 1):
                 mappable_len.append(forward_mappability.acount(reverse_mappability))
-                reverse_mappability.rshift(1)
+                reverse_mappability.rshift(1, 0)

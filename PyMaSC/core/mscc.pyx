@@ -30,7 +30,7 @@ cdef class MSCCCalculator(object):
         int64 _max_shift_from_f, _forward_buff_size
         np.ndarray _forward_sum, _reverse_sum, _ccbins
         list _forward_buff, _reverse_buff, _solved_chr
-        int64 _fb_tail_pos, _last_pos, _last_forward_pos, _last_reverse_pos
+        int64 _fb_tail_pos, _last_pos, _last_forward_pos
 
         object _bwfeeder, _feeder
         np.ndarray _bwbuff
@@ -102,7 +102,7 @@ cdef class MSCCCalculator(object):
             self._reverse_buff[i] = None
 
         self._last_pos = 0
-        self._last_forward_pos = self._last_reverse_pos = 0
+        self._last_forward_pos = 0
 
     def _init_bw(self):
         self._bwbuff = np.array([], dtype=np.int64)
@@ -194,23 +194,23 @@ cdef class MSCCCalculator(object):
 
         self._check_pos(chrom, pos)
 
-        if self._last_reverse_pos == pos:
-            return None
-        self._last_reverse_pos = pos
-
-        mappability = self._get_reverse_read_mappability()
-        if not np.any(mappability):
-            return None
-
-        self._reverse_sum += mappability
-        self.reverse_read_len_sum += readlen
         offset = pos - self._fb_tail_pos
-        revbuff_pos = self.max_shift + self.read_len - 1
+        revbuff_pos = self.max_shift + readlen - 1  # revbuff_tail_pos
 
         if offset > 0:
             self._shift_with_update(offset)
         else:
             revbuff_pos += offset
+
+        if revbuff_pos < len(self._reverse_buff) and self._reverse_buff[revbuff_pos] == 1:
+            return None
+
+        mappability = self._get_reverse_read_mappability(readlen)
+        if not np.any(mappability):
+            return None
+
+        self._reverse_sum += mappability
+        self.reverse_read_len_sum += readlen
 
         if revbuff_pos < len(self._reverse_buff):
             self._reverse_buff[revbuff_pos] = 1
@@ -240,14 +240,14 @@ cdef class MSCCCalculator(object):
 
     @wraparound(False)
     @boundscheck(False)
-    cdef inline np.ndarray[np.int64_t] _get_reverse_read_mappability(self):
+    cdef inline np.ndarray[np.int64_t] _get_reverse_read_mappability(self, int64 readlen):
         if self._bwiter_stopped and not self._bwbuff.size:
             return np.zeros(self._forward_buff_size, dtype=np.int64)
 
         cdef int64 forward_from, forward_to, reverse_from, reverse_to
         cdef np.ndarray[np.int64_t] forward_mappability, reverse_mappability
 
-        forward_to = self._last_pos + self.read_len - 1
+        forward_to = self._last_pos + readlen - 1
         forward_from = forward_to - self._forward_buff_size
 
         if forward_from < 0:

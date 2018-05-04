@@ -7,6 +7,7 @@ from PyMaSC.handler.masc_noindex_worker import SingleProcessCalculator
 from PyMaSC.handler.masc_worker import NaiveCCCalcWorker, MSCCCalcWorker, NCCandMSCCCalcWorker
 from PyMaSC.core.readlen import estimate_readlen
 from PyMaSC.utils.progress import MultiLineProgressManager, ProgressBar, ProgressHook
+from PyMaSC.utils.calc import exec_worker_pool
 
 logger = logging.getLogger(__name__)
 
@@ -79,19 +80,18 @@ class CCCalcHandler(object):
             if reference not in bw_chromsizes:
                 logger.debug("mappability for '{}' not found".format(reference))
                 continue
+            self._compare_refsize(reference, bw_chromsizes[reference])
 
-            bw_chr_size = bw_chromsizes[reference]
-            bam_chr_size = self.lengths[i]
-            if bw_chr_size != bam_chr_size:
-                logger.warning(
-                    "'{}' reference length mismatch: SAM/BAM -> {:,}, BigWig -> {:,}".format(
-                        reference, bam_chr_size, bw_chr_size
-                    )
-                )
-                if bam_chr_size < bw_chr_size:
-                    logger.warning("Use longer length '{:d}' for '{}' anyway".format(
-                                   bw_chr_size, reference))
-                    self.lengths[i] = bw_chr_size
+    def _compare_refsize(self, reference, bw_chr_size):
+        i = self.references.index(reference)
+        bam_chr_size = self.lengths[i]
+        if bw_chr_size != bam_chr_size:
+            logger.warning("'{}' reference length mismatch: SAM/BAM -> {:,}, "
+                           "BigWig -> {:,}".format(reference, bam_chr_size, bw_chr_size))
+            if bam_chr_size < bw_chr_size:
+                logger.warning("Use longer length '{:d}' for '{}' anyway".format(
+                               bw_chr_size, reference))
+                self.lengths[i] = bw_chr_size
 
     def run_calcuration(self):
         if self.nworker > 1:
@@ -149,14 +149,7 @@ class CCCalcHandler(object):
         _chrom2finished = {c: False for c in self.references}
         progress = MultiLineProgressManager()
 
-        for w in workers:
-            w.start()
-        for chrom in self.references:
-            self._order_queue.put(chrom)
-        for _ in range(self.nworker):
-            self._order_queue.put(None)
-
-        try:
+        with exec_worker_pool(workers, self.references, self._order_queue):
             while True:
                 chrom, obj = self._report_queue.get()
                 if chrom is None:  # update progress
@@ -173,11 +166,6 @@ class CCCalcHandler(object):
 
                     with self._logger_lock:
                         progress.erase(chrom)
-        except:
-            for w in workers:
-                if w.is_alive():
-                    w.terminate()
-            raise
 
         progress.clean()
 

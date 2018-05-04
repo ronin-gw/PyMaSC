@@ -51,10 +51,6 @@ class CalcWorkerBase(Process):
                 for read in alignfile.fetch(chrom):
                     self._progress.update(read.pos)
 
-                    if (read.is_read2 or read.mapping_quality < self.mapq_criteria or
-                            read.is_unmapped or read.is_duplicate):
-                        continue
-
                     try:
                         self._feed_read(read)
                     except ReadUnsortedError:
@@ -68,6 +64,10 @@ class CalcWorkerBase(Process):
         self._deconstruct()
 
     def _feed_read(self, read):
+        if (read.is_read2 or read.mapping_quality < self.mapq_criteria or
+                read.is_unmapped or read.is_duplicate):
+            return
+
         if read.is_reverse:
             self.calculator.feed_reverse_read(
                 read.reference_name,

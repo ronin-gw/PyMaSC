@@ -25,7 +25,7 @@ def _feed_pdf_page(pp):
     plt.close()
 
 
-@catch_IOError(logger, "figure")
+@catch_IOError(logger)
 def plot_figures(outfile, ccr):
     logger.info("Output '{}'".format(outfile))
     name = os.path.basename(os.path.splitext(outfile)[0])
@@ -141,8 +141,8 @@ def plot_masc(stats, name=None):
              alpha=0.8, label="Smoothed")
 
     lower, upper, height = _set_ylim()
-    masc_est_ll = stats.masc[stats.est_lib_len - 1]
 
+    masc_est_ll = stats.masc[stats.est_lib_len - 1]
     _annotate_point(
         stats.est_lib_len - 1, "blue",
         upper - height/2, 'estimated lib len: {}'.format(stats.est_lib_len),

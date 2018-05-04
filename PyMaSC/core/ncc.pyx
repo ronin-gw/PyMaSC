@@ -31,7 +31,7 @@ cdef class NaiveCCCalculator(object):
     #     np.ndarray _ccbins
     #     list _forward_buff, _reverse_buff
     #
-    #     int64 _fb_tail_pos, _last_pos, _last_forward_pos, _last_reverse_pos
+    #     int64 _fb_tail_pos, _last_pos, _last_forward_pos
 
     def __init__(self, int64 max_shift, references, lengths, logger_lock=None):
         """
@@ -75,7 +75,7 @@ cdef class NaiveCCCalculator(object):
         self._reverse_buff = [0] * self._forward_buff_size
 
         self._last_pos = 0
-        self._last_forward_pos = self._last_reverse_pos = 0
+        self._last_forward_pos = 0
 
     def flush(self):
         self._shift_with_update(self._forward_buff_size)
@@ -135,12 +135,6 @@ cdef class NaiveCCCalculator(object):
 
         self._check_pos(chrom, pos)
 
-        if self._last_reverse_pos == pos:
-            return None  # duplicated read
-        self._last_reverse_pos = pos
-
-        self._reverse_sum += 1
-        self.reverse_read_len_sum += readlen
         offset = pos - self._fb_tail_pos
         revbuff_pos = self.max_shift + readlen - 1
 
@@ -148,6 +142,12 @@ cdef class NaiveCCCalculator(object):
             self._shift_with_update(offset)
         else:
             revbuff_pos += offset
+
+        if len(self._reverse_buff) > revbuff_pos and self._reverse_buff[revbuff_pos] == 1:
+            return None  # duplicated read
+
+        self._reverse_sum += 1
+        self.reverse_read_len_sum += readlen
 
         if len(self._reverse_buff) > revbuff_pos:
             self._reverse_buff[revbuff_pos] = 1

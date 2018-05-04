@@ -4,23 +4,22 @@ import sys
 
 from PyMaSC.utils.compatible import zip_longest
 
-from PyMaSC import VERSION
+from PyMaSC import entrypoint, logging_version
 from PyMaSC.utils.logfmt import set_rootlogger
-from PyMaSC.utils.parsearg import get_parser
+from PyMaSC.utils.parsearg import get_pymasc_parser
 from PyMaSC.utils.progress import ProgressBase
+from PyMaSC.utils.output import prepare_outdir
 from PyMaSC.handler.mappability import MappabilityHandler, BWIOError, JSONIOError
 from PyMaSC.handler.masc import CCCalcHandler, InputUnseekable
 from PyMaSC.handler.bamasc import BACalcHandler
 from PyMaSC.handler.result import CCResult, ReadsTooFew
 from PyMaSC.core.ncc import ReadUnsortedError
-from PyMaSC.output.stats import output_cc, output_mscc, output_stats
+from PyMaSC.output.stats import (output_cc, output_mscc, output_stats,
+                                 CCOUTPUT_SUFFIX, MSCCOUTPUT_SUFFIX, STATSFILE_SUFFIX)
 
 logger = logging.getLogger(__name__)
 
 PLOTFILE_SUFFIX = ".pdf"
-CCOUTPUT_SUFFIX = "_cc.tab"
-MSCCOUTPUT_SUFFIX = "_mscc.tab"
-STATSFILE_SUFFIX = "_stats.tab"
 EXPECT_OUTFILE_SUFFIXES = (PLOTFILE_SUFFIX, CCOUTPUT_SUFFIX, MSCCOUTPUT_SUFFIX, STATSFILE_SUFFIX)
 
 
@@ -28,9 +27,8 @@ def _get_output_basename(dirpath, filepath):
     return os.path.join(dirpath, os.path.splitext(os.path.basename(filepath))[0])
 
 
-def _main():
-    # parse args
-    parser = get_parser()
+def _parse_args():
+    parser = get_pymasc_parser()
     args = parser.parse_args()
 
     if args.skip_ncc and args.mappability is None:
@@ -38,10 +36,7 @@ def _main():
 
     # set up logging
     set_rootlogger(args.color, args.log_level)
-    logger.info("PyMaSC version {} with Python{}.{}.{}".format(
-                *[VERSION] + list(sys.version_info[:3])))
-    for line in sys.version.split('\n'):
-        logger.debug(line)
+    logging_version(logger)
 
     # check args
     if args.mappability:
@@ -51,6 +46,13 @@ def _main():
     if args.library_length and args.library_length > args.max_shift:
         logger.error("Specified expected library length > max shift. Ignore expected length setting.")
         args.library_length = None
+
+    return args
+
+
+@entrypoint(logger)
+def main():
+    args = _parse_args()
 
     #
     if sys.stderr.isatty() and not args.disable_progress:
@@ -68,45 +70,20 @@ def _main():
     basenames = prepare_output(args.reads, args.name, args.outdir, suffixes)
 
     #
-    handler_class = CCCalcHandler if args.successive else BACalcHandler
-    calc_handlers = []
-    need_logging_unseekable_error = False
-    for f in args.reads:
-        try:
-            calc_handlers.append(
-                handler_class(f, args.estimation_type, args.max_shift, args.mapq,
-                              args.process, args.skip_ncc)
-            )
-        except ValueError:
-            logger.error("Failed to open file '{}'".format(f))
-        except InputUnseekable:
-            need_logging_unseekable_error = True
-    if need_logging_unseekable_error:
-        logger.error("If your input can't reread, specify read length using `-r` option.")
+    calc_handlers = make_handlers(args)
     if not calc_handlers:
         return None
 
     #
-    readlens = []
-    if args.read_length is None:
-        logger.info("Check read length: Get {} from read length distribution".format(args.estimation_type.lower()))
-    for i, handler in enumerate(calc_handlers):
-        try:
-            handler.set_readlen(args.read_length)
-        except ValueError:
-            calc_handlers.pop(i)
-            continue
-        readlens.append(handler.read_len)
-    if not calc_handlers:
-        return None
-    max_readlen = max(readlens)
+    max_readlen = set_readlen(args, calc_handlers)
 
     #
     mappability_handler = None
     if args.mappability:
         try:
             mappability_handler = MappabilityHandler(
-                args.mappability, args.max_shift, max_readlen, args.mappability_stats, args.process
+                args.mappability, args.max_shift, max_readlen,
+                args.mappability_stats, args.process
             )
         except (BWIOError, JSONIOError):
             sys.exit(1)
@@ -118,65 +95,21 @@ def _main():
     logger.info("Calculate cross-correlation between 1 to {} base shift"
                 "with reads MAOQ >= {}".format(args.max_shift, args.mapq))
     for handler, output_basename in zip(calc_handlers, basenames):
-        logger.info("Process {}".format(handler.path))
-
-        try:
-            handler.run_calcuration()
-        except ReadUnsortedError:
-            continue
-
-        try:
-            result_handler = CCResult(
-                handler.references, handler.lengths, handler.read_len,
-                handler.ref2forward_sum, handler.ref2reverse_sum, handler.ref2ccbins,
-                handler.mappable_ref2forward_sum, handler.mappable_ref2reverse_sum,
-                handler.mappable_ref2ccbins, handler.ref2mappable_len,
-                args.smooth_window, args.chi2_pval, args.library_length
-            )
-        except ReadsTooFew:
-            result_handler = None
-        if result_handler is None:
-            logger.warning("Faild to process {}. Skip this file.".format(f))
-            continue
-
-        #
-        output_cc(output_basename + CCOUTPUT_SUFFIX, result_handler)
-        output_mscc(output_basename + MSCCOUTPUT_SUFFIX, result_handler)
-        output_stats(output_basename + STATSFILE_SUFFIX, result_handler)
-        if not args.skip_plots:
-            plotfile_path = output_basename + PLOTFILE_SUFFIX
-            try:
-                from PyMaSC.output.figure import plot_figures
-            except ImportError:
-                logger.error("Skip output plots '{}'".format(plotfile_path))
-            else:
-                plot_figures(plotfile_path, result_handler)
+        result_handler = run_calculation(args, handler, output_basename)
+        output_results(args, output_basename, result_handler)
 
     #
     if mappability_handler:
-        if mappability_handler.need_save_stats:
-            mappability_handler.save_mappability_stats()
+        mappability_handler.save_mappability_stats()
         mappability_handler.close()
 
 
 def prepare_output(reads, names, outdir, suffixes=EXPECT_OUTFILE_SUFFIXES):
-    if os.path.exists(outdir):
-        if not os.path.isdir(outdir):
-            logger.critical("Specified path as a output directory is not directory.")
-            logger.critical(outdir)
-            sys.exit(1)
-    else:
-        logger.info("Make output directory: {}".format(outdir))
-        try:
-            os.mkdir(outdir)
-        except IOError as e:
-            logger.critical("Faild to make output directory: [Errno {}] {}".format(e.errno, e.message))
-            sys.exit(1)
-
-    if not os.access(outdir, os.W_OK):
-        logger.critical("Output directory '{}' is not writable.".format(outdir))
+    #
+    if not prepare_outdir(outdir, logger):
         sys.exit(1)
 
+    #
     basenames = []
     for f, n in zip_longest(reads, names):
         if n is None:
@@ -193,11 +126,73 @@ def prepare_output(reads, names, outdir, suffixes=EXPECT_OUTFILE_SUFFIXES):
     return basenames
 
 
-def exec_entrypoint():
+def make_handlers(args):
+    handler_class = CCCalcHandler if args.successive else BACalcHandler
+    calc_handlers = []
+    for f in args.reads:
+        try:
+            calc_handlers.append(
+                handler_class(f, args.readlen_estimator, args.max_shift, args.mapq,
+                              args.process, args.skip_ncc)
+            )
+        except ValueError:
+            logger.error("Failed to open file '{}'".format(f))
+        except InputUnseekable:
+            logger.error("If your input can't reread, specify read length using `-r` option.")
+
+    return calc_handlers
+
+
+def set_readlen(args, calc_handlers):
+    #
+    if args.read_length is None:
+        logger.info("Check read length: Get {} from read length distribution".format(args.readlen_estimator.lower()))
+
+    #
+    readlens = []
+    for i, handler in enumerate(calc_handlers[:]):
+        try:
+            handler.set_readlen(args.read_length)
+        except ValueError:
+            calc_handlers.pop(i)
+            continue
+        readlens.append(handler.read_len)
+
+    #
+    max_readlen = max(readlens)
+    if len(set(readlens)) != 1:
+        logger.warning("There are multiple read length candidates. Use max length "
+                       "() for MSCC calculation.".format(max_readlen))
+    return max_readlen
+
+
+def run_calculation(args, handler, output_basename):
+    logger.info("Process {}".format(handler.path))
+
     try:
-        _main()
-        logger.info("PyMASC finished.")
-    except KeyboardInterrupt:
-        sys.stderr.write("\r\033[K")
-        sys.stderr.flush()
-        logger.info("Got KeyboardInterrupt. bye")
+        handler.run_calcuration()
+    except ReadUnsortedError:
+        return
+
+    try:
+        return CCResult(
+            handler, args.smooth_window, args.chi2_pval, args.library_length
+        )
+    except ReadsTooFew:
+        logger.warning("Faild to process {}. Skip this file.".format(handler.path))
+
+
+def output_results(args, output_basename, result_handler):
+    output_stats(output_basename, result_handler)
+    if not result_handler.skip_ncc:
+        output_cc(output_basename, result_handler)
+    if result_handler.calc_masc:
+        output_mscc(output_basename, result_handler)
+    if not args.skip_plots:
+        plotfile_path = output_basename + PLOTFILE_SUFFIX
+        try:
+            from PyMaSC.output.figure import plot_figures
+        except ImportError:
+            logger.error("Skip output plots '{}'".format(plotfile_path))
+        else:
+            plot_figures(plotfile_path, result_handler)

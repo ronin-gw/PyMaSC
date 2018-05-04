@@ -10,6 +10,18 @@ cdef class bitarray(object):
         if nbits > 0:
             self.array = bit_array_create(nbits)
 
+    def __getitem__(self, obj):
+        if isinstance(obj, slice):
+            if obj.start:
+                if obj.step:
+                    r = range(obj.start, obj.stop, obj.step)
+                else:
+                    r = range(obj.start, obj.stop)
+            else:
+                r = range(obj.stop)
+            return [bit_array_get_bit(self.array, i) for i in r]
+        return bit_array_get_bit(self.array, obj)
+
     def __setitem__(self, bit_index_t key, value):
         bit_array_set_bit(self.array, key)
 
@@ -46,11 +58,11 @@ cdef class bitarray(object):
         a.array = clone
         return a
 
-    cdef void rshift(self, bit_index_t shift_dist):
-        bit_array_shift_right(self.array, shift_dist, 0)
+    cdef void rshift(self, bit_index_t shift_dist, char fill):
+        bit_array_shift_right(self.array, shift_dist, fill)
 
-    cdef void lshift(self, bit_index_t shift_dist):
-        bit_array_shift_left(self.array, shift_dist, 0)
+    cdef void lshift(self, bit_index_t shift_dist, char fill):
+        bit_array_shift_left(self.array, shift_dist, fill)
 
     cdef void alloc_and(bitarray self, bitarray src1, bitarray src2):
         bit_array_and(self.array, src1.array, src2.array)

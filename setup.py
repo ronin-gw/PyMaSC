@@ -148,8 +148,9 @@ def _setup():
         ]),
         entry_points={
             "console_scripts": [
-                "pymasc = PyMaSC.pymasc:exec_entrypoint",
-                "pymasc-precalc = PyMaSC.calcmappablelen:exec_entrypoint"
+                "pymasc = PyMaSC.pymasc:main",
+                "pymasc-precalc = PyMaSC.calcmappablelen:main",
+                "pymasc-plot = PyMaSC.plot:main"
             ],
         }
     )

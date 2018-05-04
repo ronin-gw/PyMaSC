@@ -32,7 +32,8 @@ cdef extern from "bit_array.h":
     #
     void bit_array_shift_right(BIT_ARRAY* bitarr, bit_index_t shift_dist, char fill)
     void bit_array_shift_left(BIT_ARRAY* bitarr, bit_index_t shift_dist, char fill)
-
+    #
+    char bit_array_get_bit(BIT_ARRAY* bitarr, bit_index_t b);
 
 cdef class bitarray(object):
     cdef:
@@ -43,6 +44,6 @@ cdef class bitarray(object):
     cdef bit_index_t count(self)
     cdef bit_index_t acount(self, bitarray other)
     cdef bitarray clone(self)
-    cdef void rshift(self, bit_index_t shift_dist)
-    cdef void lshift(self, bit_index_t shift_dist)
+    cdef void rshift(self, bit_index_t shift_dist, char fill)
+    cdef void lshift(self, bit_index_t shift_dist, char fill)
     cdef void alloc_and(self, bitarray src1, bitarray src2)

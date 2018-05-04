@@ -8,6 +8,8 @@ import numpy as np
 from PyMaSC.core.mappability import MappableLengthCalculator
 from PyMaSC.utils.progress import ProgressHook, MultiLineProgressManager
 from PyMaSC.utils.compatible import tostr, xrange
+from PyMaSC.utils.output import prepare_outdir
+from PyMaSC.utils.calc import exec_worker_pool
 
 logger = logging.getLogger(__name__)
 
@@ -64,28 +66,25 @@ class MappabilityHandler(MappableLengthCalculator):
         elif not os.path.isfile(self.map_path):
             logger.critical("Specified path is not file: '{}'".format(self.map_path))
             raise JSONIOError
+        elif not os.access(self.map_path, os.R_OK):
+            logger.error("Failed to read '{}'".format(self.map_path))
         else:
-            if not os.access(self.map_path, os.R_OK):
-                logger.error("Failed to read '{}'".format(self.map_path))
+            self._try_load_mappability_stats()
+            if self.need_save_stats:
+                self._check_stats_is_overwritable()
+                logger.info("Calcurate mappable length with max shift size {}.".format(max_shift))
             else:
-                self._try_load_mappability_stats()
-
-                if self.need_save_stats:
-                    self._check_stats_is_overwritable()
-                    logger.info("Calcurate mappable length with max shift size {}.".format(max_shift))
-                else:
-                    logger.info("Use mappability stats read from '{}'".format(self.map_path))
+                logger.info("Use mappability stats read from '{}'".format(self.map_path))
 
     def _check_saving_directory_is_writable(self):
         dirname = os.path.dirname(self.map_path)
         dirname = dirname if dirname else '.'
-        if not os.access(dirname, os.W_OK):
-            logger.critical("Directory is not writable: '{}'".format(dirname))
+        if not prepare_outdir(dirname, logger):
             raise JSONIOError
 
     def _try_load_mappability_stats(self):
         try:
-            self._load_mappability_stats()
+            stats = self._read_mappability_stats()
         except IOError as e:
             logger.error("Failed to read '{}'".format(self.map_path))
             logger.error("[Errno {}] {}".format(e.errno, e.message))
@@ -94,7 +93,9 @@ class MappabilityHandler(MappableLengthCalculator):
         except NeedUpdate:
             pass
 
-    def _load_mappability_stats(self):
+        self._load_mappability_stats(stats)
+
+    def _read_mappability_stats(self):
         with open(self.map_path) as f:
             stats = json.load(f)
 
@@ -120,6 +121,9 @@ class MappabilityHandler(MappableLengthCalculator):
                 logger.error("Max shift length for 'ref' unmatched.".format(ref))
                 raise IndexError
 
+        return stats
+
+    def _load_mappability_stats(self, stats):
         self.mappable_len = stats["__whole__"][:self.max_shift + 1]
         self.chrom2mappable_len = {ref: b[:self.max_shift + 1] for ref, b in stats["references"].items()}
         self.chrom2is_called = {ref: True for ref in self.chromsizes}
@@ -135,7 +139,7 @@ class MappabilityHandler(MappableLengthCalculator):
 
     def save_mappability_stats(self):
         if not self.need_save_stats:
-            return logger.info("Update mappability stats is not required.")
+            return logger.info("Mappability stats updating is not required.")
 
         logger.info("Save mappable length to '{}'".format(self.map_path))
         try:
@@ -164,14 +168,7 @@ class MappabilityHandler(MappableLengthCalculator):
         workers = [MappabilityCalcWorker(self.path, self.max_shift, order_queue, report_queue, logger_lock)
                    for _ in range(min(self.nworker, len(target_chroms)))]
 
-        try:
-            for w in workers:
-                w.start()
-            for chrom in target_chroms:
-                order_queue.put(chrom)
-            for _ in range(self.nworker):
-                order_queue.put(None)
-
+        with exec_worker_pool(workers, target_chroms, order_queue):
             while not self.is_called:
                 chrom, obj = report_queue.get()
                 if chrom is None:  # update progress
@@ -186,11 +183,6 @@ class MappabilityHandler(MappableLengthCalculator):
                         self.is_called = True
                     with logger_lock:
                         progress.erase(chrom)
-        except:
-            for w in workers:
-                if w.is_alive():
-                    w.terminate()
-            raise
 
         progress.clean()
         self._sumup_mappability()

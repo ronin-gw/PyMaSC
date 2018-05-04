@@ -17,8 +17,12 @@ logger = logging.getLogger(__name__)
 CCResult = namedtuple("CCResult", ("references", "skip_ncc", "calc_masc", "ref2stats", "whole"))
 
 
-@entrypoint(logger)
-def main():
+def _complete_path_arg(args, attr, val):
+    if not getattr(args, attr):
+        setattr(args, attr, val)
+
+
+def _parse_args():
     # parse args
     parser = get_plot_parser()
     args = parser.parse_args()
@@ -28,79 +32,40 @@ def main():
     logging_version(logger)
 
     #
-    stat_path = cctable_path = masctable_path = None
-    if args.statfile:
-        stat_path = args.statfile + STATSFILE_SUFFIX
-        cctable_path = args.statfile + CCOUTPUT_SUFFIX
-        masctable_path = args.statfile + MSCCOUTPUT_SUFFIX
-    stat_path = args.stats if args.stats else stat_path
-    cctable_path = args.cc if args.cc else cctable_path
-    masctable_path = args.masc if args.masc else masctable_path
+    for attr, suffix in zip(("stats", "cc", "masc"),
+                            (STATSFILE_SUFFIX, CCOUTPUT_SUFFIX, MSCCOUTPUT_SUFFIX)):
+        _complete_path_arg(args, attr, args.statfile + suffix)
 
     #
-    if not stat_path:
+    if not args.stats:
         parser.error("Statistics file path is not specified.")
-    elif not os.path.exists(stat_path):
-        parser.error("Statistics file path does not exist: '{}'".format(stat_path))
-    elif not cctable_path and not masctable_path:
+    elif not os.path.exists(args.stats):
+        parser.error("Statistics file path does not exist: '{}'".format(args.stats))
+    elif not args.cc and not args.masc:
         parser.error("Neither cross-correlation table file path nor mappability "
                      "sensitive cross-correlation table file path is specified.")
-    elif all((cctable_path, masctable_path,
-              not os.path.exists(cctable_path), not os.path.exists(masctable_path))):
+    elif all((args.cc, args.masc,
+              not os.path.exists(args.cc), not os.path.exists(args.masc))):
         parser.error("Neither cross-correlation table file path '{}' nor "
                      "mappability sensitive cross-correlation table file path "
-                     "'{}' exists.".format(cctable_path, masctable_path))
-    elif cctable_path and not os.path.exists(cctable_path):
+                     "'{}' exists.".format(args.cc, args.masc))
+    elif args.cc and not os.path.exists(args.cc):
         parser.error("Cross-correlation table file path does not exists: "
-                     "'{}'".format(cctable_path))
-    elif masctable_path and not os.path.exists(masctable_path):
+                     "'{}'".format(args.cc))
+    elif args.masc and not os.path.exists(args.masc):
         parser.error("Mappability sensitive cross-correlation table file path "
-                     "does not exists: '{}'".format(cctable_path))
+                     "does not exists: '{}'".format(args.cc))
 
     #
-    statattrs = load_stats(stat_path)
-    if "library_len" in statattrs:
-        statattrs["expected_library_len"] = statattrs["library_len"]
-        del statattrs["library_len"]
-    else:
-        statattrs["expected_library_len"] = None
-    if args.library_length:
-        statattrs["expected_library_len"] = args.library_length
-    if "read_len" not in statattrs:
-        logger.critical("Mandatory attribute 'Read length' not found in '{}'.".format(stat_path))
-        sys.exit(1)
-    if args.smooth_window:
-        statattrs["filter_len"] = args.smooth_window
-    #
-    if cctable_path:
-        cc_whole, cc_table = load_cc(cctable_path)
-        references = cc_table.keys()
-    else:
-        cc_whole = cc_table = None
-    if masctable_path:
-        masc_whole, masc_table = load_masc(masctable_path)
-        references = masc_table.keys()
-    else:
-        masc_whole = masc_table = None
-    #
-    name = None
-    if "name" in statattrs:
-        name = statattrs.pop("name")
-    name = args.name if args.name else name
-    if name is None:
-        logger.critical("Mandatory attribute 'Name' not found in '{}'. "
-                        "Set name manually with -n/--name option.".format(stat_path))
-        sys.exit(1)
+    return args
 
-    #
-    check_suffixes = [PLOTFILE_SUFFIX]
-    out_stats_path = os.path.normpath(os.path.join(args.outdir, name) + STATSFILE_SUFFIX)
-    if os.path.normpath(stat_path) == out_stats_path:
-        logger.error("Prevent to overwrite input stats file '{}', "
-                     "output stats file will be skipped.".format(out_stats_path))
-    else:
-        check_suffixes.append(STATSFILE_SUFFIX)
-    prepare_output([None], [name], args.outdir, check_suffixes)
+
+@entrypoint(logger)
+def main():
+    args = _parse_args()
+    statattrs = _prepare_stats(args)
+    cc_whole, cc_table, masc_whole, masc_table, references = _load_tables(args)
+    checked_suffixes = _prepare_outputs(args)
 
     #
     if "forward_sum" in statattrs and "reverse_sum" in statattrs:
@@ -123,6 +88,65 @@ def main():
     )
 
     #
-    if STATSFILE_SUFFIX in check_suffixes:
-        output_stats(os.path.join(args.outdir, name), ccr)
-    plot_figures(os.path.join(args.outdir, name + PLOTFILE_SUFFIX), ccr)
+    if STATSFILE_SUFFIX in checked_suffixes:
+        output_stats(os.path.join(args.outdir, args.name), ccr)
+    plot_figures(os.path.join(args.outdir, args.name + PLOTFILE_SUFFIX), ccr)
+
+
+def _prepare_stats(args):
+    #
+    statattrs = load_stats(args.stats)
+    if "library_len" in statattrs:
+        statattrs["expected_library_len"] = statattrs["library_len"]
+        del statattrs["library_len"]
+    else:
+        statattrs["expected_library_len"] = None
+    if args.library_length:
+        statattrs["expected_library_len"] = args.library_length
+    if "read_len" not in statattrs:
+        logger.critical("Mandatory attribute 'Read length' not found in '{}'.".format(args.stats))
+        sys.exit(1)
+    if args.smooth_window:
+        statattrs["filter_len"] = args.smooth_window
+
+    #
+    if "name" in statattrs:
+        args.name = statattrs.pop("name")
+    if not args.name:
+        logger.critical("Mandatory attribute 'Name' not found in '{}'. "
+                        "Set name manually with -n/--name option.".format(args.stats))
+        sys.exit(1)
+
+    return statattrs
+
+
+def _load_table(path, load_fun):
+    whole, table = load_fun(path)
+    references = table.keys()
+    return whole, table, references
+
+
+def _load_tables(args):
+    if args.cc:
+        cc_whole, cc_table, references = _load_table(args.cc, load_cc)
+    else:
+        cc_whole = cc_table = None
+    if args.masc:
+        masc_whole, masc_table, references = _load_table(args.masc, load_masc)
+    else:
+        masc_whole = masc_table = None
+
+    return cc_whole, cc_table, masc_whole, masc_table, references
+
+
+def _prepare_outputs(args):
+    check_suffixes = [PLOTFILE_SUFFIX]
+    out_stats_path = os.path.normpath(os.path.join(args.outdir, args.name) + STATSFILE_SUFFIX)
+    if os.path.normpath(args.stats) == out_stats_path:
+        logger.error("Prevent to overwrite input stats file '{}', "
+                     "output stats file will be skipped.".format(out_stats_path))
+    else:
+        check_suffixes.append(STATSFILE_SUFFIX)
+    prepare_output([None], [args.name], args.outdir, check_suffixes)
+
+    return check_suffixes

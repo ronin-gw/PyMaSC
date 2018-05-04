@@ -86,12 +86,7 @@ class SingleProcessCalculator(object):
                 self._progress.clean()
                 self._progress.disable_bar()
 
-                if (read.is_read2 or read.mapping_quality < self.mapq_criteria or
-                        read.is_unmapped or read.is_duplicate):
-                    continue
-
-                self._feed_read(read.is_reverse, read.reference_name,
-                                pos, read.query_length)
+                self._feed_read(pos, read)
 
                 self._chr = chrom
                 self._progress.enable_bar()
@@ -99,20 +94,19 @@ class SingleProcessCalculator(object):
                 self._progress.update(pos)
             else:
                 self._progress.update(pos)
-                if (read.is_read2 or read.mapping_quality < self.mapq_criteria or
-                        read.is_unmapped or read.is_duplicate):
-                    continue
-
-                self._feed_read(read.is_reverse, read.reference_name,
-                                pos, read.query_length)
+                self._feed_read(pos, read)
 
         self._progress.clean()
         self.align_file.close()
         self._deconstruct()
 
-    def _feed_read(self, is_reverse, chrom, pos, readlen):
+    def _feed_read(self, pos, read):
+        if (read.is_read2 or read.mapping_quality < self.mapq_criteria or
+                read.is_unmapped or read.is_duplicate):
+            return
+
         try:
-            self._stepping_calc(is_reverse, chrom, pos, readlen)
+            self._stepping_calc(read.is_reverse, read.is_reverse, pos, read.query_length)
         except ReadUnsortedError:
             logger.error("Input alignment file must be sorted.")
             self.align_file.close()

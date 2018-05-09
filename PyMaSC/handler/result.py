@@ -1,4 +1,5 @@
 import logging
+from functools import wraps
 
 import numpy as np
 from scipy.stats.distributions import chi2
@@ -11,6 +12,20 @@ logger = logging.getLogger(__name__)
 
 def _skip_none(i):
     return [x for x in i if x is not None]
+
+
+def npcalc_with_logging_warn(func):
+    @wraps(func)
+    def _inner(*args, **kwargs):
+        try:
+            with np.errstate(divide="raise", invalid="raise"):
+                return func(*args, **kwargs)
+        except FloatingPointError as e:
+            logger.debug("catch numpy warning: " + repr(e))
+            logger.debug("continue anyway.")
+            with np.errstate(divide="ignore", invalid="ignore"):
+                return func(*args, **kwargs)
+    return _inner
 
 
 def chi2_test(a, b, chi2_p_thresh, label):
@@ -129,6 +144,7 @@ class PyMaSCStats(object):
             denom
         )
 
+    @npcalc_with_logging_warn
     def _calc_masc(self):
         totlen = np.array(self.mappable_len, dtype=np.float_)
         totlen = np.concatenate((
@@ -144,6 +160,7 @@ class PyMaSCStats(object):
         )
 
     @staticmethod
+    @npcalc_with_logging_warn
     def _calc_cc(forward_sum, reverse_sum, ccbins, totlen, denom):
         forward_mean = forward_sum / totlen
         reverse_mean = reverse_sum / totlen
@@ -152,12 +169,8 @@ class PyMaSCStats(object):
         reverse_var = reverse_mean * (1 - reverse_mean)
 
         sum_prod = forward_mean * reverse_mean
-        var_geomean = _npcalc_with_logging_warn(
-            lambda: (forward_var * reverse_var) ** 0.5
-        )
-        return _npcalc_with_logging_warn(
-            lambda: (ccbins / denom - sum_prod) / var_geomean
-        )
+        var_geomean = (forward_var * reverse_var) ** 0.5
+        return (ccbins / denom - sum_prod) / var_geomean
 
     def calc_metrics(self):
         if self.cc is not None:
@@ -186,6 +199,7 @@ class PyMaSCStats(object):
         return cc_min, ccrl
 
     @staticmethod
+    @npcalc_with_logging_warn
     def _calc_lib_metrics(cc, cc_min, ccrl, library_len):
         ccfl = cc[library_len - 1]
         nsc = ccfl / cc_min
@@ -196,17 +210,6 @@ class PyMaSCStats(object):
 
 class ReadsTooFew(IndexError):
     pass
-
-
-def _npcalc_with_logging_warn(func):
-    try:
-        with np.errstate(divide="raise", invalid="raise"):
-            return func()
-    except FloatingPointError as e:
-        logger.debug("catch numpy warning: " + repr(e))
-        logger.debug("continue anyway.")
-        with np.errstate(divide="ignore", invalid="ignore"):
-            return func()
 
 
 class CCResult(object):

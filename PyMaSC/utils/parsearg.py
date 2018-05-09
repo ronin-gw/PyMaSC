@@ -83,7 +83,7 @@ def add_result_proc_args(group):
     group.add_argument(
         "-w", "--smooth-window", nargs='?', type=int, default=15, action=ForceNaturalNumber,
         help="Moving average window size for smoothing MSCC "
-             "to estimate library length. (Default: 100)"
+             "to estimate library length. (Default: 15)"
     )
 
 

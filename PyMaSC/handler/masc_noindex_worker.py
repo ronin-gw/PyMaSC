@@ -80,33 +80,33 @@ class SingleProcessCalculator(object):
                 chrom = read.reference_name
             except ValueError:
                 continue
-            pos = read.reference_start + 1
 
             if chrom != self._chr:
                 self._progress.clean()
                 self._progress.disable_bar()
 
-                self._feed_read(pos, read)
+                self._feed_read(read)
 
                 self._chr = chrom
                 self._progress.enable_bar()
                 self._progress.set(chrom, _ref2genomelen[chrom])
-                self._progress.update(pos)
+                self._progress.update(read.reference_start)
             else:
-                self._progress.update(pos)
-                self._feed_read(pos, read)
+                self._progress.update(read.reference_start)
+                self._feed_read(read)
 
         self._progress.clean()
         self.align_file.close()
         self._deconstruct()
 
-    def _feed_read(self, pos, read):
+    def _feed_read(self, read):
         if (read.is_read2 or read.mapping_quality < self.mapq_criteria or
                 read.is_unmapped or read.is_duplicate):
             return
 
         try:
-            self._stepping_calc(read.is_reverse, read.is_reverse, pos, read.query_length)
+            self._stepping_calc(read.is_reverse, read.reference_name,
+                                read.reference_start + 1, read.infer_query_length())
         except ReadUnsortedError:
             logger.error("Input alignment file must be sorted.")
             self.align_file.close()

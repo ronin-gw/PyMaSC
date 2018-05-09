@@ -49,7 +49,7 @@ class CalcWorkerBase(Process):
                     logger.debug("{}: Process {}...".format(self.name, chrom))
 
                 for read in alignfile.fetch(chrom):
-                    self._progress.update(read.pos)
+                    self._progress.update(read.reference_start)
 
                     try:
                         self._feed_read(read)
@@ -72,13 +72,13 @@ class CalcWorkerBase(Process):
             self.calculator.feed_reverse_read(
                 read.reference_name,
                 read.reference_start + 1,
-                read.query_length
+                read.infer_query_length()
             )
         else:
             self.calculator.feed_forward_read(
                 read.reference_name,
                 read.reference_start + 1,
-                read.query_length
+                read.infer_query_length()
             )
 
     def _put_result_to_report_queue(self, chrom):
@@ -171,27 +171,31 @@ class NCCandMSCCCalcWorker(MSCCCalcWorker):
         self._progress.enable_bar = ProgressHook._pass
 
     def _feed_read(self, read):
-        if read.is_reverse:
+        if (read.is_read2 or read.mapping_quality < self.mapq_criteria or
+                read.is_unmapped or read.is_duplicate):
+            return
+
+        elif read.is_reverse:
             self.ncc_calculator.feed_reverse_read(
                 read.reference_name,
                 read.reference_start + 1,
-                read.query_length
+                read.infer_query_length()
             )
             self.mscc_calculator.feed_reverse_read(
                 read.reference_name,
                 read.reference_start + 1,
-                read.query_length
+                read.infer_query_length()
             )
         else:
             self.ncc_calculator.feed_forward_read(
                 read.reference_name,
                 read.reference_start + 1,
-                read.query_length
+                read.infer_query_length()
             )
             self.mscc_calculator.feed_forward_read(
                 read.reference_name,
                 read.reference_start + 1,
-                read.query_length
+                read.infer_query_length()
             )
 
     def _put_result_to_report_queue(self, chrom):

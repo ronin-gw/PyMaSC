@@ -27,23 +27,21 @@ def _parse_args():
     parser = get_plot_parser()
     args = parser.parse_args()
 
-    # set up logging
-    set_rootlogger(args.color, args.log_level)
-    logging_version(logger)
+    #
+    if args.statfile:
+        for attr, suffix in zip(("stats", "cc", "masc"),
+                                (STATSFILE_SUFFIX, CCOUTPUT_SUFFIX, MSCCOUTPUT_SUFFIX)):
+            _complete_path_arg(args, attr, args.statfile + suffix)
+    else:
+        if not args.stats:
+            parser.error("Statistics file path is not specified.")
+        elif not args.cc and not args.masc:
+            parser.error("Neither cross-correlation table file path nor mappability "
+                         "sensitive cross-correlation table file path is specified.")
 
     #
-    for attr, suffix in zip(("stats", "cc", "masc"),
-                            (STATSFILE_SUFFIX, CCOUTPUT_SUFFIX, MSCCOUTPUT_SUFFIX)):
-        _complete_path_arg(args, attr, args.statfile + suffix)
-
-    #
-    if not args.stats:
-        parser.error("Statistics file path is not specified.")
-    elif not os.path.exists(args.stats):
+    if not os.path.exists(args.stats):
         parser.error("Statistics file path does not exist: '{}'".format(args.stats))
-    elif not args.cc and not args.masc:
-        parser.error("Neither cross-correlation table file path nor mappability "
-                     "sensitive cross-correlation table file path is specified.")
     elif all((args.cc, args.masc,
               not os.path.exists(args.cc), not os.path.exists(args.masc))):
         parser.error("Neither cross-correlation table file path '{}' nor "
@@ -55,6 +53,10 @@ def _parse_args():
     elif args.masc and not os.path.exists(args.masc):
         parser.error("Mappability sensitive cross-correlation table file path "
                      "does not exists: '{}'".format(args.cc))
+
+    # set up logging
+    set_rootlogger(args.color, args.log_level)
+    logging_version(logger)
 
     #
     return args

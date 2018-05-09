@@ -46,7 +46,7 @@ def chi2_test(a, b, chi2_p_thresh, label):
 class PyMaSCStats(object):
     def __init__(
         self,
-        read_len, filter_len=100, expected_library_len=None,
+        read_len, filter_len=15, expected_library_len=None,
         genomelen=None, forward_sum=None, reverse_sum=None, ccbins=None,
         mappable_len=None, mappable_forward_sum=None, mappable_reverse_sum=None, mappable_ccbins=None,
         cc=None, masc=None
@@ -215,7 +215,7 @@ class ReadsTooFew(IndexError):
 class CCResult(object):
     def __init__(
         self, handler=None,
-        filter_len=100, chi2_pval=0.05, expected_library_len=None
+        filter_len=15, chi2_pval=0.05, expected_library_len=None
     ):
         # settings
         self.filter_len = filter_len

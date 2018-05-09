@@ -92,7 +92,7 @@ def main():
             handler.set_mappability_handler(mappability_handler)
 
     #
-    logger.info("Calculate cross-correlation between 1 to {} base shift"
+    logger.info("Calculate cross-correlation between 0 to {} base shift"
                 "with reads MAOQ >= {}".format(args.max_shift, args.mapq))
     for handler, output_basename in zip(calc_handlers, basenames):
         result_handler = run_calculation(args, handler, output_basename)

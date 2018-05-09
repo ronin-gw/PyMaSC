@@ -7,3 +7,18 @@ include external/BitArray/Makefile
 include external/BitArray/README.md
 
 include external/bitcnt.h
+
+exclude PyMaSC/bacore/bitarray.c
+exclude PyMaSC/bacore/mscc.c
+exclude PyMaSC/core/mappability.c
+exclude PyMaSC/core/mscc.c
+exclude PyMaSC/core/ncc.c
+exclude PyMaSC/core/readlen.c
+exclude PyMaSC/handler/masc_mem.c
+exclude PyMaSC/reader/bigwig.c
+exclude PyMaSC/reader/bx/bbi_file.c
+exclude PyMaSC/reader/bx/bigwig_file.c
+exclude PyMaSC/reader/bx/bpt_file.c
+exclude PyMaSC/utils/bx/binary_big_endian.c
+exclude PyMaSC/utils/bx/binary_file.c
+exclude PyMaSC/utils/bx/binary_little_endian.c

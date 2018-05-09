@@ -188,7 +188,7 @@ PyMaSC performs chi-square test between number of reads mapped to positive- and 
 ##### -w / --smooth-window [int]
 Before mean fragment length estimation, PyMaSC applies moving average filter to
 mappability-sensitive cross-correlation. This option specify filter's window size.
-(Default: 30)
+(Default: 15)
 
 
 #### Output options

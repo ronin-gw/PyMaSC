@@ -1,5 +1,12 @@
 # Change Log
 
+## v0.2.4 (2018-05-09)
+**Fixed bugs:**
+- Reduce smooth window default size to 15 (Longer lengths are suitable for
+  samples with long fragments (such as broad sources) but it's not robust.)
+- Use read lengths calculated from CIGAR alignments instead of sequence lengths
+- Fix build issue
+
 ## v0.2.3 (2018-05-04)
 **Implemented enhancements:**
 - Add `pymasc-plot` command

@@ -82,6 +82,25 @@ def _setup():
         author_email="anzawa@sb.ecei.tohoku.ac.jp",
         description="Python implementation to calc mappability-sensitive cross-correlation "
                     "for fragment length estimation and quality control for ChIP-Seq.",
+        long_description='\n'.join((
+            "To estimate mean fragment length for single-ended sequencing data, "
+            "cross-correlation between positive- and negative-strand reads is "
+            "commonly used. One of the problems with this approach is phantom "
+            "peak, which is the occasionally observed peak corresponding to the "
+            "read length. In the ChIP-Seq guidelines by ENCODE consortia, cross-"
+            "correlation at fragment length and read length are used for quality "
+            "control metrics. Additionally, library length itself is one of the "
+            "important parameters for analysises. However, estimating correct "
+            "flagment length is not a easy task because of phantom peak occurrence.",
+            "P Ramachandran et al. proposed MaSC, mappability-sensitive cross-"
+            "correlation to remove the bias caused from ununiformity of "
+            "mappability throughout the genome. This method provides cross-"
+            "correlation landscape without phantom peak and much accurate mean "
+            "fragment length estimation.",
+            "PyMaSC is a tool implemented by python and cython to visualize "
+            "(mappability-sensitive) cross-correlation and estimate ChIP-Seq "
+            "quality metrics and mean fragment length with MaSC algorithm."
+        )),
         url="https://github.com/ronin-gw/PyMaSC",
         download_url="https://github.com/ronin-gw/PyMaSC",
         classifiers=[

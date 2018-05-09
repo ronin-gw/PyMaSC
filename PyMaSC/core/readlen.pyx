@@ -92,7 +92,7 @@ def estimate_readlen(path, esttype, unsigned int mapq_criteria):
             if read.is_unmapped:
                 nunmapped += 1
             elif not read.is_duplicate and read.mapping_quality >= mapq_criteria:
-                readlen = read.query_length
+                readlen = read.infer_query_length()
                 if readlen in counter:
                     counter[readlen] += 1
                 else:

@@ -61,6 +61,7 @@ class PyMaSCStats(object):
         self.est_nsc = None
         self.est_rsc = None
 
+        self.calc_ncc = self.calc_masc = False
         if ccbins is not None or mappable_ccbins is not None:
             self.calc_ncc = all(x is not None for x in (
                 self.forward_sum,

@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import sys
 import os
-import shutil
 import subprocess
 from setuptools import setup, Extension, find_packages
 from setuptools.command import build_ext
@@ -47,12 +46,6 @@ def _basedir(path):
     return os.path.join(BASEDIR, path)
 
 
-def _link_source():
-    for ext in (".pyx", ".pxd"):
-        shutil.copy2(_basedir("PyMaSC/utils/bx/binary_{}_endian".format(sys.byteorder) + ext),
-                     _basedir("PyMaSC/utils/bx/binary_file" + ext))
-
-
 class BuildExtCommand(build_ext.build_ext):
     def run(self):
         command = ' '.join(["cd", BITARRAY_DIR, "&&", "make", "libbitarr.a"])
@@ -71,9 +64,6 @@ def _define_extension(name, include_dirs=[], extra_link_args=[], extra_compile_a
 
 
 def _setup():
-    #
-    _link_source()
-
     #
     setup(
         name="PyMaSC",

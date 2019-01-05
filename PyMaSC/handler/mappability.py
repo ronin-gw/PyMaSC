@@ -46,7 +46,7 @@ class MappabilityHandler(MappableLengthCalculator):
         self.nworker = nworker
 
         if not os.access(path, os.R_OK):
-            reason = "no such file." if os.path.isfile(path) else "file is unreadable."
+            reason = "file is unreadable." if os.path.isfile(path) else "no such file."
             logger.critical("Failed to open '{}': {}".format(path, reason))
             raise BWIOError
 

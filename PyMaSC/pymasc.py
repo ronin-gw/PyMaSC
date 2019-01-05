@@ -39,8 +39,6 @@ def _parse_args():
     logging_version(logger)
 
     # check args
-    if args.mappability:
-        args.mappability = args.mappability[0]
     if args.mappability_stats and args.mappability_stats == args.mappability:
         args.mappability_stats = None
     if args.library_length and args.library_length > args.max_shift:

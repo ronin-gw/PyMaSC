@@ -1,6 +1,38 @@
 language: python
-python:
-    - "2.7"
-    - "3.6"
+
+matrix:
+    include:
+        - python: 2.7
+          env: CYTHON='' MATPLOTLIB='matplotlib>=2,<3'
+        - python: 2.7
+          env: CYTHON=cython MATPLOTLIB='matplotlib>=2,<3'
+        - python: 3.4
+          env: CYTHON='' MATPLOTLIB='matplotlib>=2,<3'
+        - python: 3.4
+          env: CYTHON=cython MATPLOTLIB='matplotlib>=2,<3'
+        - python: 3.5
+          env: CYTHON='' MATPLOTLIB=''
+        - python: 3.5
+          env: CYTHON=cython MATPLOTLIB=''
+        - python: 3.6
+          env: CYTHON='' MATPLOTLIB=''
+        - python: 3.6
+          env: CYTHON=cython MATPLOTLIB=''
+        - python: 3.7
+          dist: xenial
+          env: CYTHON='' MATPLOTLIB=''
+        - python: 3.7
+          dist: xenial
+          env: CYTHON=cython MATPLOTLIB=''
+
+before_install:
+    - pip install -q -U pip
+    - pip install -q numpy pysam==0.15.1 $CYTHON $MATPLOTLIB
+
+install:
+    - python setup.py -q install
+
 script:
-    - python setup.py build
+    - pymasc --version
+    - pymasc-precalc --version
+    - pymasc-plot --version

@@ -24,7 +24,6 @@ def main():
     logging_version(logger)
 
     # check args
-    args.mappability = args.mappability[0]
     if args.mappability_stats and args.mappability_stats == args.mappability:
         args.mappability_stats = None
 

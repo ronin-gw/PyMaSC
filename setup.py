@@ -7,23 +7,43 @@ from setuptools.command import build_ext
 
 from PyMaSC import VERSION
 
-IMPORTERROR_FMT = "Failed to import {}. Install build time dependencies first " \
-                  "(e.g. `pip install cython numpy pysam`) and try again."
-try:
-    from Cython.Build import cythonize
-except ImportError:
-    sys.exit(IMPORTERROR_FMT.format("Cython"))
+
+# Check build-time dependencies
+NOTFOUNDMODULES = []
 try:
     import numpy
 except ImportError:
-    sys.exit(IMPORTERROR_FMT.format("numpy"))
+    NOTFOUNDMODULES.append("numpy")
 try:
     import pysam
 except ImportError:
-    sys.exit(IMPORTERROR_FMT.format("pysam"))
+    NOTFOUNDMODULES.append("pysam==0.15.1")
 
-BASEDIR = os.path.dirname(__file__)
+if NOTFOUNDMODULES:
+    msg = "Failed to import build time dependencies.\nPlease install {} first (e.g. `pip install {}`) and try again.".format(
+        " and ".join(NOTFOUNDMODULES),
+        ' '.join(NOTFOUNDMODULES)
+    )
 
+    try:
+        import Cython  # noqa
+        msg += "\ncython is found in your environtment. If you do not want to build from cython source, remove cython before build."
+    except ImportError:
+        msg += "\nIf you want to build from cython source, install cython before build additionally."
+
+    sys.exit(msg)
+
+
+#
+BASEDIR = os.path.abspath(os.path.dirname(__file__))
+
+# cython
+EXTENSION_SUFFIX = ".pyx"
+try:
+    from Cython.Build import cythonize
+except ImportError:
+    EXTENSION_SUFFIX = "_{}.c".format(sys.version_info[0])
+    cythonize = lambda x: x
 # numpy path
 NUMPY_INCLUDES = [numpy.get_include()]
 # pysam path
@@ -56,7 +76,7 @@ class BuildExtCommand(build_ext.build_ext):
 def _define_extension(name, include_dirs=[], extra_link_args=[], extra_compile_args=[]):
     return Extension(
         name,
-        sources=[_basedir(name.replace('.', '/') + ".pyx")],
+        sources=[_basedir(name.replace('.', '/') + EXTENSION_SUFFIX)],
         include_dirs=include_dirs,
         extra_link_args=extra_link_args,
         extra_compile_args=EXTRA_C_ARGS + extra_compile_args
@@ -115,7 +135,7 @@ def _setup():
         license="MIT",
         install_requires=[
             "numpy>=1.12.0",
-            "pysam>=0.12.0.1",
+            "pysam==0.15.1",
             "scipy>=0.18.1",
             "bx-python>=0.7.3",
             "matplotlib>=2.0.0"

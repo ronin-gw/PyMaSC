@@ -1,9 +1,7 @@
-*.c
-PyMaSC/utils/bx/binary_file*
-
 test*
 *.pdf
 *.tab
+PyMaSC/**/*[a-z].c
 
 # Created by https://www.gitignore.io/api/macos,emacs,python
 

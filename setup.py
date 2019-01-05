@@ -1,30 +1,49 @@
 #!/usr/bin/env python
 import sys
 import os
-import shutil
 import subprocess
 from setuptools import setup, Extension, find_packages
 from setuptools.command import build_ext
 
 from PyMaSC import VERSION
 
-IMPORTERROR_FMT = "Failed to import {}. Install build time dependencies first " \
-                  "(e.g. `pip install cython numpy pysam`) and try again."
-try:
-    from Cython.Build import cythonize
-except ImportError:
-    sys.exit(IMPORTERROR_FMT.format("Cython"))
+
+# Check build-time dependencies
+NOTFOUNDMODULES = []
 try:
     import numpy
 except ImportError:
-    sys.exit(IMPORTERROR_FMT.format("numpy"))
+    NOTFOUNDMODULES.append("numpy")
 try:
     import pysam
 except ImportError:
-    sys.exit(IMPORTERROR_FMT.format("pysam"))
+    NOTFOUNDMODULES.append("pysam==0.15.1")
 
-BASEDIR = os.path.dirname(__file__)
+if NOTFOUNDMODULES:
+    msg = "Failed to import build time dependencies.\nPlease install {} first (e.g. `pip install {}`) and try again.".format(
+        " and ".join(NOTFOUNDMODULES),
+        ' '.join(NOTFOUNDMODULES)
+    )
 
+    try:
+        import Cython  # noqa
+        msg += "\ncython is found in your environtment. If you do not want to build from cython source, remove cython before build."
+    except ImportError:
+        msg += "\nIf you want to build from cython source, install cython before build additionally."
+
+    sys.exit(msg)
+
+
+#
+BASEDIR = os.path.abspath(os.path.dirname(__file__))
+
+# cython
+EXTENSION_SUFFIX = ".pyx"
+try:
+    from Cython.Build import cythonize
+except ImportError:
+    EXTENSION_SUFFIX = "_{}.c".format(sys.version_info[0])
+    cythonize = lambda x: x
 # numpy path
 NUMPY_INCLUDES = [numpy.get_include()]
 # pysam path
@@ -47,12 +66,6 @@ def _basedir(path):
     return os.path.join(BASEDIR, path)
 
 
-def _link_source():
-    for ext in (".pyx", ".pxd"):
-        shutil.copy2(_basedir("PyMaSC/utils/bx/binary_{}_endian".format(sys.byteorder) + ext),
-                     _basedir("PyMaSC/utils/bx/binary_file" + ext))
-
-
 class BuildExtCommand(build_ext.build_ext):
     def run(self):
         command = ' '.join(["cd", BITARRAY_DIR, "&&", "make", "libbitarr.a"])
@@ -63,7 +76,7 @@ class BuildExtCommand(build_ext.build_ext):
 def _define_extension(name, include_dirs=[], extra_link_args=[], extra_compile_args=[]):
     return Extension(
         name,
-        sources=[_basedir(name.replace('.', '/') + ".pyx")],
+        sources=[_basedir(name.replace('.', '/') + EXTENSION_SUFFIX)],
         include_dirs=include_dirs,
         extra_link_args=extra_link_args,
         extra_compile_args=EXTRA_C_ARGS + extra_compile_args
@@ -71,9 +84,6 @@ def _define_extension(name, include_dirs=[], extra_link_args=[], extra_compile_a
 
 
 def _setup():
-    #
-    _link_source()
-
     #
     setup(
         name="PyMaSC",
@@ -115,8 +125,10 @@ def _setup():
             "Programming Language :: Python :: 2",
             "Programming Language :: Python :: 2.7",
             "Programming Language :: Python :: 3",
+            "Programming Language :: Python :: 3.4",
             "Programming Language :: Python :: 3.5",
             "Programming Language :: Python :: 3.6",
+            "Programming Language :: Python :: 3.7",
             "Programming Language :: Python :: Implementation :: CPython",
             "Topic :: Scientific/Engineering :: Bio-Informatics"
         ],
@@ -125,8 +137,7 @@ def _setup():
         license="MIT",
         install_requires=[
             "numpy>=1.12.0",
-            "pysam>=0.12.0.1",
-            "scipy>=0.18.1",
+            "pysam==0.15.1",
             "bx-python>=0.7.3",
             "matplotlib>=2.0.0"
         ],

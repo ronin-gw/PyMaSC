@@ -1,5 +1,15 @@
 # Change Log
 
+## v0.2.5 (2019-01-05)
+**Implemented enhancements:**
+- Include pre-built C sources and support both pre-built source installation and native Cython compile (cython is no longer mandatory dependency).
+- Check compatible python versions. (3.4 and 3.7 additionally)
+- Scipy is no longer required.
+
+**Fixed bugs:**
+- Omit `functools.partialmethod` to keep python2 compatibility.
+- Fix minor argparse issues and a error message.
+
 ## v0.2.4 (2018-05-09)
 **Fixed bugs:**
 - Reduce smooth window default size to 15 (Longer lengths are suitable for

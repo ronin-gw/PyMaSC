@@ -2,7 +2,6 @@ import sys
 import array
 import fcntl
 from termios import TIOCGWINSZ
-from functools import partialmethod
 
 
 class ProgressBase(object):
@@ -102,8 +101,11 @@ class MultiLineProgressManager(ProgressBase):
             return None
         self._write("\033[{}{}".format(n, ctrl))
 
-    _down = partialmethod(_cursor_n, ctrl="E")
-    _up = partialmethod(_cursor_n, ctrl="F")
+    def _down(self, n):
+        return self._cursor_n(n, ctrl="E")
+
+    def _up(self, n):
+        return self._cursor_n(n, ctrl="F")
 
     def _reset_line(self):
         self._write("\033[K")

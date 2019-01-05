@@ -30,18 +30,19 @@ MaSC algorithm.
 
 Install
 -------
-Python version 2.7 or >=3.5 are recommended.  
+Python version 2.7 or >=3.4 are recommended.  
 C compiler needs to build C sources (recommend GCC).  
 
 ### Install using pip
-1. `cython`, `numpy` and `pysam` must be installed ___before___ installing PyMaSC
+1. `numpy` and `pysam==0.15.1` must be installed ___before___ installing PyMaSC
 
-    $ pip install cython numpy pysam
+    $ pip install numpy pysam==0.15.1
 
 2. Install PyMaSC from PyPI
 
     $ pip install pymasc
 
+    If cython is installed, PyMaSC will be built with Cython native compiled sources instead of pre-compiled C sources.
 
 Usage
 -----
@@ -52,24 +53,24 @@ cross-correlation.
 ### `pymasc` command
 
     pymasc [-h]
-           [-p [PROCESS]]
-           [-v [{DEBUG,INFO,WARNING,ERROR,CRITICAL}]]  
+           [-p PROCESS]
+           [-v {DEBUG,INFO,WARNING,ERROR,CRITICAL}]
            [--disable-progress]
-           [--color [{TRUE,FALSE}]]
+           [--color {TRUE,FALSE}]
            [--version]
            [--successive]
-           [-r [READ_LENGTH]]  
-           [--estimation-type [{MEAN,MEDIAN,MODE,MIN,MAX}]]  
+           [-r READ_LENGTH]
+           [--estimation-type {MEAN,MEDIAN,MODE,MIN,MAX}]
            [-m REGION_FILE]
-           [--mappability-stats [MAPPABILITY_STATS]]  
-           [-l [LIBRARY_LENGTH]]
-           [-d [MAX_SHIFT]]
-           [-q [MAPQ]]  
-           [--chi2-pval [CHI2_PVAL]]
-           [-w [SMOOTH_WINDOW]]
+           [--mappability-stats MAPPABILITY_STATS]
+           [-l LIBRARY_LENGTH]
+           [-d MAX_SHIFT]
+           [-q MAPQ]
+           [--chi2-pval CHI2_PVAL]
+           [-w SMOOTH_WINDOW]
            [--skip-ncc]  
-           [-n [NAME [NAME ...]]]
-           [-o [OUTDIR]]
+           [-n NAME [NAME ...]]
+           [-o OUTDIR]
            [--skip-plots]  
            reads [reads ...]  
 
@@ -204,15 +205,15 @@ overwrite output file base name.
 ### `pymasc-precalc` command
 
     pymasc-precalc [-h]
-                   [-p [PROCESS]]
-                   [-v [{DEBUG,INFO,WARNING,ERROR,CRITICAL}]]
+                   [-p PROCESS]
+                   [-v {DEBUG,INFO,WARNING,ERROR,CRITICAL}]
                    [--disable-progress]
-                   [--color [{TRUE,FALSE}]]
+                   [--color {TRUE,FALSE}]
                    [--version]
                    [-m REGION_FILE]
-                   [--mappability-stats [MAPPABILITY_STATS]]
-                   [-d [MAX_SHIFT]]
-                   [-r [MAX_READLEN]]
+                   [--mappability-stats MAPPABILITY_STATS]
+                   [-d MAX_SHIFT]
+                   [-r MAX_READLEN]
 
 #### Usage example
 Calculate total length of doubly mappable region.  
@@ -230,19 +231,19 @@ Note that actual max shift size is,
 ### `pymasc-plot` command
 
     pymasc-plot [-h]
-                [-v [{DEBUG,INFO,WARNING,ERROR,CRITICAL}]]
+                [-v {DEBUG,INFO,WARNING,ERROR,CRITICAL}]
                 [--disable-progress]
-                [--color [{TRUE,FALSE}]]
+                [--color {TRUE,FALSE}]
                 [--version]
-                [-s [STATS]]
-                [-c [CC]]
-                [-m [MASC]]
+                [-s STATS]
+                [-c CC]
+                [-m MASC]
                 [--chi2-pval
-                [CHI2_PVAL]]
-                [-w [SMOOTH_WINDOW]]
-                [-l [LIBRARY_LENGTH]]
-                [-n [NAME]]
-                [-o [OUTDIR]]
+                CHI2_PVAL]
+                [-w SMOOTH_WINDOW]
+                [-l LIBRARY_LENGTH]
+                [-n NAME]
+                [-o OUTDIR]
                 [statfile]
 
 #### Usage example

@@ -1,6 +1,35 @@
 language: python
-python:
-    - "2.7"
-    - "3.6"
+
+matrix:
+    include:
+        - python: 2.7
+            env: CYTHON=''
+        - python: 2.7
+            env: CYTHON=cython
+        - python: 3.4
+            env: CYTHON=''
+        - python: 3.4
+            env: CYTHON=cython
+        - python: 3.5
+            env: CYTHON=''
+        - python: 3.5
+            env: CYTHON=cython
+        - python: 3.6
+            env: CYTHON=''
+        - python: 3.6
+            env: CYTHON=cython
+        - python: 3.7
+            env: CYTHON=''
+        - python: 3.7
+            env: CYTHON=cython
+
+before_install:
+    - pip install -q numpy pysam==0.15.1 $CYTHON
+
+install:
+    - python setup.py -q install
+
 script:
-    - python setup.py build
+    - pymasc --version
+    - pymasc-precalc --version
+    - pymasc-plot --version

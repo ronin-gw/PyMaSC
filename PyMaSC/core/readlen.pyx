@@ -73,9 +73,8 @@ def estimate_readlen(path, esttype, unsigned int mapq_criteria):
         progress.set_genome(length)
 
         for read in stream:
-            try:
-                _chrom = read.reference_name
-            except ValueError:
+            _chrom = read.reference_name
+            if _chrom is None:
                 continue
 
             nreads += 1

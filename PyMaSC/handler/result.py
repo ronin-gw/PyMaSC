@@ -10,7 +10,7 @@ from PyMaSC.utils.calc import moving_avr_filter
 
 logger = logging.getLogger(__name__)
 
-NEAR_READLEN_ERR_CRITERION = 2
+NEAR_READLEN_ERR_CRITERION = 5
 
 
 def _skip_none(i):
@@ -216,16 +216,15 @@ class PyMaSCStats(object):
 
             if self.filter_mask_len and abs(self.est_lib_len - self.read_len) <= self.filter_mask_len:
                 if self.output_warnings:
-                    logger.warning("Estimated library length is close to the read length.\n"
-                                   "Trying to masking around the read length ± {}bp...".foramt(self.filter_mask_len))
+                    logger.warning("Estimated library length is close to the read length.")
+                    logger.warning("Trying to masking around the read length ± {}bp...".format(self.filter_mask_len))
                 for i in range(max(0, self.read_len - 1 - self.filter_mask_len),
                                min(len(average_masc), self.read_len + self.filter_mask_len)):
                     average_masc[i] = - float("inf")
                 self.est_lib_len = np.argmax(average_masc) + 1
 
             if self.output_warnings and abs(self.est_lib_len - self.read_len) <= max(self.filter_mask_len, NEAR_READLEN_ERR_CRITERION):
-                logger.error("Estimated library length is close to the read length!\n"
-                             "Please check output plots.")
+                logger.error("Estimated library length is close to the read length! Please check output plots.")
 
             self.masc_min, self.mascrl = self._calc_rl_metrics(self.masc)
             if self.cc is not None:

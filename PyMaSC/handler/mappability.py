@@ -92,8 +92,8 @@ class MappabilityHandler(MappableLengthCalculator):
             logger.error("Failed to load json file: '{}'".format(self.map_path))
         except NeedUpdate:
             pass
-
-        self._load_mappability_stats(stats)
+        else:
+            self._load_mappability_stats(stats)
 
     def _read_mappability_stats(self):
         with open(self.map_path) as f:

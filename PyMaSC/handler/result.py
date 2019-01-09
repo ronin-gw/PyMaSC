@@ -10,6 +10,8 @@ from PyMaSC.utils.calc import moving_avr_filter
 
 logger = logging.getLogger(__name__)
 
+NEAR_READLEN_ERR_CRITERION = 5
+
 
 def _skip_none(i):
     return [x for x in i if x is not None]
@@ -74,7 +76,7 @@ class PyMaSCStats(object):
         read_len, filter_len=15, expected_library_len=None,
         genomelen=None, forward_sum=None, reverse_sum=None, ccbins=None,
         mappable_len=None, mappable_forward_sum=None, mappable_reverse_sum=None, mappable_ccbins=None,
-        cc=None, masc=None
+        cc=None, masc=None, filter_mask_len=NEAR_READLEN_ERR_CRITERION, warning=False
     ):
         self.read_len = read_len
         self.filter_len = filter_len
@@ -100,6 +102,9 @@ class PyMaSCStats(object):
         self.est_ccfl = None
         self.est_nsc = None
         self.est_rsc = None
+
+        self.filter_mask_len = filter_mask_len
+        self.output_warnings = warning
 
         self.calc_ncc = self.calc_masc = False
         if ccbins is not None or mappable_ccbins is not None:
@@ -206,7 +211,21 @@ class PyMaSCStats(object):
                 )
 
         if self.masc is not None:
-            self.est_lib_len = np.argmax(moving_avr_filter(self.masc, self.filter_len)) + 1
+            average_masc = moving_avr_filter(self.masc, self.filter_len)
+            self.est_lib_len = np.argmax(average_masc) + 1
+
+            if self.filter_mask_len and abs(self.est_lib_len - self.read_len) <= self.filter_mask_len:
+                if self.output_warnings:
+                    logger.warning("Estimated library length is close to the read length.")
+                    logger.warning("Trying to masking around the read length ± {}bp...".format(self.filter_mask_len))
+                for i in range(max(0, self.read_len - 1 - self.filter_mask_len),
+                               min(len(average_masc), self.read_len + self.filter_mask_len)):
+                    average_masc[i] = - float("inf")
+                self.est_lib_len = np.argmax(average_masc) + 1
+
+            if self.output_warnings and abs(self.est_lib_len - self.read_len) <= max(self.filter_mask_len, NEAR_READLEN_ERR_CRITERION):
+                logger.error("Estimated library length is close to the read length! Please check output plots.")
+
             self.masc_min, self.mascrl = self._calc_rl_metrics(self.masc)
             if self.cc is not None:
                 self.est_ccfl, self.est_nsc, self.est_rsc = self._calc_lib_metrics(
@@ -240,12 +259,13 @@ class ReadsTooFew(IndexError):
 class CCResult(object):
     def __init__(
         self, handler=None,
-        filter_len=15, chi2_pval=0.05, expected_library_len=None
+        filter_len=15, chi2_pval=0.05, expected_library_len=None, filter_mask_len=NEAR_READLEN_ERR_CRITERION
     ):
         # settings
         self.filter_len = filter_len
         self.chi2_p_thresh = chi2_pval
         self.expected_library_len = expected_library_len
+        self.filter_mask_len = max(filter_mask_len, 0)
 
         #
         self.references = references = handler.references
@@ -271,7 +291,8 @@ class CCResult(object):
                 mappable_len=ref2mappable_len.get(ref, None),
                 mappable_forward_sum=mappable_ref2forward_sum.get(ref, None),
                 mappable_reverse_sum=mappable_ref2reverse_sum.get(ref, None),
-                mappable_ccbins=mappable_ref2ccbins.get(ref, None)
+                mappable_ccbins=mappable_ref2ccbins.get(ref, None),
+                filter_mask_len=filter_mask_len
             ) for ref in references
         }
 
@@ -321,5 +342,7 @@ class CCResult(object):
             mappable_len=mappable_len,
             mappable_forward_sum=mappable_forward_sum,
             mappable_reverse_sum=mappable_reverse_sum,
-            mappable_ccbins=mappable_ccbins
+            mappable_ccbins=mappable_ccbins,
+            warning=True,
+            filter_mask_len=filter_mask_len
         )

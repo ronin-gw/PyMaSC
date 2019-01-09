@@ -2,6 +2,7 @@ import argparse
 import logging
 
 import PyMaSC
+from PyMaSC.handler.result import NEAR_READLEN_ERR_CRITERION
 
 READLEN_ESTIMATION_TYPES = ("MEAN", "MEDIAN", "MODE", "MIN", "MAX")
 
@@ -84,6 +85,13 @@ def add_result_proc_args(group):
         "-w", "--smooth-window", type=int, default=15, action=ForceNaturalNumber,
         help="Moving average window size for smoothing MSCC "
              "to estimate library length. (Default: 15)"
+    )
+    group.add_argument(
+        "--mask-size", type=int, default=NEAR_READLEN_ERR_CRITERION,
+        help="If difference between a read length and the estimated library length "
+             "is equal or less than the length specified by this option, "
+             "PyMaSC masks correlation coefficients in the read length ± specified length "
+             "and try to estimate mean library length again. (Default: {}, Specify < 1 to disable)".format(NEAR_READLEN_ERR_CRITERION)
     )
 
 

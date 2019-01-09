@@ -174,7 +174,7 @@ def run_calculation(args, handler, output_basename):
 
     try:
         return CCResult(
-            handler, args.smooth_window, args.chi2_pval, args.library_length
+            handler, args.smooth_window, args.chi2_pval, args.library_length, args.mask_size
         )
     except ReadsTooFew:
         logger.warning("Faild to process {}. Skip this file.".format(handler.path))

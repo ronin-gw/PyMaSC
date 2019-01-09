@@ -79,7 +79,7 @@ def main():
         references=references,
         skip_ncc=not bool(cc_table),
         calc_masc=bool(masc_table),
-        whole=PyMaSCStats(cc=cc_whole, masc=masc_whole, **statattrs),
+        whole=PyMaSCStats(cc=cc_whole, masc=masc_whole, warning=True, **statattrs),
         ref2stats={
             ref: PyMaSCStats(
                 cc=None if cc_table is None else cc_table[ref],
@@ -110,6 +110,7 @@ def _prepare_stats(args):
         sys.exit(1)
     if args.smooth_window:
         statattrs["filter_len"] = args.smooth_window
+    statattrs["filter_mask_len"] = max(args.mask_size, 0)
 
     #
     if "name" in statattrs:

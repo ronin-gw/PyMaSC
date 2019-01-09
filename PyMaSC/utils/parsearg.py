@@ -71,7 +71,7 @@ def add_shift_arg(group):
 def add_liblen_arg(group):
     group.add_argument(
         "-l", "--library-length", type=int, action=ForceNaturalNumber,
-        help="Expected library length for input sample(s)."
+        help="Your expected library length for input sample(s)."
     )
 
 

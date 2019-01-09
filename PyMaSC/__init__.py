@@ -1,7 +1,7 @@
 import sys
 from functools import wraps
 
-VERSION = "0.2.5"
+VERSION = "0.2.6"
 
 
 def logging_version(logger):
@@ -17,7 +17,7 @@ def entrypoint(logger):
         def _inner():
             try:
                 main_func()
-                logger.info("PyMASC plot finished.")
+                logger.info("PyMASC finished.")
             except KeyboardInterrupt:
                 sys.stderr.write("\r\033[K")
                 sys.stderr.flush()

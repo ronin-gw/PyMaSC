@@ -1,8 +1,19 @@
 # Change Log
 
+## v0.2.6 (2019-01-09)
+**Implemented enhancements:**
+- Add `--mask-size` option to avoid calling the phantom peak a library length.
+  Warnings messages were also implemented.
+
+**Fixed bugs:**
+- Fix read counter for unmapped reads.
+- Fix bigwig reader.
+- Fix mappability stats loader.
+
 ## v0.2.5 (2019-01-05)
 **Implemented enhancements:**
-- Include pre-built C sources and support both pre-built source installation and native Cython compile (cython is no longer mandatory dependency).
+- Include pre-built C sources and support both pre-built source installation and
+  native Cython compile (cython is no longer mandatory dependency).
 - Check compatible python versions. (3.4 and 3.7 additionally)
 - Scipy is no longer required.
 

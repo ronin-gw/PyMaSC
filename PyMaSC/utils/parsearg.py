@@ -23,6 +23,17 @@ class ForceNaturalNumber(argparse.Action):
         setattr(namespace, self.dest, values)
 
 
+def make_multistate_append_action(key):
+    class _MultistateAppendAction(argparse.Action):
+        def __call__(self, parser, namespace, values, option_string=None):
+            args = getattr(namespace, self.dest)
+            args = [] if args is None else args
+            args.append((key, values))
+            setattr(namespace, self.dest, args)
+
+    return _MultistateAppendAction
+
+
 def add_common_args(parser):
     parser.add_argument(
         "-v", "--log-level", type=_make_upper, default=logging.INFO,
@@ -130,18 +141,37 @@ def get_pymasc_parser():
     input_args.add_argument(
         "--readlen-estimator", type=_make_upper,
         default="MEDIAN", choices=READLEN_ESTIMATION_TYPES,
-        help="Define the statistic used to estimate a read length from observed "
-             "read lengths. Choices: mean, median, mode, min, max (Default: median)"
-    )
-    input_args.add_argument(
-        "-q", "--mapq", type=int, default=1,
-        help="Filter out reads which have less than specified "
-             "SAM mapping quality score. (Default: 1)"
+        help="Select a representative value used to estimate a read length from "
+             "observed read lengths. "
+             "Choices: mean, median, mode, min, max (Default: median)"
     )
     add_liblen_arg(input_args)
 
     map_args = parser.add_argument_group("Input mappability file arguments")
     add_mappability_args(map_args)
+
+    filter = parser.add_argument_group("Input file filtering arguments")
+    filter.add_argument(
+        "-q", "--mapq", type=int, default=1,
+        help="Filter out reads which have less than specified "
+             "SAM mapping quality score. (Default: 1)"
+    )
+    filter.add_argument(
+        "-i", "--include-chrom", nargs='+', dest="chromfilter", metavar="CHROM",
+        action=make_multistate_append_action(True),
+        help="Include chromosomes to calculate. You can use Unix shell-style "
+             "wildcards ('.', '*', '[]' and '[!]'). This option can be declared "
+             "multiple times to include chromosomes specified in a just before "
+             "-e/--exclude-chrom option. Note that this option is case-sensitive."
+    )
+    filter.add_argument(
+        "-e", "--exclude-chrom", nargs='+', dest="chromfilter", metavar="CHROM",
+        action=make_multistate_append_action(False),
+        help="Exclude chromosomes from calculation. You can use Unix shell-style "
+             "wildcards ('.', '*', '[]' and '[!]'). This option can be declared "
+             "multiple times to exclude chromosomes specified in a just before "
+             "-i/--include-chrom option. Note that this option is case-sensitive."
+    )
 
     proc_params = parser.add_argument_group("PyMaSC parameters")
     add_shift_arg(proc_params)

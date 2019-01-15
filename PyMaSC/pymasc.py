@@ -10,7 +10,7 @@ from PyMaSC.utils.parsearg import get_pymasc_parser
 from PyMaSC.utils.progress import ProgressBase
 from PyMaSC.utils.output import prepare_outdir
 from PyMaSC.handler.mappability import MappabilityHandler, BWIOError, JSONIOError
-from PyMaSC.handler.masc import CCCalcHandler, InputUnseekable
+from PyMaSC.handler.masc import CCCalcHandler, InputUnseekable, NothingToCalc
 from PyMaSC.handler.bamasc import BACalcHandler
 from PyMaSC.handler.result import CCResult, ReadsTooFew
 from PyMaSC.core.ncc import ReadUnsortedError
@@ -131,10 +131,12 @@ def make_handlers(args):
         try:
             calc_handlers.append(
                 handler_class(f, args.readlen_estimator, args.max_shift, args.mapq,
-                              args.process, args.skip_ncc)
+                              args.process, args.skip_ncc, args.chromfilter)
             )
         except ValueError:
             logger.error("Failed to open file '{}'".format(f))
+        except NothingToCalc:
+            logger.error("Check your -i/--include-chrom and/or -e/--exclude-chrom options.")
         except InputUnseekable:
             logger.error("If your input can't reread, specify read length using `-r` option.")
 

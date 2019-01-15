@@ -75,10 +75,8 @@ class SingleProcessCalculator(object):
         _ref2genomelen = dict(zip(self.references, self.lengths))
 
         for read in self.align_file:
-            # https://github.com/pysam-developers/pysam/issues/268
-            try:
-                chrom = read.reference_name
-            except ValueError:
+            chrom = read.reference_name
+            if chrom is None:
                 continue
 
             if chrom != self._chr:

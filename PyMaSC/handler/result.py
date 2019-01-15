@@ -213,17 +213,26 @@ class PyMaSCStats(object):
         if self.masc is not None:
             average_masc = moving_avr_filter(self.masc, self.filter_len)
             self.est_lib_len = np.argmax(average_masc) + 1
+            need_warning = False
 
             if self.filter_mask_len and abs(self.est_lib_len - self.read_len) <= self.filter_mask_len:
                 if self.output_warnings:
                     logger.warning("Estimated library length is close to the read length.")
                     logger.warning("Trying to masking around the read length ± {}bp...".format(self.filter_mask_len))
-                for i in range(max(0, self.read_len - 1 - self.filter_mask_len),
-                               min(len(average_masc), self.read_len + self.filter_mask_len)):
+
+                mask_from = max(0, self.read_len - 1 - self.filter_mask_len)
+                mask_to = min(len(average_masc), self.read_len + self.filter_mask_len)
+                for i in range(mask_from, mask_to):
                     average_masc[i] = - float("inf")
                 self.est_lib_len = np.argmax(average_masc) + 1
 
-            if self.output_warnings and abs(self.est_lib_len - self.read_len) <= max(self.filter_mask_len, NEAR_READLEN_ERR_CRITERION):
+                if self.est_lib_len - 1 in (mask_from - 1, mask_to):
+                    need_warning = True
+
+            elif self.output_warnings and abs(self.est_lib_len - self.read_len) <= NEAR_READLEN_ERR_CRITERION:
+                need_warning = True
+
+            if self.output_warnings and need_warning:
                 logger.error("Estimated library length is close to the read length! Please check output plots.")
 
             self.masc_min, self.mascrl = self._calc_rl_metrics(self.masc)

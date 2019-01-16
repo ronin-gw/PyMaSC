@@ -9,7 +9,12 @@ logger = logging.getLogger(__name__)
 
 def moving_avr_filter(arr, window):
     f = np.repeat(1, window) / float(window)
-    return np.correlate(arr, f, mode="same")
+    avr = np.correlate(arr, f, mode="same")
+    h_w = window // 2
+    for i in range(h_w):
+        avr[i] = np.average(arr[0:(h_w + i)])
+        avr[-(i + 1)] = np.average(arr[-(h_w + i):])
+    return avr
 
 
 def filter_chroms(chroms, filters):

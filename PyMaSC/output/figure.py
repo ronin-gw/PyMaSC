@@ -75,7 +75,10 @@ def _annotate_params(nsc=None, rsc=None, est_nsc=None, est_rsc=None, loc="lower 
 def _set_ylim():
     axes = plt.gca()
     lower, upper = axes.get_ylim()
-    lower, upper = axes.set_ylim((lower, upper * 1.1))
+    if upper > 0:
+        lower, upper = axes.set_ylim((lower, upper * 1.1))
+    else:
+        lower, upper = axes.set_ylim((lower, upper * 0.95))
     height = upper - lower
     return lower, upper, height
 
@@ -100,21 +103,21 @@ def plot_naive_cc(stats, name=None, xlim=None):
 
     _annotate_point(
         stats.read_len - 1, "red",
-        upper - height/25, 'read length: {}'.format(stats.read_len),
-        stats.ccrl, " cc(read length) = {:.5f}".format(stats.ccrl), height/50
+        upper - height / 25, 'read length: {}'.format(stats.read_len),
+        stats.ccrl, " cc(read length) = {:.5f}".format(stats.ccrl), height / 50
     )
 
     if stats.est_lib_len:
         _annotate_point(
             stats.est_lib_len - 1, "blue",
-            upper - height/10, 'estimated lib len: {}'.format(stats.est_lib_len),
-            stats.est_ccfl, " cc(est lib len) = {:.5f}".format(stats.est_ccfl), height/50
+            upper - height / 10, 'estimated lib len: {}'.format(stats.est_lib_len),
+            stats.est_ccfl, " cc(est lib len) = {:.5f}".format(stats.est_ccfl), height / 50
         )
     if stats.library_len:
         _annotate_point(
             stats.library_len - 1, "green",
-            upper - height/6, 'expected lib len: {}'.format(stats.library_len),
-            stats.ccfl, " cc(lib length) = {:.5f}".format(stats.ccfl), -height/25
+            upper - height / 6, 'expected lib len: {}'.format(stats.library_len),
+            stats.ccfl, " cc(lib length) = {:.5f}".format(stats.ccfl), -height / 25
         )
     _annotate_params(stats.nsc, stats.rsc, stats.est_nsc, stats.est_rsc)
 
@@ -145,16 +148,16 @@ def plot_masc(stats, name=None):
     masc_est_ll = stats.masc[stats.est_lib_len - 1]
     _annotate_point(
         stats.est_lib_len - 1, "blue",
-        upper - height/2, 'estimated lib len: {}'.format(stats.est_lib_len),
-        masc_est_ll, " cc(est lib len) = {:.5f}".format(masc_est_ll), height/50
+        upper - height / 2, 'estimated lib len: {}'.format(stats.est_lib_len),
+        masc_est_ll, " cc(est lib len) = {:.5f}".format(masc_est_ll), height / 50
     )
 
     if stats.library_len:
         masc_ll = stats.masc[stats.library_len - 1]
         _annotate_point(
             stats.library_len - 1, "green",
-            upper - height/1.75, 'expected lib len: {}'.format(stats.library_len),
-            masc_ll, " cc(lib length) = {:.5f}".format(masc_ll), -height/25
+            upper - height / 1.75, 'expected lib len: {}'.format(stats.library_len),
+            masc_ll, " cc(lib length) = {:.5f}".format(masc_ll), -height / 25
         )
 
     plt.legend(loc="best")

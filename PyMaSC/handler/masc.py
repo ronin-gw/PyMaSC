@@ -45,13 +45,16 @@ class CCCalcHandler(object):
             raise NothingToCalc
         self.references = []
         self.lengths = []
+        need_warning = False
         for reference, length in zip(self.align_file.references, self.align_file.lengths):
             if reference in target_references:
                 if length < max_shift * ALLOWED_GLEN_SHIFT_RATIO:
-                    logger.error("Sequence '{}' length is too short to calc accurately.".format(reference))
-                    logger.error("I recommend to exclude this reference using -e/--exclude-chrom option.")
+                    logger.warning("Sequence '{}' length is too short to calc accurately.".format(reference))
+                    need_warning = True
                 self.references.append(reference)
                 self.lengths.append(length)
+        if need_warning:
+            logger.warning("I recommend to exclude these references using -e/--exclude-chrom option.")
 
         #
         if not self.align_file.has_index() and self.nworker > 1:

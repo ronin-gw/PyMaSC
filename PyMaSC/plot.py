@@ -66,7 +66,12 @@ def _parse_args():
 def main():
     args = _parse_args()
     statattrs = _prepare_stats(args)
-    cc_whole, cc_table, masc_whole, masc_table, references = _load_tables(args)
+    try:
+        cc_whole, cc_table, masc_whole, masc_table, references = _load_tables(args)
+    except KeyError:
+        logger.critical("Failed to load tables.")
+        return None
+
     checked_suffixes = _prepare_outputs(args)
 
     #

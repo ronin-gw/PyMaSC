@@ -44,7 +44,8 @@ def _load_table(path, logfmt):
         header = f.readline().rstrip().split('\t')[1:]
         table = dict(zip(header, zip(*(map(float, l.split('\t')[1:]) for l in f))))
     if "whole" not in table:
-        logger.critical()
+        logger.critical("Mandatory column 'whole' not found.")
+        raise KeyError("whole")
     whole = table.pop("whole")
     return whole, table
 

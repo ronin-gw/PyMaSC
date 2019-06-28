@@ -218,7 +218,7 @@ class PyMaSCStats(object):
             if self.filter_mask_len and abs(self.est_lib_len - self.read_len) <= self.filter_mask_len:
                 if self.output_warnings:
                     logger.warning("Estimated library length is close to the read length.")
-                    logger.warning("Trying to masking around the read length ± {}bp...".format(self.filter_mask_len))
+                    logger.warning("Trying to masking around the read length +/- {}bp...".format(self.filter_mask_len))
 
                 mask_from = max(0, self.read_len - 1 - self.filter_mask_len)
                 mask_to = min(len(average_masc), self.read_len + self.filter_mask_len)

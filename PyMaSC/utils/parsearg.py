@@ -101,7 +101,7 @@ def add_result_proc_args(group):
         "--mask-size", type=int, default=NEAR_READLEN_ERR_CRITERION,
         help="If difference between a read length and the estimated library length "
              "is equal or less than the length specified by this option, "
-             "PyMaSC masks correlation coefficients in the read length ± specified length "
+             "PyMaSC masks correlation coefficients in the read length +/- specified length "
              "and try to estimate mean library length again. (Default: {}, Specify < 1 to disable)".format(NEAR_READLEN_ERR_CRITERION)
     )
 

@@ -101,7 +101,12 @@ class PyMaSCStats(object):
         elif cc or masc:
             self.calc_ncc = cc is not None
             self.calc_masc = masc is not None
-            self.max_shift = min(len(cc), len(masc)) - 1
+            if cc and masc:
+                self.max_shift = min(len(cc), len(masc)) - 1
+            elif cc:
+                self.max_shift = len(cc) - 1
+            elif masc:
+                self.max_shift = len(masc) - 1
             self.calc_metrics()
 
     def _calc_from_bins(self):
@@ -243,24 +248,36 @@ class ReadsTooFew(IndexError):
 
 
 class CCResult(object):
-    @classmethod
-    def _merge_cc(cls, ns, ccs):
-        zs = np.arctanh(ccs)
-        sum_n3 = sum(n - 3 for n in ns)
-        avr_z = np.sum(((n - 3) * z for n, z in zip(ns, zs)), axis=0) / sum_n3
+    def _merge_cc(self, ns, ccs):
+        ns = np.array(ns)
 
-        z_interval = norm.ppf(1 - (1 - MERGED_CC_CONFIDENCE_INTERVAL) / 2) * np.sqrt(1 / sum_n3)
-        z_interval_upper = avr_z + z_interval
-        z_interval_lower = avr_z - z_interval
+        merged_r = []
+        interval_upper = []
+        interval_lower = []
 
-        merged_r = np.tanh(avr_z)
-        interval_upper = np.tanh(z_interval_upper)
-        interval_lower = np.tanh(z_interval_lower)
+        for i, _ccs in enumerate(zip(*ccs)):
+            nans = np.isnan(_ccs)
+            _ccs = np.array(_ccs)[~nans]
+
+            if len(ns.shape) == 1:
+                _ns = ns[~nans] - 3
+            else:
+                _ns = ns[~nans, abs(self.read_len - i)] - 3
+
+            zs = np.arctanh(_ccs)
+            avr_z = np.average(zs, weights=_ns)
+            z_interval = norm.ppf(1 - (1 - MERGED_CC_CONFIDENCE_INTERVAL) / 2) * np.sqrt(1 / np.sum(_ns))
+            z_interval_upper = avr_z + z_interval
+            z_interval_lower = avr_z - z_interval
+
+            merged_r.append(np.tanh(avr_z))
+            interval_upper.append(np.tanh(z_interval_upper))
+            interval_lower.append(np.tanh(z_interval_lower))
 
         return merged_r, interval_lower, interval_upper
 
     def __init__(self, handler=None,
-                 read_len=None, lengths=None, references=None,
+                 read_len=None, references=None, ref2genomelen=None,
                  ref2ccbins=None, ref2mappable_len=None, mappable_ref2ccbins=None,
                  filter_len=15, chi2_pval=0.05, expected_library_len=None,
                  filter_mask_len=NEAR_READLEN_ERR_CRITERION):
@@ -275,13 +292,13 @@ class CCResult(object):
             self._init_from_handler(handler)
         else:
             self.read_len = read_len
-            self.lengths = lengths
             self.references = references
+            self.ref2genomelen = ref2genomelen
             self.ref2ccbins = ref2ccbins
             self.ref2mappable_len = ref2mappable_len
             self.mappable_ref2ccbins = mappable_ref2ccbins
 
-            self.skip_ncc = not (self.lengths and self.ref2ccbins)
+            self.skip_ncc = not (self.ref2genomelen and self.ref2ccbins)
             self.calc_masc = self.ref2mappable_len and self.mappable_ref2ccbins
 
             assert (not self.skip_ncc) or self.calc_masc
@@ -289,16 +306,16 @@ class CCResult(object):
         #
         if not self.skip_ncc:
             ncc, self.ncc_upper, self.ncc_lower = self._merge_cc(
-                self.lengths,
-                [self.ref2ccbins[ref] for ref in self.references]
+                *zip(*((self.ref2genomelen[ref], self.ref2stats[ref].cc)
+                       for ref in self.references if ref in self.ref2ccbins))
             )
         else:
             ncc = self.ncc_upper = self.ncc_lower = None
 
         if self.calc_masc:
             mscc, self.mscc_upper, self.mscc_lower = self._merge_cc(
-                [self.ref2mappable_len[ref] for ref in self.references],
-                [self.mappable_ref2ccbins[ref] for ref in self.references]
+                *zip(*((self.ref2mappable_len[ref], self.ref2stats[ref].masc)
+                       for ref in self.references if ref in self.mappable_ref2ccbins))
             )
         else:
             mscc = self.mscc_upper = self.mscc_lower = None
@@ -314,35 +331,35 @@ class CCResult(object):
     def _init_from_handler(self, handler):
         #
         self.references = handler.references
-        self.lengths = handler.lengths
-        ref2genomelen = dict(zip(self.references, self.lengths))
+        lengths = handler.lengths
+        self.ref2genomelen = dict(zip(self.references, lengths))
         self.read_len = handler.read_len
         ref2forward_sum = handler.ref2forward_sum
         ref2reverse_sum = handler.ref2reverse_sum
-        ref2ccbins = handler.ref2ccbins
+        self.ref2ccbins = handler.ref2ccbins
         mappable_ref2forward_sum = handler.mappable_ref2forward_sum
         mappable_ref2reverse_sum = handler.mappable_ref2reverse_sum
-        mappable_ref2ccbins = handler.mappable_ref2ccbins
-        ref2mappable_len = handler.ref2mappable_len
+        self.mappable_ref2ccbins = handler.mappable_ref2ccbins
+        self.ref2mappable_len = handler.ref2mappable_len
 
         #
         self.ref2stats = {
             ref: PyMaSCStats(
                 self.read_len, self.filter_len, self.expected_library_len,
-                genomelen=ref2genomelen[ref],
+                genomelen=self.ref2genomelen[ref],
                 forward_sum=ref2forward_sum.get(ref, None),
                 reverse_sum=ref2reverse_sum.get(ref, None),
-                ccbins=ref2ccbins.get(ref, None),
-                mappable_len=ref2mappable_len.get(ref, None),
+                ccbins=self.ref2ccbins.get(ref, None),
+                mappable_len=self.ref2mappable_len.get(ref, None),
                 mappable_forward_sum=mappable_ref2forward_sum.get(ref, None),
                 mappable_reverse_sum=mappable_ref2reverse_sum.get(ref, None),
-                mappable_ccbins=mappable_ref2ccbins.get(ref, None),
+                mappable_ccbins=self.mappable_ref2ccbins.get(ref, None),
                 filter_mask_len=self.filter_mask_len
             ) for ref in self.references
         }
 
         #
-        if all((ref2forward_sum, ref2reverse_sum, ref2ccbins)):
+        if all((ref2forward_sum, ref2reverse_sum, self.ref2ccbins)):
             self.skip_ncc = False
             forward_sum = sum(list(ref2forward_sum.values()))
             reverse_sum = sum(list(ref2reverse_sum.values()))
@@ -359,7 +376,8 @@ class CCResult(object):
             chi2_test(forward_sum, reverse_sum, self.chi2_p_thresh, "Whole genome")
 
         #
-        if all((mappable_ref2forward_sum, mappable_ref2reverse_sum, mappable_ref2ccbins, ref2mappable_len)):
+        if all((mappable_ref2forward_sum, mappable_ref2reverse_sum,
+                self.mappable_ref2ccbins, self.ref2mappable_len)):
             self.calc_masc = True
             mappable_forward_sum = np.sum(_skip_none(mappable_ref2forward_sum.values()), axis=0)
             mappable_reverse_sum = np.sum(_skip_none(mappable_ref2reverse_sum.values()), axis=0)

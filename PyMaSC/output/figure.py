@@ -32,14 +32,14 @@ def plot_figures(outfile, ccr):
 
     with PdfPages(outfile) as pp:
         if not ccr.skip_ncc:
-            plot_naive_cc(ccr.whole, name)
+            plot_naive_cc(ccr, name)
             _feed_pdf_page(pp)
 
         if ccr.calc_masc:
-            if plot_naive_cc_just(ccr.whole, name):
+            if plot_naive_cc_just(ccr, name):
                 _feed_pdf_page(pp)
 
-            plot_masc(ccr.whole, name)
+            plot_masc(ccr, name)
             _feed_pdf_page(pp)
 
         plot_ncc_vs_masc(pp, ccr, name)
@@ -83,15 +83,18 @@ def _set_ylim():
     return lower, upper, height
 
 
-def plot_naive_cc(stats, name=None, xlim=None):
+def plot_naive_cc(ccr, name=None, xlim=None):
     title = "Cross-Correlation"
     if name:
         title += " for " + name
+
+    stats = ccr.whole
 
     plt.title(title)
     plt.xlabel("Reverse Strand Shift")
     plt.ylabel("Cross-Correlation")
 
+    plt.fill_between(xrange(stats.max_shift + 1), ccr.ncc_lower, ccr.ncc_upper)
     plt.plot(xrange(stats.max_shift + 1), stats.cc, color="black", linewidth=0.5)
     axes = plt.gca()
     if xlim:
@@ -122,14 +125,15 @@ def plot_naive_cc(stats, name=None, xlim=None):
     _annotate_params(stats.nsc, stats.rsc, stats.est_nsc, stats.est_rsc)
 
 
-def plot_naive_cc_just(stats, name=None):
+def plot_naive_cc_just(ccr, name=None):
+    stats = ccr.whole
     if stats.calc_ncc and stats.est_lib_len * 2 < stats.max_shift + 1:
-        plot_naive_cc(stats, name, (0, stats.est_lib_len * 2))
+        plot_naive_cc(ccr, name, (0, stats.est_lib_len * 2))
         return True
     return False
 
 
-def plot_masc(stats, name=None):
+def plot_masc(ccr, name=None):
     title = "MSCC and Library Length Estimation"
     if name:
         title += " for " + name
@@ -138,6 +142,9 @@ def plot_masc(stats, name=None):
     plt.xlabel("Reverse Strand Shift")
     plt.ylabel("Mappability Sensitive Cross-Correlation")
 
+    stats = ccr.whole
+
+    plt.fill_between(xrange(stats.max_shift + 1), ccr.mscc_lower, ccr.mscc_upper)
     plt.plot(xrange(stats.max_shift + 1), stats.masc,
              color="black", linewidth=0.5, label="MSCC")
     plt.plot(xrange(stats.max_shift + 1), moving_avr_filter(stats.masc, stats.filter_len),

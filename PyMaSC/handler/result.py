@@ -1,9 +1,8 @@
 import logging
-from math import sqrt, pi
-from decimal import Decimal
 from functools import wraps
 
 import numpy as np
+from scipy.stats.distributions import chi2
 
 from PyMaSC.handler.mappability import MappabilityHandler
 from PyMaSC.utils.calc import moving_avr_filter
@@ -31,34 +30,10 @@ def npcalc_with_logging_warn(func):
     return _inner
 
 
-def chi2sf(x):
-    """
-    Chi-squred distribution's survival function with one degree of freedom
-    https://gist.github.com/ronin-gw/78372c33ebe8979e59b7849bcb3898ce
-    """
-    if x <= 0:
-        return 1.
-    elif x > 65:  # calc precision limit
-        return 0.
-
-    sum_ = z = Decimal(sqrt(x / 2))
-    z_squre = z**2
-    i = prod = 1
-    while True:
-        prod *= - z_squre / i
-        temp = sum_
-        sum_ += z / (2 * i + 1) * prod
-        if sum_ == temp:
-            break
-        i += 1
-
-    return float(1 - (sum_ * 2 / Decimal(sqrt(pi))))
-
-
 def chi2_test(a, b, chi2_p_thresh, label):
     sum_ = a + b
     chi2_val = (((a - sum_ / 2.) ** 2) + ((b - sum_ / 2.) ** 2)) / sum_
-    chi2_p = chi2sf(chi2_val)
+    chi2_p = chi2.sf(chi2_val, 1)
 
     if chi2_p <= chi2_p_thresh:
         logger.warning("{} Forward/Reverse read count imbalance.".format(label))

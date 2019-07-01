@@ -11,7 +11,7 @@ from PyMaSC.utils.calc import moving_avr_filter
 logger = logging.getLogger(__name__)
 
 NEAR_READLEN_ERR_CRITERION = 5
-MERGED_CC_CONFIDENCE_INTERVAL = 0.95
+MERGED_CC_CONFIDENCE_INTERVAL = 0.99
 
 
 def _skip_none(i):

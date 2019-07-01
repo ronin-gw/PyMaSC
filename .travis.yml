@@ -3,34 +3,34 @@ language: python
 matrix:
     include:
         - python: 2.7
-          env: CYTHON='' MATPLOTLIB='matplotlib>=2,<3'
+          env: CYTHON='
         - python: 2.7
-          env: CYTHON=cython MATPLOTLIB='matplotlib>=2,<3'
+          env: CYTHON=cython
         - python: 3.4
-          env: CYTHON='' MATPLOTLIB='matplotlib>=2,<3'
+          env: CYTHON=''
         - python: 3.4
-          env: CYTHON=cython MATPLOTLIB='matplotlib>=2,<3'
+          env: CYTHON=cython
         - python: 3.5
-          env: CYTHON='' MATPLOTLIB=''
+          env: CYTHON=''
         - python: 3.5
-          env: CYTHON=cython MATPLOTLIB=''
+          env: CYTHON=cython
         - python: 3.6
-          env: CYTHON='' MATPLOTLIB=''
+          env: CYTHON=''
         - python: 3.6
-          env: CYTHON=cython MATPLOTLIB=''
+          env: CYTHON=cython
         - python: 3.7
           dist: xenial
-          env: CYTHON='' MATPLOTLIB=''
+          env: CYTHON=''
         - python: 3.7
           dist: xenial
-          env: CYTHON=cython MATPLOTLIB=''
+          env: CYTHON=cython
 
 before_install:
-    - pip install -q -U pip
-    - pip install -q numpy pysam==0.15.1 $CYTHON $MATPLOTLIB
+    - pip install -U pip
+    - pip install numpy pysam==0.15.1 $CYTHON
 
 install:
-    - python setup.py -q install
+    - python setup.py install
 
 script:
     - pymasc --version

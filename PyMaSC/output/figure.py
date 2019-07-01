@@ -94,7 +94,8 @@ def plot_naive_cc(ccr, name=None, xlim=None):
     plt.xlabel("Reverse Strand Shift")
     plt.ylabel("Cross-Correlation")
 
-    plt.fill_between(xrange(stats.max_shift + 1), ccr.ncc_lower, ccr.ncc_upper)
+    plt.fill_between(xrange(stats.max_shift + 1), ccr.ncc_lower, ccr.ncc_upper,
+                     color="lightskyblue", alpha=0.5, linewidth=0)
     plt.plot(xrange(stats.max_shift + 1), stats.cc, color="black", linewidth=0.5)
     axes = plt.gca()
     if xlim:
@@ -144,11 +145,12 @@ def plot_masc(ccr, name=None):
 
     stats = ccr.whole
 
-    plt.fill_between(xrange(stats.max_shift + 1), ccr.mscc_lower, ccr.mscc_upper)
+    plt.fill_between(xrange(stats.max_shift + 1), ccr.mscc_lower, ccr.mscc_upper,
+                     color="lightskyblue", alpha=0.5, linewidth=0)
     plt.plot(xrange(stats.max_shift + 1), stats.masc,
              color="black", linewidth=0.5, label="MSCC")
     plt.plot(xrange(stats.max_shift + 1), moving_avr_filter(stats.masc, stats.filter_len),
-             alpha=0.8, label="Smoothed")
+             alpha=0.8, label="Smoothed", color="pink")
 
     lower, upper, height = _set_ylim()
 

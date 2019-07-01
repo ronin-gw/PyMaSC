@@ -248,6 +248,128 @@ class ReadsTooFew(IndexError):
 
 
 class CCResult(object):
+    def __init__(self, handler=None, read_len=None, references=None,
+                 ref2genomelen=None, ref2cc=None, ref2mappable_len=None, ref2masc=None,
+                 filter_len=15, chi2_pval=0.05, expected_library_len=None,
+                 filter_mask_len=NEAR_READLEN_ERR_CRITERION):
+
+        # settings
+        self.filter_len = filter_len
+        self.chi2_p_thresh = chi2_pval
+        self.expected_library_len = expected_library_len
+        self.filter_mask_len = max(filter_mask_len, 0)
+
+        if handler:
+            self._init_from_handler(handler)
+        else:
+            self.read_len = read_len
+            self.references = references
+            self.ref2genomelen = ref2genomelen
+            self.ref2mappable_len = ref2mappable_len
+
+            self.ref2stats = {
+                ref: PyMaSCStats(
+                    self.read_len, self.filter_len, self.expected_library_len,
+                    cc=ref2cc.get(ref, None) if ref2cc else None,
+                    masc=ref2masc.get(ref, None) if ref2masc else None,
+                    filter_mask_len=self.filter_mask_len
+                ) for ref in self.references
+            }
+
+            self.skip_ncc = not (self.ref2genomelen and ref2cc)
+            self.calc_masc = self.ref2mappable_len and ref2masc
+
+            assert (not self.skip_ncc) or self.calc_masc
+
+        #
+        if not self.skip_ncc:
+            ncc, self.ncc_upper, self.ncc_lower = self._merge_cc(
+                *zip(*((self.ref2genomelen[ref], self.ref2stats[ref].cc)
+                       for ref in self.references if self.ref2stats[ref].cc is not None))
+            )
+        else:
+            ncc = self.ncc_upper = self.ncc_lower = None
+
+        if self.calc_masc:
+            mscc, self.mscc_upper, self.mscc_lower = self._merge_cc(
+                *zip(*((self.ref2mappable_len[ref], self.ref2stats[ref].masc)
+                       for ref in self.references if self.ref2stats[ref].masc is not None))
+            )
+        else:
+            mscc = self.mscc_upper = self.mscc_lower = None
+
+        self.whole = PyMaSCStats(
+            self.read_len, self.filter_len, self.expected_library_len,
+            cc=ncc,
+            masc=mscc,
+            warning=True,
+            filter_mask_len=self.filter_mask_len
+        )
+
+    def _init_from_handler(self, handler):
+        #
+        self.references = handler.references
+        lengths = handler.lengths
+        self.ref2genomelen = dict(zip(self.references, lengths))
+        self.read_len = handler.read_len
+        ref2forward_sum = handler.ref2forward_sum
+        ref2reverse_sum = handler.ref2reverse_sum
+        ref2ccbins = handler.ref2ccbins
+        mappable_ref2forward_sum = handler.mappable_ref2forward_sum
+        mappable_ref2reverse_sum = handler.mappable_ref2reverse_sum
+        mappable_ref2ccbins = handler.mappable_ref2ccbins
+        self.ref2mappable_len = handler.ref2mappable_len
+
+        #
+        self.ref2stats = {
+            ref: PyMaSCStats(
+                self.read_len, self.filter_len, self.expected_library_len,
+                genomelen=self.ref2genomelen[ref],
+                forward_sum=ref2forward_sum.get(ref, None),
+                reverse_sum=ref2reverse_sum.get(ref, None),
+                ccbins=ref2ccbins.get(ref, None),
+                mappable_len=self.ref2mappable_len.get(ref, None),
+                mappable_forward_sum=mappable_ref2forward_sum.get(ref, None),
+                mappable_reverse_sum=mappable_ref2reverse_sum.get(ref, None),
+                mappable_ccbins=mappable_ref2ccbins.get(ref, None),
+                filter_mask_len=self.filter_mask_len
+            ) for ref in self.references
+        }
+
+        #
+        if all((ref2forward_sum, ref2reverse_sum, ref2ccbins)):
+            self.skip_ncc = False
+            forward_sum = sum(list(ref2forward_sum.values()))
+            reverse_sum = sum(list(ref2reverse_sum.values()))
+        else:
+            self.skip_ncc = True
+            forward_sum = reverse_sum = None
+        if forward_sum is not None:
+            if forward_sum == 0:
+                logger.error("There is no forward read.")
+                raise ReadsTooFew
+            elif reverse_sum == 0:
+                logger.error("There is no reverse read.")
+                raise ReadsTooFew
+            chi2_test(forward_sum, reverse_sum, self.chi2_p_thresh, "Whole genome")
+
+        #
+        if all((mappable_ref2forward_sum, mappable_ref2reverse_sum,
+                mappable_ref2ccbins, self.ref2mappable_len)):
+            self.calc_masc = True
+            mappable_forward_sum = np.sum(_skip_none(mappable_ref2forward_sum.values()), axis=0)
+            mappable_reverse_sum = np.sum(_skip_none(mappable_ref2reverse_sum.values()), axis=0)
+        else:
+            self.calc_masc = False
+            mappable_forward_sum = mappable_reverse_sum = None
+        if mappable_forward_sum is not None:
+            if np.all(mappable_forward_sum == 0):
+                logger.error("There is no forward read.")
+                raise ReadsTooFew
+            elif np.all(mappable_reverse_sum == 0):
+                logger.error("There is no reverse read.")
+                raise ReadsTooFew
+
     def _merge_cc(self, ns, ccs):
         ns = np.array(ns)
 
@@ -275,119 +397,3 @@ class CCResult(object):
             interval_lower.append(np.tanh(z_interval_lower))
 
         return merged_r, interval_lower, interval_upper
-
-    def __init__(self, handler=None,
-                 read_len=None, references=None, ref2genomelen=None,
-                 ref2ccbins=None, ref2mappable_len=None, mappable_ref2ccbins=None,
-                 filter_len=15, chi2_pval=0.05, expected_library_len=None,
-                 filter_mask_len=NEAR_READLEN_ERR_CRITERION):
-
-        # settings
-        self.filter_len = filter_len
-        self.chi2_p_thresh = chi2_pval
-        self.expected_library_len = expected_library_len
-        self.filter_mask_len = max(filter_mask_len, 0)
-
-        if handler:
-            self._init_from_handler(handler)
-        else:
-            self.read_len = read_len
-            self.references = references
-            self.ref2genomelen = ref2genomelen
-            self.ref2ccbins = ref2ccbins
-            self.ref2mappable_len = ref2mappable_len
-            self.mappable_ref2ccbins = mappable_ref2ccbins
-
-            self.skip_ncc = not (self.ref2genomelen and self.ref2ccbins)
-            self.calc_masc = self.ref2mappable_len and self.mappable_ref2ccbins
-
-            assert (not self.skip_ncc) or self.calc_masc
-
-        #
-        if not self.skip_ncc:
-            ncc, self.ncc_upper, self.ncc_lower = self._merge_cc(
-                *zip(*((self.ref2genomelen[ref], self.ref2stats[ref].cc)
-                       for ref in self.references if ref in self.ref2ccbins))
-            )
-        else:
-            ncc = self.ncc_upper = self.ncc_lower = None
-
-        if self.calc_masc:
-            mscc, self.mscc_upper, self.mscc_lower = self._merge_cc(
-                *zip(*((self.ref2mappable_len[ref], self.ref2stats[ref].masc)
-                       for ref in self.references if ref in self.mappable_ref2ccbins))
-            )
-        else:
-            mscc = self.mscc_upper = self.mscc_lower = None
-
-        self.whole = PyMaSCStats(
-            self.read_len, self.filter_len, self.expected_library_len,
-            cc=ncc,
-            masc=mscc,
-            warning=True,
-            filter_mask_len=self.filter_mask_len
-        )
-
-    def _init_from_handler(self, handler):
-        #
-        self.references = handler.references
-        lengths = handler.lengths
-        self.ref2genomelen = dict(zip(self.references, lengths))
-        self.read_len = handler.read_len
-        ref2forward_sum = handler.ref2forward_sum
-        ref2reverse_sum = handler.ref2reverse_sum
-        self.ref2ccbins = handler.ref2ccbins
-        mappable_ref2forward_sum = handler.mappable_ref2forward_sum
-        mappable_ref2reverse_sum = handler.mappable_ref2reverse_sum
-        self.mappable_ref2ccbins = handler.mappable_ref2ccbins
-        self.ref2mappable_len = handler.ref2mappable_len
-
-        #
-        self.ref2stats = {
-            ref: PyMaSCStats(
-                self.read_len, self.filter_len, self.expected_library_len,
-                genomelen=self.ref2genomelen[ref],
-                forward_sum=ref2forward_sum.get(ref, None),
-                reverse_sum=ref2reverse_sum.get(ref, None),
-                ccbins=self.ref2ccbins.get(ref, None),
-                mappable_len=self.ref2mappable_len.get(ref, None),
-                mappable_forward_sum=mappable_ref2forward_sum.get(ref, None),
-                mappable_reverse_sum=mappable_ref2reverse_sum.get(ref, None),
-                mappable_ccbins=self.mappable_ref2ccbins.get(ref, None),
-                filter_mask_len=self.filter_mask_len
-            ) for ref in self.references
-        }
-
-        #
-        if all((ref2forward_sum, ref2reverse_sum, self.ref2ccbins)):
-            self.skip_ncc = False
-            forward_sum = sum(list(ref2forward_sum.values()))
-            reverse_sum = sum(list(ref2reverse_sum.values()))
-        else:
-            self.skip_ncc = True
-            forward_sum = reverse_sum = None
-        if forward_sum is not None:
-            if forward_sum == 0:
-                logger.error("There is no forward read.")
-                raise ReadsTooFew
-            elif reverse_sum == 0:
-                logger.error("There is no reverse read.")
-                raise ReadsTooFew
-            chi2_test(forward_sum, reverse_sum, self.chi2_p_thresh, "Whole genome")
-
-        #
-        if all((mappable_ref2forward_sum, mappable_ref2reverse_sum,
-                self.mappable_ref2ccbins, self.ref2mappable_len)):
-            self.calc_masc = True
-            mappable_forward_sum = np.sum(_skip_none(mappable_ref2forward_sum.values()), axis=0)
-            mappable_reverse_sum = np.sum(_skip_none(mappable_ref2reverse_sum.values()), axis=0)
-        else:
-            self.calc_masc = False
-            mappable_forward_sum = mappable_reverse_sum = None
-        if mappable_forward_sum is not None:
-            if np.all(mappable_forward_sum == 0):
-                logger.error("There is no forward read.")
-                raise ReadsTooFew
-            elif np.all(mappable_reverse_sum == 0):
-                logger.error("There is no reverse read.")
-                raise ReadsTooFew

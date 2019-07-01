@@ -1,20 +1,10 @@
 language: python
 
-addons:
-  apt:
-    packages:
-        - liblapack-dev
-        - libblas-dev
-
 matrix:
     include:
         - python: 2.7
           env: CYTHON=''
         - python: 2.7
-          env: CYTHON=cython
-        - python: 3.4
-          env: CYTHON=''
-        - python: 3.4
           env: CYTHON=cython
         - python: 3.5
           env: CYTHON=''

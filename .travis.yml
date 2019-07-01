@@ -1,5 +1,11 @@
 language: python
 
+addons:
+  apt:
+    packages:
+        - liblapack-dev
+        - libblas-dev
+
 matrix:
     include:
         - python: 2.7

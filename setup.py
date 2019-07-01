@@ -139,9 +139,13 @@ def _setup():
             "numpy>=1.12.0",
             "pysam==0.15.1",
             "scipy>=0.18.1",
-            "bx-python>=0.7.3",
-            "matplotlib>=2.0.0"
+            "bx-python>=0.7.3"
         ],
+        extras_require={
+            ':python_version<"3.5"': ["matplotlib>=2.0.0,<3.0.0"],
+            ':python_version<"3.6"': ["matplotlib>=2.0.0,<3.1.0"],
+            ':python_version>="3.6"': ["matplotlib>=2.0.0"]
+        },
         packages=find_packages(),
         cmdclass={"build_ext": BuildExtCommand},
         ext_modules=cythonize([

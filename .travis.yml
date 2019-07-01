@@ -3,7 +3,7 @@ language: python
 matrix:
     include:
         - python: 2.7
-          env: CYTHON='
+          env: CYTHON=''
         - python: 2.7
           env: CYTHON=cython
         - python: 3.4

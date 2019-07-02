@@ -1,5 +1,11 @@
 # Change Log
 
+## v0.3.0 (2019-07-03)
+- Drop python3.4 support
+**Implemented enhancements:**
+- Use Fisher's r-to-z transformation to averaging coefficients
+- Add chromosome selecting options
+
 ## v0.2.6 (2019-01-09)
 **Implemented enhancements:**
 - Add `--mask-size` option to avoid calling the phantom peak a library length.

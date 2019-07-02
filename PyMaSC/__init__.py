@@ -1,7 +1,7 @@
 import sys
 from functools import wraps
 
-VERSION = "0.2.6"
+VERSION = "0.3.0"
 
 
 def logging_version(logger):

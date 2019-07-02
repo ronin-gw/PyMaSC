@@ -90,6 +90,9 @@ def main():
         ref2mappable_len=ref2mappable_len,
         ref2masc=ref2masc
     )
+    ccr.whole.genomelen = statattrs["genomelen"]
+    ccr.whole.forward_sum = statattrs["forward_sum"]
+    ccr.whole.reverse_sum = statattrs["reverse_sum"]
 
     #
     for outputfunc, suffix in zip((output_stats, output_cc, output_mscc),

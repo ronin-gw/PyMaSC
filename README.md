@@ -30,7 +30,7 @@ MaSC algorithm.
 
 Install
 -------
-Python version 2.7 or >=3.4 are recommended.  
+Python version 2.7 or >=3.5 are recommended.  
 C compiler needs to build C sources (recommend GCC).  
 
 ### Install using pip
@@ -53,27 +53,29 @@ cross-correlation.
 ### `pymasc` command
 
     pymasc [-h]
-           [-p PROCESS]
            [-v {DEBUG,INFO,WARNING,ERROR,CRITICAL}]
            [--disable-progress]
            [--color {TRUE,FALSE}]
            [--version]
+           [-p PROCESS]
            [--successive]
+           [--skip-ncc]
+           [--skip-plots]
            [-r READ_LENGTH]
            [--estimation-type {MEAN,MEDIAN,MODE,MIN,MAX}]
+           [-l LIBRARY_LENGTH]
            [-m REGION_FILE]
            [--mappability-stats MAPPABILITY_STATS]
-           [-l LIBRARY_LENGTH]
-           [-d MAX_SHIFT]
            [-q MAPQ]
+           [-i CHROM [CHROM ...]]
+           [-e CHROM [CHROM ...]]
+           [-d MAX_SHIFT]
            [--chi2-pval CHI2_PVAL]
            [-w SMOOTH_WINDOW]
-           [--skip-ncc]  
+           [--mask-size MASK_SIZE]
            [-n NAME [NAME ...]]
            [-o OUTDIR]
-           [--skip-plots]  
-           reads [reads ...]  
-
+           reads [reads ...]
 
 
 #### Usage example
@@ -149,10 +151,6 @@ Note that this option must be specified to treat unseekable input (like stdin).
 ##### --readlen-estimator {MEAN,MEDIAN,MODE,MIN,MAX}
 Specify how to get representative value of read length. (Default: median)
 
-##### -q / --mapq [int]
-Input reads which mapping quality less than specified score will be discarded. (Default: 1)  
-MAPQ >= 1 is recommended because MAPQ=0 contains multiple hit reads.
-
 ##### -l / --library-length
 Specify expected fragment length. (Default: None)  
 PyMaSC supplies additional NSC and RSC values calculated from this value.
@@ -177,6 +175,23 @@ to reuse for next calculation and faster computing.
 necessary, of course).
 
 
+#### Input file filtering arguments
+
+##### -q / --mapq [int]
+Input reads which mapping quality less than specified score will be discarded. (Default: 1)  
+MAPQ >= 1 is recommended because MAPQ=0 contains multiple hit reads.
+
+#####  -i / --include-chrom [pattern ...]
+Specify chromosomes to calculate. Unix shell-style wildcards (`.`, `*`, `[]` and `[!]`)
+are acceptable. This option can be declared multiple times to re-include chromosomes
+specified in a just before -e/--exclude-chrom option. Note that this option is case-sensitive.
+
+#####  -e / --exclude-chrom [pattern ...]
+As same as the -i/--include-chrom option, specify chromosomes to exclude from calcuration.
+This option can be declared multiple times to re-exclude chromosomes specified in
+a just before -i/--include-chrom option.
+
+
 #### Analysis Parameters
 
 ##### -d / --max-shift [int]
@@ -190,6 +205,12 @@ PyMaSC performs chi-square test between number of reads mapped to positive- and 
 Before mean fragment length estimation, PyMaSC applies moving average filter to
 mappability-sensitive cross-correlation. This option specify filter's window size.
 (Default: 15)
+
+#### --mask-size [int]
+If difference between a read length and the estimated library length is equal or
+less than the length specified by this option, PyMaSC masks correlation coefficients
+in the read length +/- specified length and try to estimate mean library length again.
+(Default: 5, Specify < 1 to disable)
 
 
 #### Output options
@@ -235,29 +256,35 @@ Note that actual max shift size is,
                 [--disable-progress]
                 [--color {TRUE,FALSE}]
                 [--version]
-                [-s STATS]
-                [-c CC]
-                [-m MASC]
-                [--chi2-pval
-                CHI2_PVAL]
+                [--stats STATS]
+                [--cc CC]
+                [--masc MASC]
+                [-s SIZES]
+                [-m MAPPABILITY_STATS]
+                [--chi2-pval CHI2_PVAL]
                 [-w SMOOTH_WINDOW]
+                [--mask-size MASK_SIZE]
                 [-l LIBRARY_LENGTH]
                 [-n NAME]
                 [-o OUTDIR]
+                [-f]
                 [statfile]
 
 #### Usage example
 (Re)plot figures from `pymasc` outputs `output/ENCFF000VPI_*` with the specified
-smoothing window size and library length.
+smoothing window size and library length.  
+Note that you need to specify a tab delimited file or a SAM/BAM format file to
+obtain chromosome lengths, and/or, specify a mappability stats (JSON) file which
+was generated for a mappability BigWig file by PyMaSC to obtain mappable region lengths.
 
-    $ pymasc-plot -w 50 -l 250 output/ENCFF000VPI
+    $ pymasc-plot -w 50 -l 250 -s ENCFF000VPI.bam output/ENCFF000VPI
 
 #### Input argument
 Specify a prefix to `pymasc` output files. For example, set `output/ENCFF000VPI`
 to plot figures from `output/ENCFF000VPI_stats.tab` and `output/ENCFF000VPI_cc.tab`
 (and/or `output/ENCFF000VPI_masc.tab`). `*_stats.tab` and either or both of `*_cc.tab`
 and `*_masc.tab` must be exist.  
-To specify these files individually, use `-s/--stats`, `-c/--cc` and `-m/--masc`
+To specify these files individually, use `--stats`, `--cc` and `--masc`
 options.
 
 

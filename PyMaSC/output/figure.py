@@ -32,14 +32,14 @@ def plot_figures(outfile, ccr):
 
     with PdfPages(outfile) as pp:
         if not ccr.skip_ncc:
-            plot_naive_cc(ccr.whole, name)
+            plot_naive_cc(ccr, name)
             _feed_pdf_page(pp)
 
         if ccr.calc_masc:
-            if plot_naive_cc_just(ccr.whole, name):
+            if plot_naive_cc_just(ccr, name):
                 _feed_pdf_page(pp)
 
-            plot_masc(ccr.whole, name)
+            plot_masc(ccr, name)
             _feed_pdf_page(pp)
 
         plot_ncc_vs_masc(pp, ccr, name)
@@ -75,20 +75,27 @@ def _annotate_params(nsc=None, rsc=None, est_nsc=None, est_rsc=None, loc="lower 
 def _set_ylim():
     axes = plt.gca()
     lower, upper = axes.get_ylim()
-    lower, upper = axes.set_ylim((lower, upper * 1.1))
+    if upper > 0:
+        lower, upper = axes.set_ylim((lower, upper * 1.1))
+    else:
+        lower, upper = axes.set_ylim((lower, upper * 0.95))
     height = upper - lower
     return lower, upper, height
 
 
-def plot_naive_cc(stats, name=None, xlim=None):
+def plot_naive_cc(ccr, name=None, xlim=None):
     title = "Cross-Correlation"
     if name:
         title += " for " + name
+
+    stats = ccr.whole
 
     plt.title(title)
     plt.xlabel("Reverse Strand Shift")
     plt.ylabel("Cross-Correlation")
 
+    plt.fill_between(xrange(stats.max_shift + 1), ccr.ncc_lower, ccr.ncc_upper,
+                     color="lightskyblue", alpha=0.5, linewidth=0)
     plt.plot(xrange(stats.max_shift + 1), stats.cc, color="black", linewidth=0.5)
     axes = plt.gca()
     if xlim:
@@ -100,33 +107,34 @@ def plot_naive_cc(stats, name=None, xlim=None):
 
     _annotate_point(
         stats.read_len - 1, "red",
-        upper - height/25, 'read length: {}'.format(stats.read_len),
-        stats.ccrl, " cc(read length) = {:.5f}".format(stats.ccrl), height/50
+        upper - height / 25, 'read length: {}'.format(stats.read_len),
+        stats.ccrl, " cc(read length) = {:.5f}".format(stats.ccrl), height / 50
     )
 
     if stats.est_lib_len:
         _annotate_point(
             stats.est_lib_len - 1, "blue",
-            upper - height/10, 'estimated lib len: {}'.format(stats.est_lib_len),
-            stats.est_ccfl, " cc(est lib len) = {:.5f}".format(stats.est_ccfl), height/50
+            upper - height / 10, 'estimated lib len: {}'.format(stats.est_lib_len),
+            stats.est_ccfl, " cc(est lib len) = {:.5f}".format(stats.est_ccfl), height / 50
         )
     if stats.library_len:
         _annotate_point(
             stats.library_len - 1, "green",
-            upper - height/6, 'expected lib len: {}'.format(stats.library_len),
-            stats.ccfl, " cc(lib length) = {:.5f}".format(stats.ccfl), -height/25
+            upper - height / 6, 'expected lib len: {}'.format(stats.library_len),
+            stats.ccfl, " cc(lib length) = {:.5f}".format(stats.ccfl), -height / 25
         )
     _annotate_params(stats.nsc, stats.rsc, stats.est_nsc, stats.est_rsc)
 
 
-def plot_naive_cc_just(stats, name=None):
+def plot_naive_cc_just(ccr, name=None):
+    stats = ccr.whole
     if stats.calc_ncc and stats.est_lib_len * 2 < stats.max_shift + 1:
-        plot_naive_cc(stats, name, (0, stats.est_lib_len * 2))
+        plot_naive_cc(ccr, name, (0, stats.est_lib_len * 2))
         return True
     return False
 
 
-def plot_masc(stats, name=None):
+def plot_masc(ccr, name=None):
     title = "MSCC and Library Length Estimation"
     if name:
         title += " for " + name
@@ -135,26 +143,30 @@ def plot_masc(stats, name=None):
     plt.xlabel("Reverse Strand Shift")
     plt.ylabel("Mappability Sensitive Cross-Correlation")
 
+    stats = ccr.whole
+
+    plt.fill_between(xrange(stats.max_shift + 1), ccr.mscc_lower, ccr.mscc_upper,
+                     color="lightskyblue", alpha=0.5, linewidth=0)
     plt.plot(xrange(stats.max_shift + 1), stats.masc,
              color="black", linewidth=0.5, label="MSCC")
     plt.plot(xrange(stats.max_shift + 1), moving_avr_filter(stats.masc, stats.filter_len),
-             alpha=0.8, label="Smoothed")
+             alpha=0.8, label="Smoothed", color="pink")
 
     lower, upper, height = _set_ylim()
 
     masc_est_ll = stats.masc[stats.est_lib_len - 1]
     _annotate_point(
         stats.est_lib_len - 1, "blue",
-        upper - height/2, 'estimated lib len: {}'.format(stats.est_lib_len),
-        masc_est_ll, " cc(est lib len) = {:.5f}".format(masc_est_ll), height/50
+        upper - height / 2, 'estimated lib len: {}'.format(stats.est_lib_len),
+        masc_est_ll, " cc(est lib len) = {:.5f}".format(masc_est_ll), height / 50
     )
 
     if stats.library_len:
         masc_ll = stats.masc[stats.library_len - 1]
         _annotate_point(
             stats.library_len - 1, "green",
-            upper - height/1.75, 'expected lib len: {}'.format(stats.library_len),
-            masc_ll, " cc(lib length) = {:.5f}".format(masc_ll), -height/25
+            upper - height / 1.75, 'expected lib len: {}'.format(stats.library_len),
+            masc_ll, " cc(lib length) = {:.5f}".format(masc_ll), -height / 25
         )
 
     plt.legend(loc="best")

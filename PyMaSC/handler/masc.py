@@ -7,7 +7,7 @@ from PyMaSC.handler.masc_noindex_worker import SingleProcessCalculator
 from PyMaSC.handler.masc_worker import NaiveCCCalcWorker, MSCCCalcWorker, NCCandMSCCCalcWorker
 from PyMaSC.core.readlen import estimate_readlen
 from PyMaSC.utils.progress import MultiLineProgressManager, ProgressBar, ProgressHook
-from PyMaSC.utils.calc import exec_worker_pool
+from PyMaSC.utils.calc import exec_worker_pool, filter_chroms
 
 logger = logging.getLogger(__name__)
 
@@ -16,8 +16,12 @@ class InputUnseekable(Exception):
     pass
 
 
+class NothingToCalc(Exception):
+    pass
+
+
 class CCCalcHandler(object):
-    def __init__(self, path, esttype, max_shift, mapq_criteria, nworker=1, skip_ncc=False):
+    def __init__(self, path, esttype, max_shift, mapq_criteria, nworker=1, skip_ncc=False, chromfilter=None):
         self.path = path
         self.esttype = esttype
         self.max_shift = max_shift
@@ -31,9 +35,21 @@ class CCCalcHandler(object):
         except ValueError:
             logger.error("File has no sequences defined.")
             raise
-        self.references = self.align_file.references
-        self.lengths = list(self.align_file.lengths)
 
+        #
+        target_references = filter_chroms(self.align_file.references, chromfilter)
+        if not target_references:
+            logger.error("There is no targeted chromosomes.")
+            raise NothingToCalc
+        self.references = []
+        self.lengths = []
+        need_warning = False
+        for reference, length in zip(self.align_file.references, self.align_file.lengths):
+            if reference in target_references:
+                self.references.append(reference)
+                self.lengths.append(length)
+
+        #
         if not self.align_file.has_index() and self.nworker > 1:
             logger.error("Need indexed alignment file for multi-processng. "
                          "Calculation will be executed by single process.")

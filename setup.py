@@ -125,7 +125,6 @@ def _setup():
             "Programming Language :: Python :: 2",
             "Programming Language :: Python :: 2.7",
             "Programming Language :: Python :: 3",
-            "Programming Language :: Python :: 3.4",
             "Programming Language :: Python :: 3.5",
             "Programming Language :: Python :: 3.6",
             "Programming Language :: Python :: 3.7",
@@ -138,9 +137,13 @@ def _setup():
         install_requires=[
             "numpy>=1.12.0",
             "pysam==0.15.1",
-            "bx-python>=0.7.3",
-            "matplotlib>=2.0.0"
+            "bx-python>=0.7.3"
         ],
+        extras_require={
+            ':python_version<"3.5"': ["matplotlib>=2.0.0,<3.0.0", "scipy>=1.2.0,<1.3.0"],
+            ':python_version=="3.5"': ["matplotlib>=2.0.0,<3.1.0", "scipy>=1.3.0"],
+            ':python_version>="3.6"': ["matplotlib>=2.0.0", "scipy>=1.3.0"]
+        },
         packages=find_packages(),
         cmdclass={"build_ext": BuildExtCommand},
         ext_modules=cythonize([

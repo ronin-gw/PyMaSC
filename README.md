@@ -1,3 +1,5 @@
+![PyMaSC](https://raw.githubusercontent.com/ronin-gw/PyMaSC/master/pymasc.png)
+
 PyMaSC
 ======
 

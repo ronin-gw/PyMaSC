@@ -387,7 +387,15 @@ class CCResult(object):
                 _ns = ns[~nans, abs(self.read_len - i)] - 3
 
             zs = np.arctanh(_ccs)
-            avr_z = np.average(zs, weights=_ns)
+            infs = np.isinf(zs)
+            zs = zs[~infs]
+            _ns = _ns[~infs]
+
+            if _ns.size:
+                avr_z = np.average(zs, weights=_ns)
+            else:
+                avr_z = np.average(zs, weights=_ns)
+
             z_interval = norm.ppf(1 - (1 - MERGED_CC_CONFIDENCE_INTERVAL) / 2) * np.sqrt(1 / np.sum(_ns))
             z_interval_upper = avr_z + z_interval
             z_interval_lower = avr_z - z_interval

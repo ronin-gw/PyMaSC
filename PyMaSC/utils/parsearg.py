@@ -5,6 +5,8 @@ import PyMaSC
 from PyMaSC.handler.result import NEAR_READLEN_ERR_CRITERION
 
 READLEN_ESTIMATION_TYPES = ("MEAN", "MEDIAN", "MODE", "MIN", "MAX")
+EPILOG = (" \nVisit PyMaSC web site for more information and to get human genome "
+          "mappability tracks\n" + PyMaSC.WEBSITE_URL + '\n ')
 
 
 def _make_upper(s):
@@ -109,7 +111,9 @@ def add_result_proc_args(group):
 def get_pymasc_parser():
     parser = argparse.ArgumentParser(
         description="Estimation and visualization tool for library length, "
-                    "NSC and RSC metrics with mappability sensitive cross-correlation calculation."
+                    "NSC and RSC metrics with\nmappability sensitive cross-correlation calculation.",
+        epilog=EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter
     )
 
     add_common_args(parser)
@@ -193,7 +197,9 @@ def get_pymasc_parser():
 def get_precalc_parser():
     parser = argparse.ArgumentParser(
         description="Pre-calculate mappability region statistics for "
-                    "PyMaSC successive algorithm."
+                    "PyMaSC successive algorithm.",
+        epilog=EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter
     )
 
     add_common_args(parser)
@@ -216,7 +222,9 @@ def get_precalc_parser():
 
 def get_plot_parser():
     parser = argparse.ArgumentParser(
-        description="Plot figures from PyMaSC statistic outputs."
+        description="Plot figures from PyMaSC statistic outputs.",
+        epilog=EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter
     )
 
     add_common_args(parser)

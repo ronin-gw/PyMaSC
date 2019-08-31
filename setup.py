@@ -5,7 +5,7 @@ import subprocess
 from setuptools import setup, Extension, find_packages
 from setuptools.command import build_ext
 
-from PyMaSC import VERSION
+from PyMaSC import VERSION, WEBSITE_URL
 
 
 # Check build-time dependencies
@@ -111,7 +111,7 @@ def _setup():
             "(mappability-sensitive) cross-correlation and estimate ChIP-Seq "
             "quality metrics and mean fragment length with MaSC algorithm."
         )),
-        url="https://github.com/ronin-gw/PyMaSC",
+        url=WEBSITE_URL,
         download_url="https://github.com/ronin-gw/PyMaSC",
         classifiers=[
             "Development Status :: 4 - Beta",

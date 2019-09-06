@@ -149,7 +149,7 @@ def plot_masc(ccr, name=None):
                      color="lightskyblue", alpha=0.5, linewidth=0)
     plt.plot(xrange(stats.max_shift + 1), stats.masc,
              color="black", linewidth=0.5, label="MSCC")
-    plt.plot(xrange(stats.max_shift + 1), moving_avr_filter(stats.masc, stats.filter_len),
+    plt.plot(xrange(stats.max_shift + 1), moving_avr_filter(stats.masc, stats.mv_avr_filter_len),
              alpha=0.8, label="Smoothed", color="pink")
 
     lower, upper, height = _set_ylim()
@@ -170,7 +170,7 @@ def plot_masc(ccr, name=None):
         )
 
     plt.legend(loc="best")
-    _annotate_bottom_right_box("Mov avr win size = {}".format(stats.filter_len))
+    _annotate_bottom_right_box("Mov avr win size = {}".format(stats.mv_avr_filter_len))
 
 
 def plot_ncc_vs_masc(pp, ccr, name):

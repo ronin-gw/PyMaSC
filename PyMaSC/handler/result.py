@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 NEAR_READLEN_ERR_CRITERION = 5
 MERGED_CC_CONFIDENCE_INTERVAL = 0.99
+NEAR_ZERO_MIN_CALC_LEN = 10
 
 
 def _skip_none(i):
@@ -50,13 +51,14 @@ def chi2_test(a, b, chi2_p_thresh, label):
 class PyMaSCStats(object):
     def __init__(
         self,
-        read_len, filter_len=15, expected_library_len=None,
+        read_len, mv_avr_filter_len=15, expected_library_len=None,
         genomelen=None, forward_sum=None, reverse_sum=None, ccbins=None,
         mappable_len=None, mappable_forward_sum=None, mappable_reverse_sum=None, mappable_ccbins=None,
-        cc=None, masc=None, filter_mask_len=NEAR_READLEN_ERR_CRITERION, warning=False
+        cc=None, masc=None, filter_mask_len=NEAR_READLEN_ERR_CRITERION, warning=False,
+        min_calc_width=None
     ):
         self.read_len = read_len
-        self.filter_len = filter_len
+        self.mv_avr_filter_len = mv_avr_filter_len
         self.genomelen = genomelen
         self.forward_sum = forward_sum
         self.reverse_sum = reverse_sum
@@ -82,6 +84,7 @@ class PyMaSCStats(object):
 
         self.filter_mask_len = filter_mask_len
         self.output_warnings = warning
+        self.min_calc_width = min_calc_width
 
         self.calc_ncc = self.calc_masc = False
         if ccbins is not None or mappable_ccbins is not None:
@@ -224,7 +227,10 @@ class PyMaSCStats(object):
                 )
 
     def _calc_rl_metrics(self, cc):
-        cc_min = min(cc)
+        cc_min = np.sort(cc[-self.min_calc_width:])[min(self.min_calc_width, cc.size) // 2]
+        if np.median(cc[:NEAR_ZERO_MIN_CALC_LEN]) < cc_min and self.output_warnings:
+            logger.warning("Detected minimum coefficient seems to be larger than bigging part minimum. "
+                           "Consider increasing shift size (-d/--max-shift).")
 
         if self.read_len > self.max_shift:
             ccrl = 0
@@ -248,16 +254,21 @@ class ReadsTooFew(IndexError):
 
 
 class CCResult(object):
-    def __init__(self, handler=None, read_len=None, references=None,
-                 ref2genomelen=None, ref2cc=None, ref2mappable_len=None, ref2masc=None,
-                 filter_len=15, chi2_pval=0.05, expected_library_len=None,
-                 filter_mask_len=NEAR_READLEN_ERR_CRITERION):
+    def __init__(
+        self,
+        mv_avr_filter_len, chi2_pval, filter_mask_len, min_calc_width,  # mandatory params
+        expected_library_len=None,  # optional parameter
+        handler=None,  # source 1 (pymasc)
+        read_len=None, references=None, ref2genomelen=None, ref2cc=None,
+        ref2mappable_len=None, ref2masc=None  # source 2 (pymasc-plot)
+    ):
 
         # settings
-        self.filter_len = filter_len
+        self.mv_avr_filter_len = mv_avr_filter_len
         self.chi2_p_thresh = chi2_pval
         self.expected_library_len = expected_library_len
         self.filter_mask_len = max(filter_mask_len, 0)
+        self.min_calc_width = max(min_calc_width, 0)
 
         if handler:
             self._init_from_handler(handler)
@@ -269,10 +280,11 @@ class CCResult(object):
 
             self.ref2stats = {
                 ref: PyMaSCStats(
-                    self.read_len, self.filter_len, self.expected_library_len,
+                    self.read_len, self.mv_avr_filter_len, self.expected_library_len,
                     cc=ref2cc.get(ref, None) if ref2cc else None,
                     masc=ref2masc.get(ref, None) if ref2masc else None,
-                    filter_mask_len=self.filter_mask_len
+                    filter_mask_len=self.filter_mask_len,
+                    min_calc_width=self.min_calc_width
                 ) for ref in self.references
             }
 
@@ -299,11 +311,12 @@ class CCResult(object):
             mscc = self.mscc_upper = self.mscc_lower = None
 
         self.whole = PyMaSCStats(
-            self.read_len, self.filter_len, self.expected_library_len,
+            self.read_len, self.mv_avr_filter_len, self.expected_library_len,
             cc=ncc,
             masc=mscc,
             warning=True,
-            filter_mask_len=self.filter_mask_len
+            filter_mask_len=self.filter_mask_len,
+            min_calc_width=self.min_calc_width
         )
 
     def _init_from_handler(self, handler):
@@ -323,7 +336,7 @@ class CCResult(object):
         #
         self.ref2stats = {
             ref: PyMaSCStats(
-                self.read_len, self.filter_len, self.expected_library_len,
+                self.read_len, self.mv_avr_filter_len, self.expected_library_len,
                 genomelen=self.ref2genomelen[ref],
                 forward_sum=ref2forward_sum.get(ref, None),
                 reverse_sum=ref2reverse_sum.get(ref, None),
@@ -332,7 +345,8 @@ class CCResult(object):
                 mappable_forward_sum=mappable_ref2forward_sum.get(ref, None),
                 mappable_reverse_sum=mappable_ref2reverse_sum.get(ref, None),
                 mappable_ccbins=mappable_ref2ccbins.get(ref, None),
-                filter_mask_len=self.filter_mask_len
+                filter_mask_len=self.filter_mask_len,
+                min_calc_width=self.min_calc_width
             ) for ref in self.references
         }
 

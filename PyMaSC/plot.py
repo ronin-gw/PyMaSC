@@ -83,6 +83,8 @@ def main():
 
     #
     ccr = CCResult(
+        args.smooth_window, args.chi2_pval, args.mask_size, args.bg_avr_width,
+        args.library_length,
         read_len=statattrs["read_len"],
         references=references,
         ref2genomelen=ref2genomelen,

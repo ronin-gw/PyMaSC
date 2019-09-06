@@ -106,6 +106,10 @@ def add_result_proc_args(group):
              "PyMaSC masks correlation coefficients in the read length +/- specified length "
              "and try to estimate mean library length again. (Default: {}, Specify < 1 to disable)".format(NEAR_READLEN_ERR_CRITERION)
     )
+    group.add_argument(
+        "--bg-avr-width", type=int, action=ForceNaturalNumber, default=50,
+        help="The minimum of coefficient will be calcurated as the median of the end of specified bases. (Default: 50bp)"
+    )
 
 
 def get_pymasc_parser():

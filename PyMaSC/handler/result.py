@@ -107,6 +107,7 @@ class PyMaSCStats(object):
             self.calc_ncc = cc is not None
             self.calc_masc = masc is not None
             if cc and masc:
+                assert len(cc) == len(masc), "Corrupt input: Shift sizes NCC and MASC seem to be differenet."
                 self.max_shift = min(len(cc), len(masc)) - 1
             elif cc:
                 self.max_shift = len(cc) - 1

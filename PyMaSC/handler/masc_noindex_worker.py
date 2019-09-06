@@ -76,7 +76,7 @@ class SingleProcessCalculator(object):
 
         for read in self.align_file:
             chrom = read.reference_name
-            if chrom is None:
+            if chrom is None or chrom not in self.references:
                 continue
 
             if chrom != self._chr:

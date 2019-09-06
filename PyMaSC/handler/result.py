@@ -85,6 +85,8 @@ class PyMaSCStats(object):
         self.filter_mask_len = filter_mask_len
         self.output_warnings = warning
         self.min_calc_width = min_calc_width
+        self.cc_fwhm = None
+        self.masc_fwhm = None
 
         self.calc_ncc = self.calc_masc = False
         if ccbins is not None or mappable_ccbins is not None:
@@ -194,10 +196,18 @@ class PyMaSCStats(object):
                 self.ccfl, self.nsc, self.rsc = self._calc_lib_metrics(
                     self.cc, self.cc_min, self.ccrl, self.library_len
                 )
+                fwhm = self._get_FWHM(self.cc, self.cc_min, self.library_len - 1)
+                if fwhm:
+                    msg = "NCC FWHM = {} bp".format(fwhm)
+                    if self.output_warnings:
+                        logger.info(msg)
+                    else:
+                        logger.debug(msg)
+                    self.cc_fwhm = fwhm
 
         if self.masc is not None:
-            average_masc = moving_avr_filter(self.masc, self.filter_len)
-            self.est_lib_len = np.argmax(average_masc) + 1
+            average_masc, self.est_lib_len = self._get_max_using_mv_avr_filter(self.masc)
+            self.est_lib_len += 1
             need_warning = False
 
             if self.filter_mask_len and abs(self.est_lib_len - self.read_len) <= self.filter_mask_len:
@@ -226,6 +236,19 @@ class PyMaSCStats(object):
                     self.cc, self.cc_min, self.ccrl, self.est_lib_len
                 )
 
+            fwhm = self._get_FWHM(self.masc, self.masc_min)
+            if fwhm:
+                msg = "MASC FWHM = {} bp".format(fwhm)
+                if self.output_warnings:
+                    logger.info(msg)
+                else:
+                    logger.debug(msg)
+                self.masc_fwhm = fwhm
+
+    def _get_max_using_mv_avr_filter(self, cc):
+        average_cc = moving_avr_filter(cc, self.mv_avr_filter_len)
+        return average_cc, np.argmax(average_cc)
+
     def _calc_rl_metrics(self, cc):
         cc_min = np.sort(cc[-self.min_calc_width:])[min(self.min_calc_width, cc.size) // 2]
         if np.median(cc[:NEAR_ZERO_MIN_CALC_LEN]) < cc_min and self.output_warnings:
@@ -247,6 +270,58 @@ class PyMaSCStats(object):
         rsc = (ccfl - cc_min) / (ccrl - cc_min)
 
         return ccfl, nsc, rsc
+
+    def _get_FWHM(self, cc, cc_min, max_i=None):
+        if self.output_warnings:
+            logging_error = logger.error
+            logging_warning = logger.warning
+        else:
+            logging_error = logging_warning = logger.debug
+
+        avr_cc, _max_i = self._get_max_using_mv_avr_filter(cc)
+        if max_i is None:
+            max_i = _max_i
+        else:
+            assert max_i >= 0
+        cc_max = avr_cc[max_i]
+        assert cc_max > cc_min
+        target = cc_min + (cc_max - cc_min) / 2
+
+        # forward
+        forward_shift = 0
+        forward_failed = False
+        while avr_cc[max_i + forward_shift] > target:
+            forward_shift += 1
+            if max_i + forward_shift == avr_cc.size:
+                logging_warning("Failed to calc the half width at half maximum in the forward "
+                                "side of the peak. Consider increasing shift size (-d/--max-shift).")
+                forward_failed = True
+                forward_shift -= 1
+                break
+        # backward
+        backward_shift = 0
+        backward_failed = False
+        while avr_cc[max_i - backward_shift] > target:
+            backward_shift += 1
+            if max_i < backward_shift:
+                logging_warning("Failed to calc the half width at half maximum in the backward side of the peak.")
+                backward_failed = True
+                backward_shift -= 1
+                break
+
+        #
+        logger.debug((forward_shift, backward_shift))
+        if forward_failed and backward_failed:
+            logging_error("Failed to calcurate the full width at half maximum.")
+            return False
+        elif forward_failed:
+            logging_warning("Use twice width of the half width at half maximum in the backward side")
+            return backward_shift * 2 + 1
+        elif backward_failed:
+            logging_warning("Use twice width of the half width at half maximum in the forward side")
+            return forward_shift * 2 + 1
+        else:
+            return backward_shift + forward_shift + 1
 
 
 class ReadsTooFew(IndexError):

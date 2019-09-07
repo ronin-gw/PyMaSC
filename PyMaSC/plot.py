@@ -10,8 +10,8 @@ from PyMaSC.utils.parsearg import get_plot_parser
 from PyMaSC.utils.logfmt import set_rootlogger
 from PyMaSC.pymasc import prepare_output, PLOTFILE_SUFFIX
 from PyMaSC.output.stats import load_stats, output_stats, STATSFILE_SUFFIX
-from PyMaSC.output.table import (load_cc, load_masc, output_cc, output_mscc,
-                                 CCOUTPUT_SUFFIX, MSCCOUTPUT_SUFFIX)
+from PyMaSC.output.table import (load_cc, load_masc, load_nreads_table, output_cc, output_mscc,
+                                 CCOUTPUT_SUFFIX, MSCCOUTPUT_SUFFIX, NREADOUTPUT_SUFFIX)
 from PyMaSC.handler.result import CCResult
 from PyMaSC.output.figure import plot_figures
 
@@ -30,13 +30,15 @@ def _parse_args():
 
     #
     if args.statfile:
-        for attr, suffix in zip(("stats", "cc", "masc"),
-                                (STATSFILE_SUFFIX, CCOUTPUT_SUFFIX, MSCCOUTPUT_SUFFIX)):
+        for attr, suffix in zip(("stats", "cc", "masc", "nreads"),
+                                (STATSFILE_SUFFIX, CCOUTPUT_SUFFIX, MSCCOUTPUT_SUFFIX, NREADOUTPUT_SUFFIX)):
             _complete_path_arg(args, attr, args.statfile + suffix)
 
     #
     if not args.stats:
         parser.error("Statistics file path is not specified.")
+    if not args.nreads:
+        parser.error("# of reads table file path is not specified.")
     elif not args.cc and not args.masc:
         parser.error("Neither cross-correlation table file path nor mappability "
                      "sensitive cross-correlation table file path is specified.")
@@ -44,6 +46,8 @@ def _parse_args():
     #
     if not os.path.exists(args.stats):
         parser.error("Statistics file path does not exist: '{}'".format(args.stats))
+    if not os.path.exists(args.nreads):
+        parser.error("# of reads table file path does not exist: '{}'".format(args.nreads))
     elif all((args.cc and not os.path.exists(args.cc),
               args.masc and not os.path.exists(args.masc))):
         parser.error("Neither cross-correlation table file path '{}' nor "
@@ -78,24 +82,26 @@ def _parse_args():
 @entrypoint(logger)
 def main():
     args = _parse_args()
-    statattrs = _prepare_stats(args)
-    ref2cc, ref2genomelen, ref2masc, ref2mappable_len, references = _load_tables(args)
+    read_len = _prepare_stats(args)
+    (ref2cc, ref2genomelen, ref2masc, ref2mappable_len, references,
+     (forward_sum, reverse_sum, mappable_forward_sum, mappable_reverse_sum)) = _load_tables(args)
     checked_suffixes = _prepare_outputs(args)
 
     #
     ccr = CCResult(
         args.smooth_window, args.chi2_pval, args.mask_size, args.bg_avr_width,
         args.library_length,
-        read_len=statattrs["read_len"],
+        read_len=read_len,
         references=references,
         ref2genomelen=ref2genomelen,
+        ref2forward_sum=forward_sum,
+        ref2reverse_sum=reverse_sum,
         ref2cc=ref2cc,
         ref2mappable_len=ref2mappable_len,
+        mappable_ref2forward_sum=mappable_forward_sum,
+        mappable_ref2reverse_sum=mappable_reverse_sum,
         ref2masc=ref2masc
     )
-    ccr.whole.genomelen = statattrs["genomelen"]
-    ccr.whole.forward_sum = statattrs["forward_sum"]
-    ccr.whole.reverse_sum = statattrs["reverse_sum"]
 
     #
     for outputfunc, suffix in zip((output_stats, output_cc, output_mscc),
@@ -110,24 +116,18 @@ def main():
 def _prepare_stats(args):
     #
     try:
-        statattrs = load_stats(args.stats)
+        statattrs = load_stats(args.stats, ("name", "library_len", "read_len"))
     except (IOError, ):
         logger.critical("Failed to load stats.")
         sys.exit(1)
 
-    if "library_len" in statattrs:
-        statattrs["expected_library_len"] = statattrs["library_len"]
-        del statattrs["library_len"]
-    else:
-        statattrs["expected_library_len"] = None
-    if args.library_length:
-        statattrs["expected_library_len"] = args.library_length
+    if "library_len" in statattrs and not args.library_length:
+        args.library_length = statattrs["library_len"]
+
     if "read_len" not in statattrs:
         logger.critical("Mandatory attribute 'Read length' not found in '{}'.".format(args.stats))
         sys.exit(1)
-    if args.smooth_window:
-        statattrs["filter_len"] = args.smooth_window
-    statattrs["filter_mask_len"] = max(args.mask_size, 0)
+    read_len = statattrs["read_len"]
 
     #
     if "name" in statattrs:
@@ -137,46 +137,65 @@ def _prepare_stats(args):
                         "Set name manually with -n/--name option.".format(args.stats))
         sys.exit(1)
 
-    return statattrs
+    return read_len
 
 
 def _load_table(path, load_fun):
     try:
-        table = load_fun(path)
+        return load_fun(path)
     except (IOError, KeyError, IndexError, StopIteration):
         logger.critical("Failed to load tables.")
         sys.exit(1)
-    references = table.keys()
-    return table, references
 
 
 def _load_tables(args):
     if args.cc:
-        cc_table, references = _load_table(args.cc, load_cc)
+        cc_table = _load_table(args.cc, load_cc)
+        cc_references = set(cc_table.keys())
         ref2genomelen = _load_chrom_sizes(args.sizes)
-        for ref in references:
+        for ref in cc_references:
             if ref not in ref2genomelen:
                 logger.critical("Reference '{}' not found in '{}'.".format(ref, args.sizes))
                 sys.exit(1)
     else:
         cc_table = ref2genomelen = None
+        cc_references = set()
 
     if args.masc:
-        masc_table, references = _load_table(args.masc, load_masc)
+        masc_table = _load_table(args.masc, load_masc)
+        masc_references = set(masc_table.keys())
         try:
             ref2mappable_len = _load_mappable_lengths(args.mappability_stats)
         except json.JSONDecoder as e:
             logger.critical("Failed to load '{}':".format(args.mappability_stats))
             logger.error(e.msg)
             sys.exit(1)
-        for ref in references:
+        for ref in masc_references:
             if ref not in ref2mappable_len:
                 logger.critical("Reference '{}' not found in '{}'.".format(ref, args.mappability_stats))
                 sys.exit(1)
     else:
         masc_table = ref2mappable_len = None
+        masc_references = set()
 
-    return cc_table, ref2genomelen, masc_table, ref2mappable_len, references
+    dicts = forward_sum, reverse_sum, mappable_forward_sum, mappable_reverse_sum = _load_table(args.nreads, load_nreads_table)
+    if forward_sum and reverse_sum:
+        nreads_refs = set(forward_sum.keys())
+        assert nreads_refs == set(reverse_sum.keys())
+    else:
+        nreads_refs = set(mappable_forward_sum.keys())
+        assert nreads_refs == set(mappable_reverse_sum.keys())
+    nreads_refs.discard("whole")
+
+    refsets = [s for s in (cc_references, masc_references) if s]
+    union = nreads_refs.union(*refsets)
+    intersection = nreads_refs.intersection(*refsets)
+
+    if union != intersection:
+        logger.warning("Chromosome names in tables are unmatched.")
+        logger.warning("Trying use common names anyway: {}".format(intersection))
+
+    return cc_table, ref2genomelen, masc_table, ref2mappable_len, sorted(intersection), dicts
 
 
 def _prepare_outputs(args):

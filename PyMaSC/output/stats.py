@@ -78,10 +78,9 @@ def output_stats(outfile, ccr):
 
 
 @catch_IOError(logger)
-def load_stats(path):
+def load_stats(path, names):
     logger.info("Load statistics from '{}'.".format(path))
-    stat2attr = {k: v for k, v in STAT_ATTR if v in
-                 ("genomelen", "forward_sum", "reverse_sum", "read_len", "library_len")}
+    stat2attr = {k: v for k, v in STAT_ATTR if v in names}
     attrs = {}
     with open(path) as f:
         for l in f:

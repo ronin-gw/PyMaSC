@@ -402,7 +402,9 @@ class CCResult(object):
         mv_avr_filter_len, chi2_pval, filter_mask_len, min_calc_width,  # mandatory params
         expected_library_len=None,  # optional parameter
         handler=None,  # source 1 (pymasc)
-        read_len=None, references=None, ref2genomelen=None, ref2cc=None,
+        read_len=None, references=None,
+        ref2genomelen=None, ref2forward_sum=None, ref2reverse_sum=None, ref2cc=None,
+        mappable_ref2forward_sum=None, mappable_ref2reverse_sum=None,
         ref2mappable_len=None, ref2masc=None  # source 2 (pymasc-plot)
     ):
 
@@ -420,11 +422,21 @@ class CCResult(object):
             self.references = references
             self.ref2genomelen = ref2genomelen
             self.ref2mappable_len = ref2mappable_len
+            self.ref2forward_sum = ref2forward_sum
+            self.ref2reverse_sum = ref2reverse_sum
+            self.mappable_ref2forward_sum = mappable_ref2forward_sum
+            self.mappable_ref2reverse_sum = mappable_ref2reverse_sum
 
             self.ref2stats = {
                 ref: PyMaSCStats(
                     self.read_len, self.mv_avr_filter_len, self.expected_library_len,
+                    genomelen=self.ref2genomelen[ref],
+                    forward_sum=self.ref2forward_sum.get(ref, None),
+                    reverse_sum=self.ref2reverse_sum.get(ref, None),
                     cc=ref2cc.get(ref, None) if ref2cc else None,
+                    mappable_len=self.ref2mappable_len.get(ref, None),
+                    mappable_forward_sum=self.mappable_ref2forward_sum.get(ref, None),
+                    mappable_reverse_sum=self.mappable_ref2reverse_sum.get(ref, None),
                     masc=ref2masc.get(ref, None) if ref2masc else None,
                     filter_mask_len=self.filter_mask_len,
                     min_calc_width=self.min_calc_width

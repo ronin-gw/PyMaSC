@@ -132,10 +132,12 @@ class NReadsIO(TableIO):
         tab.writerow(("shift", ) + tuple(header))
 
         if forward_sum and reverse_sum:
-            tab.writerow(self._make_table("raw", forward_sum, reverse_sum))
+            tab.writerow(self._make_table("raw", [forward_sum[col] for col in header],
+                                                 [reverse_sum[col] for col in header]))
 
         if mappable_forward_sum and mappable_reverse_sum:
-            for i, (forward, reverse) in enumerate(zip(*[mappable_forward_sum[col] for col in header]), zip(*[mappable_reverse_sum[col] for col in header])):
+            for i, (forward, reverse) in enumerate(zip(zip(*[mappable_forward_sum[col] for col in header]),
+                                                       zip(*[mappable_reverse_sum[col] for col in header]))):
                 tab.writerow(self._make_table(i, forward, reverse))
 
 
@@ -154,19 +156,18 @@ def load_nreads_table(path):
 
 
 @catch_IOError(logger)
-def _output_nreads_table(outfile, ccr):
+def output_nreads_table(outfile, ccr):
     outfile += NREADOUTPUT_SUFFIX
     logger.info("Output '{}'".format(outfile))
 
     def _make_dict_with_whole(add_target, target1, target2):
-        d = getattr(ccr, add_target)
-        if d is None:
+        if add_target is None:
             return None
-        d = copy(d)
-        d["whiole"] = getattr(getattr(ccr, target1), target2)
+        d = copy(add_target)
+        d["whole"] = getattr(getattr(ccr.whole, target1), target2)
         return d
 
-    with NReadsIO(outfile) as tab:
+    with NReadsIO(outfile, 'w') as tab:
         tab.write(["whole"] + sorted(ccr.references),
                   _make_dict_with_whole(ccr.ref2forward_sum, "cc", "forward_sum"),
                   _make_dict_with_whole(ccr.ref2reverse_sum, "cc", "reverse_sum"),

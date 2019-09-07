@@ -22,8 +22,8 @@ def _output_cctable(outfile, ccr, suffix, target_attr):
 
     with open(outfile, 'w') as f:
         keys = sorted(ccr.references)
-        cc = getattr(ccr.whole, target_attr)
-        ref2cc = {k: getattr(ccr.ref2stats[k], target_attr) for k in keys}
+        cc = getattr(ccr.whole, target_attr).cc
+        ref2cc = {k: getattr(ccr.ref2stats[k], target_attr).cc for k in keys}
         keys = [k for k, v in ref2cc.items() if v is not None and not np.isnan(v).all()]
 
         print('\t'.join(["shift", "whole"] + keys), file=f)
@@ -55,13 +55,13 @@ load_masc = partial(_load_table, logfmt="Load MSCC table from '{}'")
 
 
 STAT_ATTR = (
+    ("Read length", "read_len"),
+    ("Expected library length", "library_len"),
     ("Genome length", "genomelen"),
     ("Forward reads", "forward_sum"),
     ("Reverse reads", "reverse_sum"),
-    ("Read length", "read_len"),
     ("Minimum CC", "cc_min"),
     ("CC at read length", "ccrl"),
-    ("Expected library length", "library_len"),
     ("CC at library length", "ccfl"),
     ("NSC", "nsc"),
     ("RSC", "rsc"),

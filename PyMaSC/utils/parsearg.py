@@ -287,8 +287,9 @@ def get_plot_parser():
         help="Output directory. (Default: current directory)"
     )
     output.add_argument(
-        "-f", "--force-overwrite", action="store_true",
-        help="Overwrite CC table even if input and output path are same."
+        "-f", "--force-overwrite", nargs="*", type=str.lower, choices=('all', 'stats', 'cc', 'mscc'),
+        help="Overwrite specified files even if input and output path are same. "
+             "(choices: 'all', 'stats', 'cc', 'mscc' (multiple choices are acceptable))"
     )
 
     return parser

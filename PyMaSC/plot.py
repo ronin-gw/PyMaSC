@@ -9,8 +9,9 @@ from PyMaSC import entrypoint, logging_version
 from PyMaSC.utils.parsearg import get_plot_parser
 from PyMaSC.utils.logfmt import set_rootlogger
 from PyMaSC.pymasc import prepare_output, PLOTFILE_SUFFIX
-from PyMaSC.output.stats import (load_stats, load_cc, load_masc, output_cc, output_mscc, output_stats,
-                                 CCOUTPUT_SUFFIX, MSCCOUTPUT_SUFFIX, STATSFILE_SUFFIX)
+from PyMaSC.output.stats import load_stats, output_stats, STATSFILE_SUFFIX
+from PyMaSC.output.table import (load_cc, load_masc, output_cc, output_mscc,
+                                 CCOUTPUT_SUFFIX, MSCCOUTPUT_SUFFIX)
 from PyMaSC.handler.result import CCResult
 from PyMaSC.output.figure import plot_figures
 
@@ -108,7 +109,12 @@ def main():
 
 def _prepare_stats(args):
     #
-    statattrs = load_stats(args.stats)
+    try:
+        statattrs = load_stats(args.stats)
+    except (IOError, ):
+        logger.critical("Failed to load stats.")
+        sys.exit(1)
+
     if "library_len" in statattrs:
         statattrs["expected_library_len"] = statattrs["library_len"]
         del statattrs["library_len"]
@@ -136,17 +142,17 @@ def _prepare_stats(args):
 
 def _load_table(path, load_fun):
     try:
-        whole, table = load_fun(path)
-    except KeyError:
+        table = load_fun(path)
+    except (IOError, KeyError, IndexError, StopIteration):
         logger.critical("Failed to load tables.")
         sys.exit(1)
     references = table.keys()
-    return whole, table, references
+    return table, references
 
 
 def _load_tables(args):
     if args.cc:
-        _, cc_table, references = _load_table(args.cc, load_cc)
+        cc_table, references = _load_table(args.cc, load_cc)
         ref2genomelen = _load_chrom_sizes(args.sizes)
         for ref in references:
             if ref not in ref2genomelen:
@@ -156,7 +162,7 @@ def _load_tables(args):
         cc_table = ref2genomelen = None
 
     if args.masc:
-        _, masc_table, references = _load_table(args.masc, load_masc)
+        masc_table, references = _load_table(args.masc, load_masc)
         try:
             ref2mappable_len = _load_mappable_lengths(args.mappability_stats)
         except json.JSONDecoder as e:

@@ -14,8 +14,8 @@ from PyMaSC.handler.masc import CCCalcHandler, InputUnseekable, NothingToCalc
 from PyMaSC.handler.bamasc import BACalcHandler
 from PyMaSC.handler.result import CCResult, ReadsTooFew
 from PyMaSC.core.ncc import ReadUnsortedError
-from PyMaSC.output.stats import (output_cc, output_mscc, output_stats,
-                                 CCOUTPUT_SUFFIX, MSCCOUTPUT_SUFFIX, STATSFILE_SUFFIX)
+from PyMaSC.output.stats import output_stats, STATSFILE_SUFFIX
+from PyMaSC.output.table import (output_cc, output_mscc, CCOUTPUT_SUFFIX, MSCCOUTPUT_SUFFIX)
 
 logger = logging.getLogger(__name__)
 

@@ -2,58 +2,10 @@ from __future__ import print_function
 
 import os.path
 import logging
-from functools import partial
-
-import numpy as np
 
 from PyMaSC.utils.output import catch_IOError
 
-CCOUTPUT_SUFFIX = "_cc.tab"
-MSCCOUTPUT_SUFFIX = "_mscc.tab"
 STATSFILE_SUFFIX = "_stats.tab"
-
-logger = logging.getLogger(__name__)
-
-
-@catch_IOError(logger)
-def _output_cctable(outfile, ccr, suffix, target_attr):
-    outfile += suffix
-    logger.info("Output '{}'".format(outfile))
-
-    with open(outfile, 'w') as f:
-        keys = sorted(ccr.references)
-        cc = getattr(ccr.whole, target_attr).cc
-        ref2cc = {k: getattr(ccr.ref2stats[k], target_attr).cc for k in keys}
-        keys = [k for k, v in ref2cc.items() if v is not None and not np.isnan(v).all()]
-
-        print('\t'.join(["shift", "whole"] + keys), file=f)
-        fmt = '{}\t' * (len(keys) + 1) + '{}'
-        for i, cc in enumerate(cc):
-            print(fmt.format(i, cc, *[ref2cc[k][i] for k in keys]), file=f)
-
-
-output_cc = partial(_output_cctable, suffix=CCOUTPUT_SUFFIX, target_attr="cc")
-output_mscc = partial(_output_cctable, suffix=MSCCOUTPUT_SUFFIX, target_attr="masc")
-
-
-@catch_IOError(logger)
-def _load_table(path, logfmt):
-    logger.info(logfmt.format(path))
-
-    with open(path) as f:
-        header = f.readline().rstrip().split('\t')[1:]
-        table = dict(zip(header, zip(*(map(float, l.split('\t')[1:]) for l in f))))
-    if "whole" not in table:
-        logger.critical("Mandatory column 'whole' not found.")
-        raise KeyError("whole")
-    whole = table.pop("whole")
-    return whole, table
-
-
-load_cc = partial(_load_table, logfmt="Load CC table from '{}'")
-load_masc = partial(_load_table, logfmt="Load MSCC table from '{}'")
-
-
 STAT_ATTR = (
     ("Read length", "read_len"),
     ("Expected library length", "library_len"),

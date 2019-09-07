@@ -8,6 +8,7 @@ from pysam import AlignmentFile
 from PyMaSC import entrypoint, logging_version
 from PyMaSC.utils.parsearg import get_plot_parser
 from PyMaSC.utils.logfmt import set_rootlogger
+from PyMaSC.utils.calc import filter_chroms
 from PyMaSC.pymasc import prepare_output, PLOTFILE_SUFFIX
 from PyMaSC.output.stats import load_stats, output_stats, STATSFILE_SUFFIX
 from PyMaSC.output.table import (load_cc, load_masc, load_nreads_table, output_cc, output_mscc,
@@ -85,6 +86,7 @@ def main():
     read_len = _prepare_stats(args)
     (ref2cc, ref2genomelen, ref2masc, ref2mappable_len, references,
      (forward_sum, reverse_sum, mappable_forward_sum, mappable_reverse_sum)) = _load_tables(args)
+    references = filter_chroms(references, args.chromfilter)
     checked_suffixes = _prepare_outputs(args)
 
     #

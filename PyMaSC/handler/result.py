@@ -235,7 +235,7 @@ class PyMaSCStats(object):
         masc = np.array(masc, dtype=np.float_) if masc is not None else None
         # self.masc_min = None
         # self.mascrl = None
-        # self.est_lib_len = None
+        self.est_lib_len = None
         # self.est_ccfl = None
         # self.est_nsc = None
         # self.est_rsc = None
@@ -304,11 +304,12 @@ class PyMaSCStats(object):
                 masc, self.mappable_len, self.mappable_forward_sum, self.mappable_reverse_sum,
                 do_llestimation=True
             )
+            self.est_lib_len = self.masc.est_lib_len
         if self.calc_ncc:
             if self.masc:
                 self.cc = self._make_ccstat(
                     cc, self.genomelen, self.forward_sum, self.reverse_sum,
-                    est_lib_len=self.masc.est_lib_len
+                    est_lib_len=self.est_lib_len
                 )
             else:
                 self.cc = self._make_ccstat(

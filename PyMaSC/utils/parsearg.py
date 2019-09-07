@@ -241,15 +241,19 @@ def get_plot_parser():
     )
     input_args.add_argument(
         "--stats",
-        help="To specify path to a statistic file (*_stats.tab) separately."
+        help="For specifying path to a statistic file (*_stats.tab) separately."
     )
     input_args.add_argument(
         "--cc",
-        help="To specify path to a cross-correlation table file (*_cc.tab) separately."
+        help="For specifying path to a cross-correlation table file (*_cc.tab) separately."
     )
     input_args.add_argument(
         "--masc",
-        help="To specify path to a mappability sensitive cross-correlation file (*_stats.tab) separately."
+        help="For specifying path to a mappability sensitive cross-correlation file (*_stats.tab) separately."
+    )
+    input_args.add_argument(
+        "--nreads",
+        help="For specifying path to a # of reads file (*_nreads.tab) separately."
     )
     input_args.add_argument(
         "-s", "--sizes",

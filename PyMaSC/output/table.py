@@ -111,15 +111,17 @@ class NReadsIO(TableIO):
 
         first = next(tab)
         if first[0] == "raw":
-            forward_sum, reverse_sum = self.make_forward_reverse_tables(header, first)
+            forward_sum, reverse_sum = self.make_forward_reverse_tables(header, [first])
+            forward_sum = {k: v[0] for k, v in forward_sum.items()}
+            reverse_sum = {k: v[0] for k, v in reverse_sum.items()}
             mscc_iter = tab
         else:
-            forward_sum = reverse_sum = None
+            forward_sum = reverse_sum = {}
             mscc_iter = chain([first], tab)
 
         mappable_forward_sum, mappable_reverse_sum = self.make_forward_reverse_tables(header, mscc_iter)
         if not mappable_forward_sum:
-            mappable_forward_sum = mappable_reverse_sum = None
+            mappable_forward_sum = mappable_reverse_sum = {}
 
         return forward_sum, reverse_sum, mappable_forward_sum, mappable_reverse_sum
 
@@ -146,7 +148,13 @@ def load_nreads_table(path):
     logger.info("Load Nreads table from '{}'".format(path))
 
     with NReadsIO(path) as tab:
-        dicts = tab.read(float)
+        dicts = tab.read()
+
+    for d in dicts:
+        if "whole" in d:
+            d.pop("whole")
+        elif d:
+            logger.warning("Mandatory column 'whole' not found")
 
     if all(not d for d in dicts):
         logger.critical("Nothing to load.")

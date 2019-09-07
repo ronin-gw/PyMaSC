@@ -12,6 +12,10 @@ def catch_IOError(logger):
                 logger.error("Faild to output '{}':\n[Errno {}] {}".format(
                     e.filename, e.errno, e.message)
                 )
+                raise e
+            except (IndexError, StopIteration) as e:
+                logger.error("Invalid input file: {}".format(e))
+                raise e
         return _io_func
     return _inner
 

@@ -103,15 +103,15 @@ class CCStats(object):
                 self.warning(e)
 
         #
-        def _calc_a2n(ccfl, cc_width):
+        def _calc_vsn(ccfl, cc_width):
             return 2 * ccfl * cc_width / (self.forward_sum + self.reverse_sum)
 
-        self.a2n = None
+        self.vsn = None
         if self.library_len:
-            self.a2n = _calc_a2n(self.ccfl, self.cc_width)
-        self.est_a2n = None
+            self.vsn = _calc_vsn(self.ccfl, self.cc_width)
+        self.est_vsn = None
         if self.est_lib_len:
-            self.est_a2n = _calc_a2n(self.est_ccfl, self.est_cc_width)
+            self.est_vsn = _calc_vsn(self.est_ccfl, self.est_cc_width)
 
     def _calc_cc_min(self):
         self.cc_min = np.sort(self.cc[-self.min_calc_width:])[min(self.min_calc_width, self.cc.size) // 2]

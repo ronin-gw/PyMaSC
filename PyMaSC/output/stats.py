@@ -24,9 +24,9 @@ STAT_CC_ATTR = (
     ("Estimated NSC", "est_nsc"),
     ("Estimated RSC", "est_rsc"),
     ("FWHM", "cc_width"),
-    ("a2n", "a2n"),
+    ("VSN", "vsn"),
     ("Estimated FWHM", "est_cc_width"),
-    ("Estimated a2n", "est_a2n")
+    ("Estimated VSN", "est_vsn")
 )
 
 
@@ -50,9 +50,9 @@ STAT_MSCC_ATTR = (
     ("Estimated MSCC NSC", "est_nsc"),
     ("Estimated MSCC RSC", "est_rsc"),
     ("MSCC FWHM", "cc_width"),
-    ("MSCC a2n", get_rl_item_from("a2n")),
-    ("Estimated MSCC WHM", "est_cc_width"),
-    ("Estimated MSCC a2n", get_rl_item_from("est_a2n"))
+    ("MSCC VSN", get_rl_item_from("vsn")),
+    ("Estimated MSCC FWHM", "est_cc_width"),
+    ("Estimated MSCC VSN", get_rl_item_from("est_vsn"))
 )
 
 logger = logging.getLogger(__name__)

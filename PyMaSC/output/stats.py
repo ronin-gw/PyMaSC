@@ -32,7 +32,7 @@ STAT_CC_ATTR = (
 
 def get_rl_item_from(attr):
     def _func(ccstats):
-        array = getattr(ccstats, attr)
+        array = getattr(ccstats, attr, None)
         return "nan" if array is None else array[ccstats.read_len - 1]
     return _func
 
@@ -67,14 +67,14 @@ def output_stats(outfile, ccr):
     with open(outfile, 'w') as f:
         print("{}\t{}".format("Name", basename), file=f)
         for row, attr in STAT_ATTR:
-            print("{}\t{}".format(row, getattr(ccr.whole, attr) or "nan"), file=f)
+            print("{}\t{}".format(row, getattr(ccr.whole, attr, False) or "nan"), file=f)
         for row, attr in STAT_CC_ATTR:
-            print("{}\t{}".format(row, getattr(ccr.whole.cc, attr) or "nan"), file=f)
+            print("{}\t{}".format(row, getattr(ccr.whole.cc, attr, False) or "nan"), file=f)
         for row, attr in STAT_MSCC_ATTR:
             if callable(attr):
                 print("{}\t{}".format(row, attr(ccr.whole.masc)), file=f)
             else:
-                print("{}\t{}".format(row, getattr(ccr.whole.masc, attr) or "nan"), file=f)
+                print("{}\t{}".format(row, getattr(ccr.whole.masc, attr, False) or "nan"), file=f)
 
 
 @catch_IOError(logger)

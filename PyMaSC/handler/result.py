@@ -262,7 +262,8 @@ class PyMaSCStats(object):
                 self.mappable_ccbins,
                 self.mappable_len
             ))
-            assert self.calc_ncc or self.calc_masc
+            if not self.calc_ncc and not self.calc_masc:
+                return
 
             self._calc_from_bins()
 
@@ -279,8 +280,8 @@ class PyMaSCStats(object):
                 self.mappable_len,
                 masc
             ))
-
-            assert self.calc_ncc or self.calc_masc
+            if not self.calc_ncc and not self.calc_masc:
+                return
 
             if self.calc_ncc and self.calc_masc:
                 assert len(cc) == len(masc), "Corrupt input: Shift sizes NCC and MASC seem to be differenet."
@@ -452,7 +453,7 @@ class CCResult(object):
         if not self.skip_ncc:
             ncc, self.ncc_upper, self.ncc_lower = self._merge_cc(
                 *zip(*((self.ref2genomelen[ref], self.ref2stats[ref].cc.cc)
-                       for ref in self.references if self.ref2stats[ref].cc.cc is not None))
+                       for ref in self.references if self.ref2stats[ref].cc is not None))
             )
         else:
             ncc = self.ncc_upper = self.ncc_lower = None
@@ -460,7 +461,7 @@ class CCResult(object):
         if self.calc_masc:
             mscc, self.mscc_upper, self.mscc_lower = self._merge_cc(
                 *zip(*((self.ref2mappable_len[ref], self.ref2stats[ref].masc.cc)
-                       for ref in self.references if self.ref2stats[ref].masc.cc is not None))
+                       for ref in self.references if self.ref2stats[ref].masc is not None))
             )
         else:
             mscc = self.mscc_upper = self.mscc_lower = None
@@ -499,12 +500,12 @@ class CCResult(object):
             ref: PyMaSCStats(
                 self.read_len, self.mv_avr_filter_len, self.expected_library_len,
                 genomelen=self.ref2genomelen[ref],
-                forward_sum=self.ref2forward_sum.get(ref, None),
-                reverse_sum=self.ref2reverse_sum.get(ref, None),
+                forward_sum=self.ref2forward_sum.get(ref, 0),
+                reverse_sum=self.ref2reverse_sum.get(ref, 0),
                 ccbins=ref2ccbins.get(ref, None),
                 mappable_len=self.ref2mappable_len.get(ref, None),
-                mappable_forward_sum=self.mappable_ref2forward_sum.get(ref, None),
-                mappable_reverse_sum=self.mappable_ref2reverse_sum.get(ref, None),
+                mappable_forward_sum=self.mappable_ref2forward_sum.get(ref, 0),
+                mappable_reverse_sum=self.mappable_ref2reverse_sum.get(ref, 0),
                 mappable_ccbins=mappable_ref2ccbins.get(ref, None),
                 filter_mask_len=self.filter_mask_len,
                 min_calc_width=self.min_calc_width

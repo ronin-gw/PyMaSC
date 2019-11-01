@@ -77,10 +77,10 @@ def _output_cctable(outfile, ccr, suffix, target_attr):
     outfile += suffix
     logger.info("Output '{}'".format(outfile))
 
-    keys = sorted(ccr.references)
     cc = getattr(ccr.whole, target_attr).cc
-    ref2cc = {k: getattr(ccr.ref2stats[k], target_attr).cc for k in keys}
-    keys = [k for k, v in ref2cc.items() if v is not None and not np.isnan(v).all()]
+    ref2cc = {k: getattr(ccr.ref2stats[k], target_attr) for k in ccr.references}
+    ref2cc = {k: v.cc for k, v in ref2cc.items() if v is not None and not np.isnan(v.cc).all()}
+    keys = sorted(ref2cc.keys())
 
     with TableIO(outfile, 'w') as tab:
         tab.write(["whole", ] + keys, ([cc] + [ref2cc[k][i] for k in keys] for i, cc in enumerate(cc)))
@@ -134,12 +134,13 @@ class NReadsIO(TableIO):
         tab.writerow(("shift", ) + tuple(header))
 
         if forward_sum and reverse_sum:
-            tab.writerow(self._make_table("raw", [forward_sum[col] for col in header],
-                                                 [reverse_sum[col] for col in header]))
+            tab.writerow(self._make_table("raw", [forward_sum.get(col, 0) for col in header],
+                                                 [reverse_sum.get(col, 0) for col in header]))
 
         if mappable_forward_sum and mappable_reverse_sum:
-            for i, (forward, reverse) in enumerate(zip(zip(*[mappable_forward_sum[col] for col in header]),
-                                                       zip(*[mappable_reverse_sum[col] for col in header]))):
+            shiftsize = len(mappable_forward_sum["whole"])
+            for i, (forward, reverse) in enumerate(zip(zip(*[mappable_forward_sum.get(col, [0] * shiftsize) for col in header]),
+                                                       zip(*[mappable_reverse_sum.get(col, [0] * shiftsize) for col in header]))):
                 tab.writerow(self._make_table(i, forward, reverse))
 
 
@@ -169,7 +170,7 @@ def output_nreads_table(outfile, ccr):
     logger.info("Output '{}'".format(outfile))
 
     def _make_dict_with_whole(add_target, target1, target2):
-        if add_target is None:
+        if not add_target:
             return None
         d = copy(add_target)
         d["whole"] = getattr(getattr(ccr.whole, target1), target2)

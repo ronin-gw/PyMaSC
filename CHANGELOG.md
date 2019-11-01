@@ -1,5 +1,14 @@
 # Change Log
 
+## v0.3.1 (2019-11-01)
+**Implemented enhancements:**
+- Support VSN calculation
+- Save number of (mappable) reads as a file for replotting
+- Improve minimum coefficient obtaining method
+
+**Fixed bugs:**
+- Avoid arctanh divergence
+
 ## v0.3.0 (2019-07-03)
 - Drop python3.4 support
 **Implemented enhancements:**

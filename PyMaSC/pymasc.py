@@ -14,13 +14,14 @@ from PyMaSC.handler.masc import CCCalcHandler, InputUnseekable, NothingToCalc
 from PyMaSC.handler.bamasc import BACalcHandler
 from PyMaSC.handler.result import CCResult, ReadsTooFew
 from PyMaSC.core.ncc import ReadUnsortedError
-from PyMaSC.output.stats import (output_cc, output_mscc, output_stats,
-                                 CCOUTPUT_SUFFIX, MSCCOUTPUT_SUFFIX, STATSFILE_SUFFIX)
+from PyMaSC.output.stats import output_stats, STATSFILE_SUFFIX
+from PyMaSC.output.table import (output_cc, output_mscc, output_nreads_table,
+                                 CCOUTPUT_SUFFIX, MSCCOUTPUT_SUFFIX, NREADOUTPUT_SUFFIX)
 
 logger = logging.getLogger(__name__)
 
 PLOTFILE_SUFFIX = ".pdf"
-EXPECT_OUTFILE_SUFFIXES = (PLOTFILE_SUFFIX, CCOUTPUT_SUFFIX, MSCCOUTPUT_SUFFIX, STATSFILE_SUFFIX)
+EXPECT_OUTFILE_SUFFIXES = (PLOTFILE_SUFFIX, CCOUTPUT_SUFFIX, MSCCOUTPUT_SUFFIX, NREADOUTPUT_SUFFIX, STATSFILE_SUFFIX)
 
 
 def _get_output_basename(dirpath, filepath):
@@ -176,7 +177,8 @@ def run_calculation(args, handler, output_basename):
 
     try:
         return CCResult(
-            handler, args.smooth_window, args.chi2_pval, args.library_length, args.mask_size
+            args.smooth_window, args.chi2_pval, args.mask_size, args.bg_avr_width,
+            args.library_length, handler
         )
     except ReadsTooFew:
         logger.warning("Faild to process {}. Skip this file.".format(handler.path))
@@ -184,6 +186,7 @@ def run_calculation(args, handler, output_basename):
 
 def output_results(args, output_basename, result_handler):
     output_stats(output_basename, result_handler)
+    output_nreads_table(output_basename, result_handler)
     if not result_handler.skip_ncc:
         output_cc(output_basename, result_handler)
     if result_handler.calc_masc:

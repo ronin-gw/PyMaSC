@@ -3,7 +3,6 @@ import os.path
 
 import numpy as np
 
-from PyMaSC.utils.calc import moving_avr_filter
 from PyMaSC.utils.output import catch_IOError
 from PyMaSC.utils.compatible import xrange
 
@@ -96,11 +95,13 @@ def plot_naive_cc(ccr, name=None, xlim=None):
 
     plt.fill_between(xrange(stats.max_shift + 1), ccr.ncc_lower, ccr.ncc_upper,
                      color="lightskyblue", alpha=0.5, linewidth=0)
-    plt.plot(xrange(stats.max_shift + 1), stats.cc, color="black", linewidth=0.5)
+    plt.plot(xrange(stats.max_shift + 1), stats.cc.cc, color="black", linewidth=0.5)
     axes = plt.gca()
     if xlim:
         axes.set_xlim(xlim)
     lower, upper, height = _set_ylim()
+
+    stats = stats.cc
 
     plt.axhline(stats.cc_min, linestyle="dashed", linewidth=0.5)
     plt.text(0, stats.cc_min, 'min(cc) = {:.5f}'.format(stats.cc_min))
@@ -128,8 +129,8 @@ def plot_naive_cc(ccr, name=None, xlim=None):
 
 def plot_naive_cc_just(ccr, name=None):
     stats = ccr.whole
-    if stats.calc_ncc and stats.est_lib_len * 2 < stats.max_shift + 1:
-        plot_naive_cc(ccr, name, (0, stats.est_lib_len * 2))
+    if stats.calc_ncc and stats.cc.est_lib_len * 2 < stats.max_shift + 1:
+        plot_naive_cc(ccr, name, (0, stats.cc.est_lib_len * 2))
         return True
     return False
 
@@ -147,14 +148,15 @@ def plot_masc(ccr, name=None):
 
     plt.fill_between(xrange(stats.max_shift + 1), ccr.mscc_lower, ccr.mscc_upper,
                      color="lightskyblue", alpha=0.5, linewidth=0)
-    plt.plot(xrange(stats.max_shift + 1), stats.masc,
+    plt.plot(xrange(stats.max_shift + 1), stats.masc.cc,
              color="black", linewidth=0.5, label="MSCC")
-    plt.plot(xrange(stats.max_shift + 1), moving_avr_filter(stats.masc, stats.filter_len),
+    plt.plot(xrange(stats.max_shift + 1), stats.masc.avr_cc,
              alpha=0.8, label="Smoothed", color="pink")
 
     lower, upper, height = _set_ylim()
+    stats = stats.masc
 
-    masc_est_ll = stats.masc[stats.est_lib_len - 1]
+    masc_est_ll = stats.cc[stats.est_lib_len - 1]
     _annotate_point(
         stats.est_lib_len - 1, "blue",
         upper - height / 2, 'estimated lib len: {}'.format(stats.est_lib_len),
@@ -162,7 +164,7 @@ def plot_masc(ccr, name=None):
     )
 
     if stats.library_len:
-        masc_ll = stats.masc[stats.library_len - 1]
+        masc_ll = stats.cc[stats.library_len - 1]
         _annotate_point(
             stats.library_len - 1, "green",
             upper - height / 1.75, 'expected lib len: {}'.format(stats.library_len),
@@ -170,7 +172,7 @@ def plot_masc(ccr, name=None):
         )
 
     plt.legend(loc="best")
-    _annotate_bottom_right_box("Mov avr win size = {}".format(stats.filter_len))
+    _annotate_bottom_right_box("Mov avr win size = {}".format(stats.mv_avr_filter_len))
 
 
 def plot_ncc_vs_masc(pp, ccr, name):
@@ -192,8 +194,8 @@ def plot_ncc_vs_masc(pp, ccr, name):
 
 def _plot_ncc_vs_masc(stats, title):
     assert (
-        (stats.calc_ncc and not np.all(np.isnan(stats.cc))) or
-        (stats.calc_masc and not np.all(np.isnan(stats.masc)))
+        (stats.calc_ncc and not np.all(np.isnan(stats.cc.cc))) or
+        (stats.calc_masc and not np.all(np.isnan(stats.masc.cc)))
     )
 
     plt.title(title)
@@ -201,10 +203,10 @@ def _plot_ncc_vs_masc(stats, title):
     plt.ylabel("Relative Cross-Correlation from each minimum")
 
     if stats.calc_ncc:
-        plt.plot(xrange(stats.max_shift + 1), stats.cc - stats.cc_min,
+        plt.plot(xrange(stats.max_shift + 1), stats.cc.cc - stats.cc.cc_min,
                  color="black", linewidth=0.5, label="Naive CC")
     if stats.calc_masc:
-        plt.plot(xrange(stats.max_shift + 1), stats.masc - stats.masc_min,
+        plt.plot(xrange(stats.max_shift + 1), stats.masc.cc - stats.masc.cc_min,
                  alpha=1 if not stats.calc_ncc else 0.8, linewidth=0.5, label="MSCC")
 
     lower, upper, height = _set_ylim()
@@ -216,8 +218,8 @@ def _plot_ncc_vs_masc(stats, title):
 
     if stats.calc_masc:
         _annotate_point(
-            stats.est_lib_len, "blue",
-            upper - height/10, "estimated lib len: {}".format(stats.est_lib_len)
+            stats.masc.est_lib_len, "blue",
+            upper - height/10, "estimated lib len: {}".format(stats.masc.est_lib_len)
         )
         plt.legend(loc="best")
 
@@ -227,4 +229,4 @@ def _plot_ncc_vs_masc(stats, title):
             upper - height/6, "expected lib len: {}".format(stats.library_len)
         )
 
-    _annotate_params(stats.nsc, stats.rsc, stats.est_nsc, stats.est_rsc, "best")
+    # _annotate_params(stats.nsc, stats.rsc, stats.est_nsc, stats.est_rsc, "best")

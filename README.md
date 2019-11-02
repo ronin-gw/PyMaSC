@@ -10,6 +10,8 @@ PyMaSC
 Python implementation to calc mappability-sensitive cross-correlation
 for fragment length estimation and quality control for ChIP-Seq.
 
+Visit [PyMaSC web site](https://pymasc.sb.ecei.tohoku.ac.jp/) for more information and to get human genome mappability tracks.
+
 * * *
 
 Introduction
@@ -75,6 +77,7 @@ cross-correlation.
            [--chi2-pval CHI2_PVAL]
            [-w SMOOTH_WINDOW]
            [--mask-size MASK_SIZE]
+           [--bg-avr-width BG_AVR_WIDTH]
            [-n NAME [NAME ...]]
            [-o OUTDIR]
            reads [reads ...]
@@ -83,7 +86,8 @@ cross-correlation.
 #### Usage example
 
 Calculate only naïve cross-correlation for `ENCFF000VPI.bam` with max shift size = 1000.  
-Output files are `ENCFF000VPI_stats.tab`, `ENCFF000VPI_cc.tab` and `ENCFF000VPI.pdf`.
+Output files are `ENCFF000VPI_stats.tab`, `ENCFF000VPI_nreads.tab`, `ENCFF000VPI_cc.tab`
+and `ENCFF000VPI.pdf`.
 
     $ pymasc -d 1000 ENCFF000VPI.bam
 
@@ -208,12 +212,16 @@ Before mean fragment length estimation, PyMaSC applies moving average filter to
 mappability-sensitive cross-correlation. This option specify filter's window size.
 (Default: 15)
 
-#### --mask-size [int]
+##### --mask-size [int]
 If difference between a read length and the estimated library length is equal or
 less than the length specified by this option, PyMaSC masks correlation coefficients
 in the read length +/- specified length and try to estimate mean library length again.
 (Default: 5, Specify < 1 to disable)
 
+##### --bg-avr-width [int]
+To obtain the minimum coefficients of cross-correlation, PyMaSC gets the median
+of the end of specified bases from calculated cross-correlation coefficients.
+(Default: 50bp)
 
 #### Output options
 
@@ -261,15 +269,19 @@ Note that actual max shift size is,
                 [--stats STATS]
                 [--cc CC]
                 [--masc MASC]
+                [--nreads NREADS]
                 [-s SIZES]
                 [-m MAPPABILITY_STATS]
+                [-i CHROM [CHROM ...]]
+                [-e CHROM [CHROM ...]]
                 [--chi2-pval CHI2_PVAL]
                 [-w SMOOTH_WINDOW]
                 [--mask-size MASK_SIZE]
+                [--bg-avr-width BG_AVR_WIDTH]
                 [-l LIBRARY_LENGTH]
                 [-n NAME]
                 [-o OUTDIR]
-                [-f]
+                [-f [{all,stats,cc,mscc} [{all,stats,cc,mscc} ...]]]
                 [statfile]
 
 #### Usage example
@@ -283,10 +295,10 @@ was generated for a mappability BigWig file by PyMaSC to obtain mappable region 
 
 #### Input argument
 Specify a prefix to `pymasc` output files. For example, set `output/ENCFF000VPI`
-to plot figures from `output/ENCFF000VPI_stats.tab` and `output/ENCFF000VPI_cc.tab`
-(and/or `output/ENCFF000VPI_masc.tab`). `*_stats.tab` and either or both of `*_cc.tab`
-and `*_masc.tab` must be exist.  
-To specify these files individually, use `--stats`, `--cc` and `--masc`
+to plot figures from `output/ENCFF000VPI_stats.tab`, `output/ENCFF000VPI_nreads.tab`
+and `output/ENCFF000VPI_cc.tab` (and/or `output/ENCFF000VPI_masc.tab`). `*_stats.tab`
+and either or both of `*_cc.tab` and `*_mscc.tab` must be exist.  
+To specify these files individually, use `--stats`, `--nreads`, `--cc` and `--masc`
 options.
 
 

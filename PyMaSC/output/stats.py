@@ -2,74 +2,60 @@ from __future__ import print_function
 
 import os.path
 import logging
-from functools import partial
-
-import numpy as np
 
 from PyMaSC.utils.output import catch_IOError
 
-CCOUTPUT_SUFFIX = "_cc.tab"
-MSCCOUTPUT_SUFFIX = "_mscc.tab"
 STATSFILE_SUFFIX = "_stats.tab"
-
-logger = logging.getLogger(__name__)
-
-
-@catch_IOError(logger)
-def _output_cctable(outfile, ccr, suffix, target_attr):
-    outfile += suffix
-    logger.info("Output '{}'".format(outfile))
-
-    with open(outfile, 'w') as f:
-        keys = sorted(ccr.references)
-        cc = getattr(ccr.whole, target_attr)
-        ref2cc = {k: getattr(ccr.ref2stats[k], target_attr) for k in keys}
-        keys = [k for k, v in ref2cc.items() if v is not None and not np.isnan(v).all()]
-
-        print('\t'.join(["shift", "whole"] + keys), file=f)
-        fmt = '{}\t' * (len(keys) + 1) + '{}'
-        for i, cc in enumerate(cc):
-            print(fmt.format(i, cc, *[ref2cc[k][i] for k in keys]), file=f)
-
-
-output_cc = partial(_output_cctable, suffix=CCOUTPUT_SUFFIX, target_attr="cc")
-output_mscc = partial(_output_cctable, suffix=MSCCOUTPUT_SUFFIX, target_attr="masc")
-
-
-@catch_IOError(logger)
-def _load_table(path, logfmt):
-    logger.info(logfmt.format(path))
-
-    with open(path) as f:
-        header = f.readline().rstrip().split('\t')[1:]
-        table = dict(zip(header, zip(*(map(float, l.split('\t')[1:]) for l in f))))
-    if "whole" not in table:
-        logger.critical("Mandatory column 'whole' not found.")
-        raise KeyError("whole")
-    whole = table.pop("whole")
-    return whole, table
-
-
-load_cc = partial(_load_table, logfmt="Load CC table from '{}'")
-load_masc = partial(_load_table, logfmt="Load MSCC table from '{}'")
-
-
 STAT_ATTR = (
+    ("Read length", "read_len"),
+    ("Expected library length", "library_len"),
+    ("Estimated library length", "est_lib_len")
+)
+STAT_CC_ATTR = (
     ("Genome length", "genomelen"),
     ("Forward reads", "forward_sum"),
     ("Reverse reads", "reverse_sum"),
-    ("Read length", "read_len"),
-    ("Minimum CC", "cc_min"),
-    ("CC at read length", "ccrl"),
-    ("Expected library length", "library_len"),
-    ("CC at library length", "ccfl"),
+    ("Minimum NCC", "cc_min"),
+    ("NCC at read length", "ccrl"),
+    ("NCC at expected library length", "ccfl"),
+    ("NCC at estimated library length", "est_ccfl"),
     ("NSC", "nsc"),
     ("RSC", "rsc"),
-    ("Estimated library length", "est_lib_len"),
-    ("Estimated CC at library length", "est_ccfl"),
     ("Estimated NSC", "est_nsc"),
-    ("Estimated RSC", "est_rsc")
+    ("Estimated RSC", "est_rsc"),
+    ("FWHM", "cc_width"),
+    ("VSN", "vsn"),
+    ("Estimated FWHM", "est_cc_width"),
+    ("Estimated VSN", "est_vsn")
 )
+
+
+def get_rl_item_from(attr):
+    def _func(ccstats):
+        array = getattr(ccstats, attr, None)
+        return "nan" if array is None else array[ccstats.read_len - 1]
+    return _func
+
+
+STAT_MSCC_ATTR = (
+    ("DMP length", get_rl_item_from("genomelen")),
+    ("Forward reads in DMP", get_rl_item_from("forward_sum")),
+    ("Reverse reads in DMP", get_rl_item_from("reverse_sum")),
+    ("Minimum MSCC", "cc_min"),
+    ("MSCC at read length", "ccrl"),
+    ("MSCC at expected library length", "ccfl"),
+    ("MSCC at estimated library length", "est_ccfl"),
+    ("MSCC NSC", "nsc"),
+    ("MSCC RSC", "rsc"),
+    ("Estimated MSCC NSC", "est_nsc"),
+    ("Estimated MSCC RSC", "est_rsc"),
+    ("MSCC FWHM", "cc_width"),
+    ("MSCC VSN", get_rl_item_from("vsn")),
+    ("Estimated MSCC FWHM", "est_cc_width"),
+    ("Estimated MSCC VSN", get_rl_item_from("est_vsn"))
+)
+
+logger = logging.getLogger(__name__)
 
 
 @catch_IOError(logger)
@@ -81,14 +67,20 @@ def output_stats(outfile, ccr):
     with open(outfile, 'w') as f:
         print("{}\t{}".format("Name", basename), file=f)
         for row, attr in STAT_ATTR:
-            print("{}\t{}".format(row, getattr(ccr.whole, attr, "nan") or "nan"), file=f)
+            print("{}\t{}".format(row, getattr(ccr.whole, attr, False) or "nan"), file=f)
+        for row, attr in STAT_CC_ATTR:
+            print("{}\t{}".format(row, getattr(ccr.whole.cc, attr, False) or "nan"), file=f)
+        for row, attr in STAT_MSCC_ATTR:
+            if callable(attr):
+                print("{}\t{}".format(row, attr(ccr.whole.masc)), file=f)
+            else:
+                print("{}\t{}".format(row, getattr(ccr.whole.masc, attr, False) or "nan"), file=f)
 
 
 @catch_IOError(logger)
-def load_stats(path):
+def load_stats(path, names):
     logger.info("Load statistics from '{}'.".format(path))
-    stat2attr = {k: v for k, v in STAT_ATTR if v in
-                 ("genomelen", "forward_sum", "reverse_sum", "read_len", "library_len")}
+    stat2attr = {k: v for k, v in STAT_ATTR if v in names}
     attrs = {}
     with open(path) as f:
         for l in f:

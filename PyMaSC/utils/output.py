@@ -10,8 +10,12 @@ def catch_IOError(logger):
                 return func(*args, **kwargs)
             except IOError as e:
                 logger.error("Faild to output '{}':\n[Errno {}] {}".format(
-                    e.filename, e.errno, e.message)
+                    e.filename, e.errno, getattr(e, "message", ''))
                 )
+                raise e
+            except (IndexError, StopIteration) as e:
+                logger.error("Invalid input file: {}".format(e))
+                raise e
         return _io_func
     return _inner
 

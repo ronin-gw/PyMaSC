@@ -5,6 +5,8 @@ import PyMaSC
 from PyMaSC.handler.result import NEAR_READLEN_ERR_CRITERION
 
 READLEN_ESTIMATION_TYPES = ("MEAN", "MEDIAN", "MODE", "MIN", "MAX")
+EPILOG = (" \nVisit PyMaSC web site for more information and to get human genome "
+          "mappability tracks\n" + PyMaSC.WEBSITE_URL + '\n ')
 
 
 def _make_upper(s):
@@ -86,6 +88,25 @@ def add_liblen_arg(group):
     )
 
 
+def add_chrom_filter_args(group):
+    group.add_argument(
+        "-i", "--include-chrom", nargs='+', dest="chromfilter", metavar="CHROM",
+        action=make_multistate_append_action(True),
+        help="Include chromosomes to calculate. You can use Unix shell-style "
+             "wildcards ('.', '*', '[]' and '[!]'). This option can be declared "
+             "multiple times to include chromosomes specified in a just before "
+             "-e/--exclude-chrom option. Note that this option is case-sensitive."
+    )
+    group.add_argument(
+        "-e", "--exclude-chrom", nargs='+', dest="chromfilter", metavar="CHROM",
+        action=make_multistate_append_action(False),
+        help="Exclude chromosomes from calculation. You can use Unix shell-style "
+             "wildcards ('.', '*', '[]' and '[!]'). This option can be declared "
+             "multiple times to exclude chromosomes specified in a just before "
+             "-i/--include-chrom option. Note that this option is case-sensitive."
+    )
+
+
 def add_result_proc_args(group):
     group.add_argument(
         "--chi2-pval", type=float, default=0.05,
@@ -104,12 +125,18 @@ def add_result_proc_args(group):
              "PyMaSC masks correlation coefficients in the read length +/- specified length "
              "and try to estimate mean library length again. (Default: {}, Specify < 1 to disable)".format(NEAR_READLEN_ERR_CRITERION)
     )
+    group.add_argument(
+        "--bg-avr-width", type=int, action=ForceNaturalNumber, default=50,
+        help="The minimum of coefficient will be calcurated as the median of the end of specified bases. (Default: 50bp)"
+    )
 
 
 def get_pymasc_parser():
     parser = argparse.ArgumentParser(
         description="Estimation and visualization tool for library length, "
-                    "NSC and RSC metrics with mappability sensitive cross-correlation calculation."
+                    "NSC and RSC metrics with\nmappability sensitive cross-correlation calculation.",
+        epilog=EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter
     )
 
     add_common_args(parser)
@@ -156,22 +183,7 @@ def get_pymasc_parser():
         help="Filter out reads which have less than specified "
              "SAM mapping quality score. (Default: 1)"
     )
-    filter.add_argument(
-        "-i", "--include-chrom", nargs='+', dest="chromfilter", metavar="CHROM",
-        action=make_multistate_append_action(True),
-        help="Include chromosomes to calculate. You can use Unix shell-style "
-             "wildcards ('.', '*', '[]' and '[!]'). This option can be declared "
-             "multiple times to include chromosomes specified in a just before "
-             "-e/--exclude-chrom option. Note that this option is case-sensitive."
-    )
-    filter.add_argument(
-        "-e", "--exclude-chrom", nargs='+', dest="chromfilter", metavar="CHROM",
-        action=make_multistate_append_action(False),
-        help="Exclude chromosomes from calculation. You can use Unix shell-style "
-             "wildcards ('.', '*', '[]' and '[!]'). This option can be declared "
-             "multiple times to exclude chromosomes specified in a just before "
-             "-i/--include-chrom option. Note that this option is case-sensitive."
-    )
+    add_chrom_filter_args(filter)
 
     proc_params = parser.add_argument_group("PyMaSC parameters")
     add_shift_arg(proc_params)
@@ -193,7 +205,9 @@ def get_pymasc_parser():
 def get_precalc_parser():
     parser = argparse.ArgumentParser(
         description="Pre-calculate mappability region statistics for "
-                    "PyMaSC successive algorithm."
+                    "PyMaSC successive algorithm.",
+        epilog=EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter
     )
 
     add_common_args(parser)
@@ -216,7 +230,9 @@ def get_precalc_parser():
 
 def get_plot_parser():
     parser = argparse.ArgumentParser(
-        description="Plot figures from PyMaSC statistic outputs."
+        description="Plot figures from PyMaSC statistic outputs.",
+        epilog=EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter
     )
 
     add_common_args(parser)
@@ -229,15 +245,19 @@ def get_plot_parser():
     )
     input_args.add_argument(
         "--stats",
-        help="To specify path to a statistic file (*_stats.tab) separately."
+        help="For specifying path to a statistic file (*_stats.tab) separately."
     )
     input_args.add_argument(
         "--cc",
-        help="To specify path to a cross-correlation table file (*_cc.tab) separately."
+        help="For specifying path to a cross-correlation table file (*_cc.tab) separately."
     )
     input_args.add_argument(
         "--masc",
-        help="To specify path to a mappability sensitive cross-correlation file (*_stats.tab) separately."
+        help="For specifying path to a mappability sensitive cross-correlation file (*_stats.tab) separately."
+    )
+    input_args.add_argument(
+        "--nreads",
+        help="For specifying path to a # of reads file (*_nreads.tab) separately."
     )
     input_args.add_argument(
         "-s", "--sizes",
@@ -249,6 +269,9 @@ def get_plot_parser():
         help="A JSON file to obtain mappable length of chromosomes generated by PyMaSC"
              "for a BigWig file."
     )
+
+    filter = parser.add_argument_group("Chromosome filtering arguments")
+    add_chrom_filter_args(filter)
 
     proc_params = parser.add_argument_group("PyMaSC parameters")
     add_result_proc_args(proc_params)
@@ -264,8 +287,9 @@ def get_plot_parser():
         help="Output directory. (Default: current directory)"
     )
     output.add_argument(
-        "-f", "--force-overwrite", action="store_true",
-        help="Overwrite CC table even if input and output path are same."
+        "-f", "--force-overwrite", nargs="*", type=str.lower, choices=('all', 'stats', 'cc', 'mscc'), default=[],
+        help="Overwrite specified files even if input and output path are same. "
+             "(choices: 'all', 'stats', 'cc', 'mscc' (multiple choices are acceptable))"
     )
 
     return parser

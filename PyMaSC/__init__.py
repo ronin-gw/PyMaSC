@@ -1,7 +1,8 @@
 import sys
 from functools import wraps
 
-VERSION = "0.3.0"
+VERSION = "0.3.1"
+WEBSITE_URL = "https://pymasc.sb.ecei.tohoku.ac.jp/"
 
 
 def logging_version(logger):

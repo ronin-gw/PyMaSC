@@ -1,5 +1,9 @@
 # Change Log
 
+## v0.3.2 (2019-11-04)
+**Fixed bugs:**
+- Fix FWHM calculation failure
+
 ## v0.3.1 (2019-11-01)
 **Implemented enhancements:**
 - Support VSN calculation

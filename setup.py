@@ -17,7 +17,7 @@ except ImportError:
 try:
     import pysam
 except ImportError:
-    NOTFOUNDMODULES.append("pysam==0.15.1")
+    NOTFOUNDMODULES.append("pysam")
 
 if NOTFOUNDMODULES:
     msg = "Failed to import build time dependencies.\nPlease install {} first (e.g. `pip install {}`) and try again.".format(
@@ -128,6 +128,7 @@ def _setup():
             "Programming Language :: Python :: 3.5",
             "Programming Language :: Python :: 3.6",
             "Programming Language :: Python :: 3.7",
+            "Programming Language :: Python :: 3.8",
             "Programming Language :: Python :: Implementation :: CPython",
             "Topic :: Scientific/Engineering :: Bio-Informatics"
         ],
@@ -136,7 +137,7 @@ def _setup():
         license="MIT",
         install_requires=[
             "numpy>=1.16.0",
-            "pysam==0.15.1",
+            "pysam>=0.15.1",
             "bx-python>=0.8.5"
         ],
         extras_require={

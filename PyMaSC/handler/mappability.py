@@ -118,7 +118,7 @@ class MappabilityHandler(MappableLengthCalculator):
                 raise KeyError(ref)
 
             if stats["max_shift"] != len(stats["references"][ref]) - 1:
-                logger.error("Max shift length for 'ref' unmatched.".format(ref))
+                logger.error("Max shift length for '{}' unmatched.".format(ref))
                 raise IndexError
 
         return stats

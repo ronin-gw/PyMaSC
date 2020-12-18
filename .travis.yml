@@ -15,10 +15,12 @@ matrix:
         - python: 3.6
           env: CYTHON=cython
         - python: 3.7
-          dist: xenial
           env: CYTHON=''
         - python: 3.7
-          dist: xenial
+          env: CYTHON=cython
+        - python: 3.8
+          env: CYTHON=''
+        - python: 3.8
           env: CYTHON=cython
 
 before_install:

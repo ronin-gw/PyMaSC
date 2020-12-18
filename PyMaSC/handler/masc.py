@@ -43,8 +43,8 @@ class CCCalcHandler(object):
             raise NothingToCalc
         self.references = []
         self.lengths = []
-        need_warning = False
-        for reference, length in zip(self.align_file.references, self.align_file.lengths):
+
+        for length, reference in sorted(zip(self.align_file.lengths, self.align_file.references), reverse=True):
             if reference in target_references:
                 self.references.append(reference)
                 self.lengths.append(length)

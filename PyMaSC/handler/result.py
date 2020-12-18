@@ -102,12 +102,12 @@ class CCStats(object):
             try:
                 self.cc_width = self._get_FWHM(self.library_len)
             except AssertionError as e:
-                self.warning(e)
+                self.error(repr(e))
         if self.est_lib_len:
             try:
                 self.est_cc_width = self._get_FWHM(self.est_lib_len)
             except AssertionError as e:
-                self.warning(e)
+                self.error(repr(e))
 
         #
         def _calc_vsn(ccfl, cc_width):
@@ -172,8 +172,12 @@ class CCStats(object):
 
         max_i = library_len - 1
         assert max_i >= 0
-        cc_max = self.avr_cc[max_i - 1]
-        assert cc_max > self.cc_min
+
+        cc_max = self.avr_cc[max_i]
+        if cc_max <= self.cc_min:
+            logger.error("Estimated max is less than minimum. Abort FWHM calculation.")
+            return False
+
         target = self.cc_min + (cc_max - self.cc_min) / 2
 
         # forward

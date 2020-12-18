@@ -136,14 +136,15 @@ def _setup():
         platforms=["POSIX", "Mac OS X"],
         license="MIT",
         install_requires=[
-            "numpy>=1.16.0",
+            "numpy>=1.16.5",
             "pysam>=0.15.1",
             "bx-python>=0.8.5"
         ],
         extras_require={
-            ':python_version<"3.5"': ["matplotlib>=2.0.0,<3.0.0", "scipy>=1.2.0,<1.3.0"],
-            ':python_version=="3.5"': ["matplotlib>=2.0.0,<3.1.0", "scipy>=1.3.0"],
-            ':python_version>="3.6"': ["matplotlib>=2.0.0", "scipy>=1.3.0"]
+            ':python_version<"3.5"': ["matplotlib>=2.0.0,<3.0.0", "scipy<1.3.0"],
+            ':python_version=="3.5"': ["matplotlib>=2.0.0,<3.1.0", "scipy<1.5.0"],
+            ':python_version=="3.6"': ["matplotlib>=2.0.0", "scipy<1.6.0"],
+            ':python_version>="3.7"': ["matplotlib>=2.0.0", "scipy"]
         },
         packages=find_packages(),
         cmdclass={"build_ext": BuildExtCommand},

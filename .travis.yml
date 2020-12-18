@@ -25,7 +25,7 @@ matrix:
 
 before_install:
     - pip install -U pip
-    - pip install numpy pysam==0.15.1 $CYTHON
+    - pip install numpy>=1.16.5 pysam==0.15.1 $CYTHON
 
 install:
     - python setup.py install

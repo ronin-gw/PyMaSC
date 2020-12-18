@@ -163,7 +163,7 @@ class CCStats(object):
         elif self.output_warnings and abs(self.est_lib_len - self.read_len) <= NEAR_READLEN_ERR_CRITERION:
             need_warning = True
 
-        if self.output_warnings and need_warning:
+        if need_warning:
             logger.error("Estimated library length is close to the read length! Please check output plots.")
 
     def _get_FWHM(self, library_len):
@@ -175,7 +175,8 @@ class CCStats(object):
 
         cc_max = self.avr_cc[max_i]
         if cc_max <= self.cc_min:
-            logger.error("Estimated max is less than minimum. Abort FWHM calculation.")
+            logfunc = logger.error if self.output_warnings else logger.debug
+            logfunc("Estimated max is less than minimum. Abort FWHM calculation.")
             return False
 
         target = self.cc_min + (cc_max - self.cc_min) / 2

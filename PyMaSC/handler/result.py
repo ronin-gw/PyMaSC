@@ -1,4 +1,5 @@
 import logging
+import warnings
 from functools import wraps
 
 import numpy as np
@@ -31,6 +32,12 @@ def npcalc_with_logging_warn(func):
             with np.errstate(divide="ignore", invalid="ignore"):
                 return func(*args, **kwargs)
     return _inner
+
+
+class SuppressWarnings(warnings.catch_warnings):
+    def __enter__(self):
+        super().__enter__()
+        warnings.simplefilter("ignore")
 
 
 def chi2_test(a, b, chi2_p_thresh, label):
@@ -562,10 +569,11 @@ class CCResult(object):
             else:
                 _ns = ns[~nans, abs(self.read_len - i)] - 3
 
-            zs = np.arctanh(_ccs)
-            infs = np.isinf(zs)
-            zs = zs[~infs]
-            _ns = _ns[~infs]
+            with SuppressWarnings():
+                zs = np.arctanh(_ccs)
+            finite = np.isfinite(zs)
+            zs = zs[finite]
+            _ns = _ns[finite]
             avr_z = np.average(zs, weights=_ns)
 
             z_interval = norm.ppf(1 - (1 - MERGED_CC_CONFIDENCE_INTERVAL) / 2) * np.sqrt(1 / np.sum(_ns))

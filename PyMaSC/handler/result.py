@@ -110,15 +110,20 @@ class CCStats(object):
                 self.error(repr(e))
 
         #
-        def _calc_vsn(ccfl, cc_width):
-            return 2 * ccfl * cc_width / (self.forward_sum + self.reverse_sum)
+        m = self.forward_sum + self.reverse_sum
+        if isinstance(m, int):
+            def _calc_vsn(ccfl, cc_width, library_len):
+                return 2 * ccfl * cc_width / m
+        else:
+            def _calc_vsn(ccfl, cc_width, library_len):
+                return 2 * ccfl * cc_width / m[library_len - 1]
 
         self.vsn = None
         if self.library_len:
-            self.vsn = _calc_vsn(self.ccfl, self.cc_width)
+            self.vsn = _calc_vsn(self.ccfl, self.cc_width, self.library_len)
         self.est_vsn = None
         if self.est_lib_len:
-            self.est_vsn = _calc_vsn(self.est_ccfl, self.est_cc_width)
+            self.est_vsn = _calc_vsn(self.est_ccfl, self.est_cc_width, self.est_lib_len)
 
     def _calc_cc_min(self):
         self.cc_min = np.sort(self.cc[-self.min_calc_width:])[min(self.min_calc_width, self.cc.size) // 2]

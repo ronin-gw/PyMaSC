@@ -50,9 +50,9 @@ STAT_MSCC_ATTR = (
     ("Estimated MSCC NSC", "est_nsc"),
     ("Estimated MSCC RSC", "est_rsc"),
     ("MSCC FWHM", "cc_width"),
-    ("MSCC VSN", get_rl_item_from("vsn")),
+    ("MSCC VSN", "vsn"),
     ("Estimated MSCC FWHM", "est_cc_width"),
-    ("Estimated MSCC VSN", get_rl_item_from("est_vsn"))
+    ("Estimated MSCC VSN", "est_vsn")
 )
 
 logger = logging.getLogger(__name__)

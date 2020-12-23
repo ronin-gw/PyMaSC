@@ -60,12 +60,12 @@ def _annotate_bottom_right_box(text):
     )
 
 
-def _annotate_params(nsc=None, rsc=None, est_nsc=None, est_rsc=None, loc="lower right"):
+def _annotate_params(cc, loc="lower right"):
     anno = []
-    for stat, label in zip((nsc, rsc, est_nsc, est_rsc),
-                           ("NSC", "RSC", "Est NSC", "Est RSC")):
+    for stat, label in zip((cc.vsn, cc.est_vsn),
+                           ("VSN (given lib len)", "VSN")):
         if stat:
-            anno.append("{} = {:.5f}".format(label, stat))
+            anno.append("{} = {:.5E}".format(label, stat))
 
     if anno:
         _annotate_bottom_right_box('\n'.join(anno))
@@ -124,7 +124,8 @@ def plot_naive_cc(ccr, name=None, xlim=None):
             upper - height / 6, 'expected lib len: {}'.format(stats.library_len),
             stats.ccfl, " cc(lib length) = {:.5f}".format(stats.ccfl), -height / 25
         )
-    _annotate_params(stats.nsc, stats.rsc, stats.est_nsc, stats.est_rsc)
+
+    _annotate_params(stats)
 
 
 def plot_naive_cc_just(ccr, name=None):
@@ -172,7 +173,7 @@ def plot_masc(ccr, name=None):
         )
 
     plt.legend(loc="best")
-    _annotate_bottom_right_box("Mov avr win size = {}".format(stats.mv_avr_filter_len))
+    _annotate_params(stats)
 
 
 def plot_ncc_vs_masc(pp, ccr, name):

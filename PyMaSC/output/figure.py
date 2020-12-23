@@ -83,7 +83,7 @@ def _set_ylim():
 
 
 def plot_naive_cc(ccr, name=None, xlim=None):
-    title = "Cross-Correlation"
+    title = "Naïve Cross-Correlation"
     if name:
         title += " for " + name
 
@@ -157,6 +157,9 @@ def plot_masc(ccr, name=None):
     lower, upper, height = _set_ylim()
     stats = stats.masc
 
+    plt.axhline(stats.cc_min, linestyle="dashed", linewidth=0.5)
+    plt.text(0, stats.cc_min, 'min(cc) = {:.5f}'.format(stats.cc_min))
+
     masc_est_ll = stats.cc[stats.est_lib_len - 1]
     _annotate_point(
         stats.est_lib_len - 1, "blue",
@@ -194,10 +197,9 @@ def plot_ncc_vs_masc(pp, ccr, name):
 
 
 def _plot_ncc_vs_masc(stats, title):
-    assert (
-        (stats.calc_ncc and not np.all(np.isnan(stats.cc.cc))) or
-        (stats.calc_masc and not np.all(np.isnan(stats.masc.cc)))
-    )
+    validncc = stats.calc_ncc and not np.all(np.isnan(stats.cc.cc))
+    validmasc = stats.calc_masc and not np.all(np.isnan(stats.masc.cc))
+    assert validncc or validmasc
 
     plt.title(title)
     plt.xlabel("Reverse Strand Shift")
@@ -214,20 +216,18 @@ def _plot_ncc_vs_masc(stats, title):
 
     _annotate_point(
         stats.read_len, "red",
-        upper - height/25, "read length: {}".format(stats.read_len)
+        upper - height / 25, "read length: {}".format(stats.read_len)
     )
 
     if stats.calc_masc:
         _annotate_point(
             stats.masc.est_lib_len, "blue",
-            upper - height/10, "estimated lib len: {}".format(stats.masc.est_lib_len)
+            upper - height / 10, "estimated lib len: {}".format(stats.masc.est_lib_len)
         )
         plt.legend(loc="best")
 
     if stats.library_len:
         _annotate_point(
             stats.library_len, "green",
-            upper - height/6, "expected lib len: {}".format(stats.library_len)
+            upper - height / 6, "expected lib len: {}".format(stats.library_len)
         )
-
-    # _annotate_params(stats.nsc, stats.rsc, stats.est_nsc, stats.est_rsc, "best")

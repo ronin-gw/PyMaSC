@@ -240,7 +240,7 @@ def _load_chrom_sizes(path):
         ref2len = {}
         with open(path) as f:
             for l in f:
-                chrom, length, _ = l.split('\t', 2)
+                chrom, length = l.split('\t', 2)[:2]
                 ref2len[chrom] = int(length)
             return ref2len
 

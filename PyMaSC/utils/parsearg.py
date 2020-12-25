@@ -5,8 +5,18 @@ import PyMaSC
 from PyMaSC.handler.result import NEAR_READLEN_ERR_CRITERION
 
 READLEN_ESTIMATION_TYPES = ("MEAN", "MEDIAN", "MODE", "MIN", "MAX")
-EPILOG = (" \nVisit PyMaSC web site for more information and to get human genome "
-          "mappability tracks\n" + PyMaSC.WEBSITE_URL + '\n ')
+EPILOG = '\n'.join((
+    ' ',
+    "Visit PyMaSC web site for more information and to get human genome mappability tracks.",
+    "Website: " + PyMaSC.WEBSITE_URL,
+    "GitHub: " + PyMaSC.GITHUB_URL,
+    ' ',
+    "Check our paper for details about VSN and please cite it if you feel useful PyMaSC.",
+    "Anzawa, H., Yamagata, H. & Kinoshita, K.",
+    "Theoretical characterisation of strand cross-correlation in ChIP-seq.",
+    "BMC Bioinformatics 21, 417 (2020). https://doi.org/10.1186/s12859-020-03729-6",
+    ' '
+))
 
 
 def _make_upper(s):

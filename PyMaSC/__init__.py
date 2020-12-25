@@ -3,6 +3,7 @@ from functools import wraps
 
 VERSION = "0.3.2"
 WEBSITE_URL = "https://pymasc.sb.ecei.tohoku.ac.jp/"
+GITHUB_URL = "https://github.com/ronin-gw/PyMaSC"
 
 
 def logging_version(logger):

@@ -59,7 +59,8 @@ BITARRAY_INCLUDES = [
 ]
 
 EXTRA_C_ARGS = ["-O3", "-ffast-math"]
-EXTRA_BA_ARGS = ["-Wextra", "-Wc++-compat", "-march=native"]
+# ARM64 Mac compatible flags
+EXTRA_BA_ARGS = ["-Wextra", "-Wc++-compat"]
 
 
 def _basedir(path):
@@ -122,27 +123,27 @@ def _setup():
             "Operating System :: MacOS :: MacOS X",
             "Operating System :: POSIX",
             "Programming Language :: Cython",
-            "Programming Language :: Python :: 2",
-            "Programming Language :: Python :: 2.7",
             "Programming Language :: Python :: 3",
-            "Programming Language :: Python :: 3.5",
-            "Programming Language :: Python :: 3.6",
-            "Programming Language :: Python :: 3.7",
+            "Programming Language :: Python :: 3.8",
+            "Programming Language :: Python :: 3.9",
+            "Programming Language :: Python :: 3.10",
+            "Programming Language :: Python :: 3.11",
+            "Programming Language :: Python :: 3.12",
+            "Programming Language :: Python :: 3.13",
             "Programming Language :: Python :: Implementation :: CPython",
             "Topic :: Scientific/Engineering :: Bio-Informatics"
         ],
         keywords="NGS ChIP-Seq",
         platforms=["POSIX", "Mac OS X"],
         license="MIT",
+        python_requires=">=3.8",
         install_requires=[
-            "numpy>=1.16.0",
-            "pysam==0.15.1",
-            "bx-python>=0.8.5"
+            "numpy>=1.21.0",
+            "pysam>=0.22.0",
+            "bx-python>=0.10.0"
         ],
         extras_require={
-            ':python_version<"3.5"': ["matplotlib>=2.0.0,<3.0.0", "scipy>=1.2.0,<1.3.0"],
-            ':python_version=="3.5"': ["matplotlib>=2.0.0,<3.1.0", "scipy>=1.3.0"],
-            ':python_version>="3.6"': ["matplotlib>=2.0.0", "scipy>=1.3.0"]
+            "plot": ["matplotlib>=3.5.0", "scipy>=1.7.0"]
         },
         packages=find_packages(),
         cmdclass={"build_ext": BuildExtCommand},

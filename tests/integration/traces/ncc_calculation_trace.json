@@ -1,0 +1,504 @@
+{
+  "NaiveCCCalculator.__init___0": {
+    "function": "NaiveCCCalculator.__init__",
+    "inputs": {
+      "max_shift": 50,
+      "references": [
+        "chr1"
+      ],
+      "lengths": [
+        249250621
+      ]
+    },
+    "outputs": {
+      "genomelen": 249250621,
+      "ref2genomelen": {
+        "chr1": 249250621
+      },
+      "forward_sum": 0,
+      "reverse_sum": 0
+    },
+    "call_order": 1
+  },
+  "test_data_extraction_1": {
+    "function": "test_data_extraction",
+    "inputs": {
+      "region": "chr1:750000-760000",
+      "min_mapq": 20,
+      "max_reads": 100
+    },
+    "outputs": {
+      "forward_positions": [
+        750213,
+        752740,
+        753431,
+        753433,
+        753441,
+        754426,
+        755391,
+        755473,
+        755498,
+        755940,
+        755970,
+        756164,
+        756431,
+        756486,
+        756494,
+        756505,
+        756632,
+        756748,
+        756864,
+        757055,
+        757158,
+        757385,
+        757444,
+        757459,
+        757526,
+        757563,
+        757584,
+        757673,
+        757859,
+        757865,
+        758025,
+        758164,
+        758313,
+        758320,
+        758399,
+        758419,
+        758434,
+        758536,
+        758748,
+        758777,
+        758841,
+        759451
+      ],
+      "reverse_positions": [
+        750250,
+        750251,
+        753472,
+        754164,
+        754247,
+        754440,
+        754454,
+        754484,
+        754515,
+        755606,
+        755615,
+        755854,
+        756002,
+        756091,
+        756129,
+        756246,
+        756319,
+        756531,
+        756550,
+        756570,
+        756575,
+        756601,
+        756638,
+        756749,
+        756815,
+        757012,
+        757046,
+        757123,
+        757210,
+        757490,
+        757583,
+        757746,
+        757809,
+        757983,
+        757999,
+        758272,
+        758423,
+        758460,
+        758576,
+        758594,
+        758662,
+        758771,
+        758826,
+        758832,
+        758847,
+        758859,
+        758902,
+        758976,
+        760003,
+        760009,
+        760013
+      ],
+      "forward_count": 42,
+      "reverse_count": 51
+    },
+    "call_order": 2
+  },
+  "cross_correlation_shift_0_2": {
+    "function": "cross_correlation_shift_0",
+    "inputs": {
+      "shift": 0,
+      "forward_positions_sample": [
+        750213,
+        752740,
+        753431,
+        753433,
+        753441,
+        754426,
+        755391,
+        755473,
+        755498,
+        755940
+      ],
+      "reverse_positions_shifted_sample": [
+        750250,
+        750251,
+        753472,
+        754164,
+        754247,
+        754440,
+        754454,
+        754484,
+        754515,
+        755606
+      ],
+      "window_size": 50
+    },
+    "outputs": {
+      "total_overlaps": "7",
+      "overlap_details": [
+        {
+          "forward_pos": 750213,
+          "window_start": 750163,
+          "window_end": 750263,
+          "overlapping_reverse": 2
+        },
+        {
+          "forward_pos": 752740,
+          "window_start": 752690,
+          "window_end": 752790,
+          "overlapping_reverse": 0
+        },
+        {
+          "forward_pos": 753431,
+          "window_start": 753381,
+          "window_end": 753481,
+          "overlapping_reverse": 1
+        },
+        {
+          "forward_pos": 753433,
+          "window_start": 753383,
+          "window_end": 753483,
+          "overlapping_reverse": 1
+        },
+        {
+          "forward_pos": 753441,
+          "window_start": 753391,
+          "window_end": 753491,
+          "overlapping_reverse": 1
+        }
+      ]
+    },
+    "call_order": 3
+  },
+  "cross_correlation_shift_1_3": {
+    "function": "cross_correlation_shift_1",
+    "inputs": {
+      "shift": 1,
+      "forward_positions_sample": [
+        750213,
+        752740,
+        753431,
+        753433,
+        753441,
+        754426,
+        755391,
+        755473,
+        755498,
+        755940
+      ],
+      "reverse_positions_shifted_sample": [
+        750251,
+        750252,
+        753473,
+        754165,
+        754248,
+        754441,
+        754455,
+        754485,
+        754516,
+        755607
+      ],
+      "window_size": 50
+    },
+    "outputs": {
+      "total_overlaps": "7",
+      "overlap_details": [
+        {
+          "forward_pos": 750213,
+          "window_start": 750163,
+          "window_end": 750263,
+          "overlapping_reverse": 2
+        },
+        {
+          "forward_pos": 752740,
+          "window_start": 752690,
+          "window_end": 752790,
+          "overlapping_reverse": 0
+        },
+        {
+          "forward_pos": 753431,
+          "window_start": 753381,
+          "window_end": 753481,
+          "overlapping_reverse": 1
+        },
+        {
+          "forward_pos": 753433,
+          "window_start": 753383,
+          "window_end": 753483,
+          "overlapping_reverse": 1
+        },
+        {
+          "forward_pos": 753441,
+          "window_start": 753391,
+          "window_end": 753491,
+          "overlapping_reverse": 1
+        }
+      ]
+    },
+    "call_order": 4
+  },
+  "cross_correlation_shift_2_4": {
+    "function": "cross_correlation_shift_2",
+    "inputs": {
+      "shift": 2,
+      "forward_positions_sample": [
+        750213,
+        752740,
+        753431,
+        753433,
+        753441,
+        754426,
+        755391,
+        755473,
+        755498,
+        755940
+      ],
+      "reverse_positions_shifted_sample": [
+        750252,
+        750253,
+        753474,
+        754166,
+        754249,
+        754442,
+        754456,
+        754486,
+        754517,
+        755608
+      ],
+      "window_size": 50
+    },
+    "outputs": {
+      "total_overlaps": "7",
+      "overlap_details": [
+        {
+          "forward_pos": 750213,
+          "window_start": 750163,
+          "window_end": 750263,
+          "overlapping_reverse": 2
+        },
+        {
+          "forward_pos": 752740,
+          "window_start": 752690,
+          "window_end": 752790,
+          "overlapping_reverse": 0
+        },
+        {
+          "forward_pos": 753431,
+          "window_start": 753381,
+          "window_end": 753481,
+          "overlapping_reverse": 1
+        },
+        {
+          "forward_pos": 753433,
+          "window_start": 753383,
+          "window_end": 753483,
+          "overlapping_reverse": 1
+        },
+        {
+          "forward_pos": 753441,
+          "window_start": 753391,
+          "window_end": 753491,
+          "overlapping_reverse": 1
+        }
+      ]
+    },
+    "call_order": 5
+  },
+  "cross_correlation_shift_3_5": {
+    "function": "cross_correlation_shift_3",
+    "inputs": {
+      "shift": 3,
+      "forward_positions_sample": [
+        750213,
+        752740,
+        753431,
+        753433,
+        753441,
+        754426,
+        755391,
+        755473,
+        755498,
+        755940
+      ],
+      "reverse_positions_shifted_sample": [
+        750253,
+        750254,
+        753475,
+        754167,
+        754250,
+        754443,
+        754457,
+        754487,
+        754518,
+        755609
+      ],
+      "window_size": 50
+    },
+    "outputs": {
+      "total_overlaps": "7",
+      "overlap_details": [
+        {
+          "forward_pos": 750213,
+          "window_start": 750163,
+          "window_end": 750263,
+          "overlapping_reverse": 2
+        },
+        {
+          "forward_pos": 752740,
+          "window_start": 752690,
+          "window_end": 752790,
+          "overlapping_reverse": 0
+        },
+        {
+          "forward_pos": 753431,
+          "window_start": 753381,
+          "window_end": 753481,
+          "overlapping_reverse": 1
+        },
+        {
+          "forward_pos": 753433,
+          "window_start": 753383,
+          "window_end": 753483,
+          "overlapping_reverse": 1
+        },
+        {
+          "forward_pos": 753441,
+          "window_start": 753391,
+          "window_end": 753491,
+          "overlapping_reverse": 1
+        }
+      ]
+    },
+    "call_order": 6
+  },
+  "cross_correlation_shift_4_6": {
+    "function": "cross_correlation_shift_4",
+    "inputs": {
+      "shift": 4,
+      "forward_positions_sample": [
+        750213,
+        752740,
+        753431,
+        753433,
+        753441,
+        754426,
+        755391,
+        755473,
+        755498,
+        755940
+      ],
+      "reverse_positions_shifted_sample": [
+        750254,
+        750255,
+        753476,
+        754168,
+        754251,
+        754444,
+        754458,
+        754488,
+        754519,
+        755610
+      ],
+      "window_size": 50
+    },
+    "outputs": {
+      "total_overlaps": "7",
+      "overlap_details": [
+        {
+          "forward_pos": 750213,
+          "window_start": 750163,
+          "window_end": 750263,
+          "overlapping_reverse": 2
+        },
+        {
+          "forward_pos": 752740,
+          "window_start": 752690,
+          "window_end": 752790,
+          "overlapping_reverse": 0
+        },
+        {
+          "forward_pos": 753431,
+          "window_start": 753381,
+          "window_end": 753481,
+          "overlapping_reverse": 1
+        },
+        {
+          "forward_pos": 753433,
+          "window_start": 753383,
+          "window_end": 753483,
+          "overlapping_reverse": 1
+        },
+        {
+          "forward_pos": 753441,
+          "window_start": 753391,
+          "window_end": 753491,
+          "overlapping_reverse": 1
+        }
+      ]
+    },
+    "call_order": 7
+  },
+  "cross_correlation_summary_7": {
+    "function": "cross_correlation_summary",
+    "inputs": {
+      "max_shift": 50,
+      "total_forward_reads": 42,
+      "total_reverse_reads": 51
+    },
+    "outputs": {
+      "correlations": {
+        "0": "7",
+        "1": "7",
+        "2": "7",
+        "3": "7",
+        "4": "7",
+        "5": "7",
+        "6": "7",
+        "7": "7",
+        "8": "7",
+        "9": "7",
+        "10": "6",
+        "11": "6",
+        "12": "5",
+        "13": "4",
+        "14": "3",
+        "15": "3",
+        "16": "3",
+        "17": "3",
+        "18": "3",
+        "19": "3",
+        "20": "2"
+      },
+      "peak_shift": 0,
+      "peak_value": "7"
+    },
+    "call_order": 8
+  }
+}

@@ -165,7 +165,7 @@ def _setup():
             _define_extension(
                 name,
                 include_dirs=BITARRAY_INCLUDES,
-                extra_link_args=[os.path.join(BITARRAY_DIR, "libbitarr.a")],
+                extra_link_args=["-Wl,-all_load", os.path.join(BITARRAY_DIR, "libbitarr.a")],
                 extra_compile_args=EXTRA_BA_ARGS
             ) for name in (
                 "PyMaSC.bacore.bitarray",

@@ -1,7 +1,19 @@
-test*
+# Test output files (but not test directories)
+test*.pdf
+test*.tab
+test*.out
+test*.log
+
+# Keep test directories
+!tests/
+!tests/**
+
+# Generated C files
+PyMaSC/**/*[a-z].c
+
+# Output files
 *.pdf
 *.tab
-PyMaSC/**/*[a-z].c
 
 # Created by https://www.gitignore.io/api/macos,emacs,python
 

@@ -1,0 +1,16 @@
+{
+  "total_reads": 2501,
+  "references": [
+    "chr1",
+    "chr2",
+    "chr3",
+    "chr4",
+    "chr5"
+  ],
+  "chr1_reads": 2501,
+  "chr1_position_range": [
+    700820,
+    849916
+  ],
+  "chr1_valid_reads": 1292
+}

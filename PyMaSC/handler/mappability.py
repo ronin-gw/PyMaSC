@@ -28,7 +28,7 @@ class NeedUpdate(Exception):
 
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):
-        if isinstance(obj, (np.long, np.float, np.float_)):
+        if isinstance(obj, (np.int64, np.float, np.float_)):
             return float(obj)
         elif isinstance(obj, (np.uint, np.int32, np.int64)):
             return int(obj)

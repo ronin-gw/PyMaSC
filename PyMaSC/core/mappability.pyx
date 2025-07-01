@@ -54,9 +54,9 @@ cdef class MappableLengthCalculator(BigWigReader):
         self._sum_bin_size = self.max_shift + 1
         self._chr = ''
 
-        self._sumbins = np.zeros(self.max_shift + 1, dtype=np.long)
+        self._sumbins = np.zeros(self.max_shift + 1, dtype=np.int64)
         self._buff_tail_pos = -1
-        self._buff = np.zeros(self.max_shift, dtype=np.long)
+        self._buff = np.zeros(self.max_shift, dtype=np.int64)
 
         self._progress = ProgressBar()
         self.logger_lock = logger_lock
@@ -70,7 +70,7 @@ cdef class MappableLengthCalculator(BigWigReader):
     cdef _init_buff(self, chrom):
         self._sumbins.fill(0)
         self._buff_tail_pos = -1
-        self._buff = np.zeros(self.max_shift, dtype=np.long)
+        self._buff = np.zeros(self.max_shift, dtype=np.int64)
 
         if self.logger_lock:
             self.logger_lock.acquire()
@@ -131,7 +131,7 @@ cdef class MappableLengthCalculator(BigWigReader):
             overlap_len = self.max_shift - gap_len
 
             self._sumbins[gap_len+1:] += np.correlate(
-                np.ones(bits32_min(overlap_len, track_len), dtype=np.long),
+                np.ones(bits32_min(overlap_len, track_len), dtype=np.int64),
                 self._buff[self.max_shift - overlap_len:], "full"
             )[:overlap_len]
 

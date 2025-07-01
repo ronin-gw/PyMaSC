@@ -130,6 +130,9 @@ class NReadsIO(TableIO):
         return chain([rowname], ("{}-{}".format(f, r) for f, r in zip(forward, reverse)))
 
     def write(self, header, forward_sum, reverse_sum, mappable_forward_sum, mappable_reverse_sum):
+        mappable_forward_sum = {k: v for k, v in mappable_forward_sum.items() if v is not None}
+        mappable_reverse_sum = {k: v for k, v in mappable_reverse_sum.items() if v is not None}
+
         tab = csv.writer(self.fp, dialect=TableIO.DIALECT)
         tab.writerow(("shift", ) + tuple(header))
 

@@ -8,30 +8,33 @@ from setuptools.command import build_ext
 from PyMaSC import VERSION, WEBSITE_URL
 
 
-# Check build-time dependencies
-NOTFOUNDMODULES = []
-try:
-    import numpy
-except ImportError:
-    NOTFOUNDMODULES.append("numpy")
-try:
-    import pysam
-except ImportError:
-    NOTFOUNDMODULES.append("pysam==0.15.1")
-
-if NOTFOUNDMODULES:
-    msg = "Failed to import build time dependencies.\nPlease install {} first (e.g. `pip install {}`) and try again.".format(
-        " and ".join(NOTFOUNDMODULES),
-        ' '.join(NOTFOUNDMODULES)
-    )
-
-    try:
-        import Cython  # noqa
-        msg += "\ncython is found in your environtment. If you do not want to build from cython source, remove cython before build."
-    except ImportError:
-        msg += "\nIf you want to build from cython source, install cython before build additionally."
-
-    sys.exit(msg)
+# Check build-time dependencies - temporarily disabled for modern pip build
+# NOTFOUNDMODULES = []
+# Import required for build
+import numpy
+import pysam
+# try:
+#     import numpy
+# except ImportError:
+#     NOTFOUNDMODULES.append("numpy")
+# try:
+#     import pysam
+# except ImportError:
+#     NOTFOUNDMODULES.append("pysam>=0.22.0")
+# 
+# if NOTFOUNDMODULES:
+#     msg = "Failed to import build time dependencies.\nPlease install {} first (e.g. `pip install {}`) and try again.".format(
+#         " and ".join(NOTFOUNDMODULES),
+#         ' '.join(NOTFOUNDMODULES)
+#     )
+# 
+#     try:
+#         import Cython  # noqa
+#         msg += "\ncython is found in your environtment. If you do not want to build from cython source, remove cython before build."
+#     except ImportError:
+#         msg += "\nIf you want to build from cython source, install cython before build additionally."
+# 
+#     sys.exit(msg)
 
 
 #

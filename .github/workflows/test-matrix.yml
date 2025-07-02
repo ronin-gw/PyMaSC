@@ -135,16 +135,16 @@ jobs:
         echo "🧪 Running unit tests for Python ${{ matrix.python-version }}..."
         python -m pytest tests/unit/ -v --tb=short
     
-    - name: Run integration tests (quick)
-      run: |
-        echo "🧪 Running integration tests for Python ${{ matrix.python-version }}..."
-        python -m pytest tests/integration/ -k "not slow" -v --tb=short
-    
     - name: Install PyMaSC for CLI testing
       run: |
         echo "📦 Installing PyMaSC to enable CLI commands..."
         pip install -e .
         echo "✅ PyMaSC installed in development mode"
+    
+    - name: Run integration tests (quick)
+      run: |
+        echo "🧪 Running integration tests for Python ${{ matrix.python-version }}..."
+        python -m pytest tests/integration/ -k "not slow" -v --tb=short
     
     - name: Test PyMaSC commands
       run: |

@@ -49,6 +49,16 @@ EXTRA_C_ARGS = ["-O3", "-ffast-math"]
 # ARM64 Mac compatible flags
 EXTRA_BA_ARGS = ["-Wextra", "-Wc++-compat"]
 
+# Platform-specific linker flags for BitArray
+import platform
+BITARRAY_LIB_PATH = os.path.join("external", "BitArray", "libbitarr.a")
+if platform.system() == "Darwin":
+    # macOS uses -all_load
+    BITARRAY_LINK_ARGS = ["-Wl,-all_load", BITARRAY_LIB_PATH]
+else:
+    # Linux and others use --whole-archive
+    BITARRAY_LINK_ARGS = ["-Wl,--whole-archive", BITARRAY_LIB_PATH, "-Wl,--no-whole-archive"]
+
 
 def _basedir(path):
     # Return relative path for sources
@@ -93,7 +103,7 @@ def _build_extensions():
         _define_extension(
             name,
             include_dirs=BITARRAY_INCLUDES,
-            extra_link_args=["-Wl,-all_load", os.path.join("external", "BitArray", "libbitarr.a")],
+            extra_link_args=BITARRAY_LINK_ARGS,
             extra_compile_args=EXTRA_BA_ARGS
         ) for name in (
             "PyMaSC.bacore.bitarray",

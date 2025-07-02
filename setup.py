@@ -52,12 +52,13 @@ EXTRA_BA_ARGS = ["-Wextra", "-Wc++-compat"]
 # Platform-specific linker flags for BitArray
 import platform
 BITARRAY_LIB_PATH = os.path.join("external", "BitArray", "libbitarr.a")
+BITARRAY_OBJ_PATH = os.path.join("external", "BitArray", "bit_array.o")
 if platform.system() == "Darwin":
     # macOS uses -all_load
     BITARRAY_LINK_ARGS = ["-Wl,-all_load", BITARRAY_LIB_PATH]
 else:
-    # Linux and others use --whole-archive
-    BITARRAY_LINK_ARGS = ["-Wl,--whole-archive", BITARRAY_LIB_PATH, "-Wl,--no-whole-archive"]
+    # Linux: link object file directly to avoid archive issues
+    BITARRAY_LINK_ARGS = [BITARRAY_OBJ_PATH]
 
 
 def _basedir(path):

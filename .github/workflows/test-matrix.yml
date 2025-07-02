@@ -140,12 +140,26 @@ jobs:
         echo "🧪 Running integration tests for Python ${{ matrix.python-version }}..."
         python -m pytest tests/integration/ -k "not slow" -v --tb=short
     
+    - name: Install PyMaSC for CLI testing
+      run: |
+        echo "📦 Installing PyMaSC to enable CLI commands..."
+        pip install -e .
+        echo "✅ PyMaSC installed in development mode"
+    
     - name: Test PyMaSC commands
       run: |
         echo "🧪 Testing PyMaSC command-line interfaces..."
+        
+        # Test direct CLI commands (installed via pip install -e .)
+        pymasc --version
+        pymasc-precalc --version
+        pymasc-plot --version
+        
+        # Also test module-based execution
         python -m PyMaSC.pymasc --version
         python -m PyMaSC.calcmappablelen --version
         python -m PyMaSC.plot --version
+        
         echo "✅ All CLI commands working on Python ${{ matrix.python-version }}"
     
     - name: Upload test results

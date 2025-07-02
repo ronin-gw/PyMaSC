@@ -51,6 +51,9 @@ jobs:
           pip install numpy cython &&
           pip install "pysam>=0.22.0" "bx-python>=0.10.0"
         
+        # Test requirements
+        CIBW_TEST_REQUIRES: scipy
+        
         # Test command
         CIBW_TEST_COMMAND: >
           pymasc --version &&

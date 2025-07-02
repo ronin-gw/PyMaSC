@@ -37,7 +37,9 @@ jobs:
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install numpy "pysam==0.22.0" "bx-python>=0.10.0"
+        # Install Cython for building from source
+        pip install numpy cython
+        pip install "pysam>=0.22.0" "bx-python>=0.10.0"
         pip install scipy matplotlib
         pip install pytest pytest-cov
     
@@ -48,9 +50,9 @@ jobs:
         make libbitarr.a
         cd ../..
     
-    - name: Build PyMaSC (without Cython)
+    - name: Build PyMaSC (with Cython)
       run: |
-        # Use pre-compiled C sources for Python 3
+        # Build from .pyx sources with Cython
         python setup.py build_ext --inplace
     
     - name: Run basic tests

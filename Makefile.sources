@@ -1,0 +1,393 @@
+# Makefile.sources - Advanced C Source Generation for PyMaSC
+# Modern replacement for makesource.sh with parallel builds and dependency tracking
+
+SHELL := /bin/bash
+.PHONY: all clean check help py38 py39 py310 py311 py312 platform-info docker-cleanup
+
+# Configuration
+PYTHON_VERSIONS := 3.8 3.9 3.10 3.11 3.12
+DOCKER_COMPOSE_FILE := docker-compose.build.yml
+
+# Platform detection for ARM64 x86intrin.h issues
+UNAME_M := $(shell uname -m)
+UNAME_S := $(shell uname -s)
+
+# Docker platform configuration (handled in docker-compose.yml, not as command flag)
+ifeq ($(UNAME_M),arm64)
+    PLATFORM_NOTE := ARM64 detected: Using x86_64 emulation for BitArray compatibility
+    DOCKER_COMPOSE_FILE := docker-compose.build.yml
+else
+    PLATFORM_NOTE := x86_64 detected: Native build
+    DOCKER_COMPOSE_FILE := docker-compose.build.yml
+endif
+
+# Target definitions - versioned C files
+CORE_MODULES := \
+    PyMaSC/reader/bx/bbi_file \
+    PyMaSC/reader/bx/bigwig_file \
+    PyMaSC/reader/bigwig \
+    PyMaSC/core/mappability \
+    PyMaSC/core/ncc \
+    PyMaSC/core/mscc \
+    PyMaSC/bacore/bitarray \
+    PyMaSC/bacore/mscc \
+    PyMaSC/core/readlen
+
+# Version-specific targets for Python versions
+py38: 
+	@echo "🐍 Building C sources for Python 3.8..."
+	@$(MAKE) -f Makefile.sources docker-build-py38
+
+py39:
+	@echo "🐍 Building C sources for Python 3.9..."
+	@$(MAKE) -f Makefile.sources docker-build-py39
+
+py310:
+	@echo "🐍 Building C sources for Python 3.10..."
+	@$(MAKE) -f Makefile.sources docker-build-py310
+
+py311:
+	@echo "🐍 Building C sources for Python 3.11..."
+	@$(MAKE) -f Makefile.sources docker-build-py311
+
+py312:
+	@echo "🐍 Building C sources for Python 3.12..."
+	@$(MAKE) -f Makefile.sources docker-build-py312
+
+# Main targets
+all: platform-info $(foreach version,$(PYTHON_VERSIONS),py$(subst .,,$(version))) fallback
+	@echo ""
+	@echo "🎉 All C source generation completed!"
+	@echo "📊 Summary:"
+	@$(MAKE) -f Makefile.sources show-summary
+
+# Parallel build all versions (main entry point) - Isolated build design
+parallel: platform-info
+	@echo "🚀 Starting isolated parallel C source generation (race-condition free)..."
+	@echo "📦 Each container will build in its own isolated environment"
+	@echo ""
+	@# Build all containers in parallel
+	@docker-compose -f $(DOCKER_COMPOSE_FILE) up --build --detach
+	@echo ""
+	@echo "⏳ Waiting for builds to complete..."
+	@# Wait for all containers to finish
+	@for version in $(PYTHON_VERSIONS); do \
+		py_major_minor=$$(echo "$$version" | sed 's/\.//g'); \
+		container="pymasc-build-py$$py_major_minor"; \
+		echo "  Waiting for $$container..."; \
+		docker wait "$$container" > /dev/null && echo "    ✅ Completed" || echo "    ❌ Failed"; \
+	done
+	@echo ""
+	@echo "📥 Extracting generated C files from containers..."
+	@# Extract C files from each container
+	@for version in $(PYTHON_VERSIONS); do \
+		py_major_minor=$$(echo "$$version" | sed 's/\.//g'); \
+		container="pymasc-build-py$$py_major_minor"; \
+		echo "  Extracting from $$container..."; \
+		docker cp "$$container:/output/." . 2>/dev/null && echo "    ✅ Python $$version files extracted" || echo "    ❌ Python $$version extraction failed"; \
+	done
+	@echo ""
+	@echo "🧹 Cleaning up containers..."
+	@docker-compose -f $(DOCKER_COMPOSE_FILE) down
+	@echo ""
+	@echo "📊 Organizing extracted files..."
+	@# Move C files to correct locations
+	@for f in *_[0-9][0-9].c *_[0-9][0-9][0-9].c; do \
+		if [ -f "$$f" ]; then \
+			module_path=$$(find PyMaSC -name "$${f%_*}.pyx" 2>/dev/null | head -1 | sed 's/.pyx$$//'); \
+			if [ -n "$$module_path" ]; then \
+				mv "$$f" "$$module_path"_$${f##*_} && echo "  $$f -> $$module_path"_$${f##*_}; \
+			fi; \
+		fi; \
+	done 2>/dev/null || true
+	@echo ""
+	@echo "🔄 Generating fallback _3.c files..."
+	@$(MAKE) -f Makefile.sources fallback
+	@echo ""
+	@echo "✅ Isolated parallel build completed successfully!"
+	@$(MAKE) -f Makefile.sources show-summary
+
+# Legacy staging build (slower but safer for resource-constrained systems)
+parallel-staged: platform-info
+	@echo "🚀 Starting staged parallel C source generation to avoid resource exhaustion..."
+	@echo "📊 Building in groups to prevent memory overflow"
+	@echo ""
+	@echo "🏃‍♂️ Group 1: Python 3.8 & 3.9..."
+	@docker-compose -f $(DOCKER_COMPOSE_FILE) up --build build-py38 build-py39
+	@echo ""
+	@echo "🏃‍♂️ Group 2: Python 3.10 & 3.11..."
+	@docker-compose -f $(DOCKER_COMPOSE_FILE) up --build build-py310 build-py311
+	@echo ""
+	@echo "🏃‍♂️ Group 3: Python 3.12..."
+	@docker-compose -f $(DOCKER_COMPOSE_FILE) up --build build-py312
+	@echo ""
+	@echo "📝 Organizing extracted files..."
+	@# Extract and organize C files from staged builds  
+	@for version in $(PYTHON_VERSIONS); do \
+		py_major_minor=$$(echo "$$version" | sed 's/\.//g'); \
+		container="pymasc-build-py$$py_major_minor"; \
+		docker cp "$$container:/output/." . 2>/dev/null || true; \
+	done
+	@# Move C files to correct locations
+	@for f in *_[0-9][0-9].c *_[0-9][0-9][0-9].c; do \
+		if [ -f "$$f" ]; then \
+			module_path=$$(find PyMaSC -name "$${f%_*}.pyx" 2>/dev/null | head -1 | sed 's/.pyx$$//'); \
+			if [ -n "$$module_path" ]; then \
+				mv "$$f" "$$module_path"_$${f##*_} && echo "  $$f -> $$module_path"_$${f##*_}; \
+			fi; \
+		fi; \
+	done 2>/dev/null || true
+	@echo ""
+	@echo "🔄 Generating fallback _3.c files..."
+	@$(MAKE) -f Makefile.sources fallback
+	@echo "✅ Staged parallel build completed successfully!"
+
+# Docker build commands for specific Python versions
+docker-build-py38:
+	@docker-compose -f $(DOCKER_COMPOSE_FILE) up --build build-py38
+	@$(MAKE) -f Makefile.sources rename-version VERSION=3.8
+
+docker-build-py39:
+	@docker-compose -f $(DOCKER_COMPOSE_FILE) up --build build-py39
+	@$(MAKE) -f Makefile.sources rename-version VERSION=3.9
+
+docker-build-py310:
+	@docker-compose -f $(DOCKER_COMPOSE_FILE) up --build build-py310
+	@$(MAKE) -f Makefile.sources rename-version VERSION=3.10
+
+docker-build-py311:
+	@docker-compose -f $(DOCKER_COMPOSE_FILE) up --build build-py311
+	@$(MAKE) -f Makefile.sources rename-version VERSION=3.11
+
+docker-build-py312:
+	@docker-compose -f $(DOCKER_COMPOSE_FILE) up --build build-py312
+	@$(MAKE) -f Makefile.sources rename-version VERSION=3.12
+
+# Rename generated C files with version suffix
+rename-version:
+	@if [ -z "$(VERSION)" ]; then echo "❌ ERROR: VERSION not specified"; exit 1; fi
+	@echo "📝 Renaming C files for Python $(VERSION)..."
+	@py_major_minor=$$(echo "$(VERSION)" | sed 's/\.//g'); \
+	for f in $(foreach mod,$(CORE_MODULES),$(mod).c); do \
+		if [ -f "$$f" ]; then \
+			base_name="$${f%.c}"; \
+			version_file="$${base_name}_$$py_major_minor.c"; \
+			mv "$$f" "$$version_file"; \
+			echo "  $$f -> $$version_file"; \
+		fi; \
+	done
+
+# Rename all versions (for parallel build)
+rename-all-versions:
+	@for version in $(PYTHON_VERSIONS); do \
+		$(MAKE) -f Makefile.sources rename-version VERSION=$$version; \
+	done
+
+# Generate fallback _3.c files for maximum compatibility
+fallback:
+	@echo "🔄 Generating fallback _3.c files for maximum compatibility..."
+	@$(MAKE) -f Makefile.sources clean-non-versioned
+	@docker-compose $(DOCKER_PLATFORM) -f $(DOCKER_COMPOSE_FILE) up --build build-py311
+	@for f in $(foreach mod,$(CORE_MODULES),$(mod).c); do \
+		if [ -f "$$f" ]; then \
+			mv "$$f" "$${f%.c}_3.c"; \
+			echo "  $$f -> $${f%.c}_3.c"; \
+		fi; \
+	done
+	@echo "✅ Fallback _3.c files generated"
+
+# Smart dependency checking - comprehensive build dependency analysis
+check-deps:
+	@echo "🔍 Smart Dependency Analysis..."
+	@echo ""
+	@$(MAKE) -f Makefile.sources check-bitarray-deps
+	@echo ""
+	@$(MAKE) -f Makefile.sources check-cython-deps
+	@echo ""
+	@$(MAKE) -f Makefile.sources check-docker-deps
+
+# Check BitArray library dependencies
+check-bitarray-deps:
+	@echo "📦 BitArray Library Dependencies:"
+	@bitarray_lib="external/BitArray/libbitarr.a"; \
+	bitarray_src="external/BitArray"; \
+	if [ ! -f "$$bitarray_lib" ]; then \
+		echo "  ❌ Missing: $$bitarray_lib"; \
+		echo "     → Run: cd $$bitarray_src && make libbitarr.a"; \
+	else \
+		newer_files=$$(find "$$bitarray_src" -name "*.c" -o -name "*.h" -newer "$$bitarray_lib" 2>/dev/null | head -3); \
+		if [ -n "$$newer_files" ]; then \
+			echo "  ⚠️  Outdated: $$bitarray_lib"; \
+			echo "     → Newer sources detected: $$(echo "$$newer_files" | tr '\n' ' ')"; \
+			echo "     → Run: cd $$bitarray_src && make clean && make libbitarr.a"; \
+		else \
+			echo "  ✅ Up-to-date: $$bitarray_lib"; \
+		fi; \
+	fi
+
+# Check Cython source dependencies
+check-cython-deps:
+	@echo "🐍 Cython Source Dependencies:"
+	@need_rebuild=false; \
+	missing_count=0; outdated_count=0; uptodate_count=0; \
+	for version in $(PYTHON_VERSIONS); do \
+		py_major_minor=$$(echo "$$version" | sed 's/\.//g'); \
+		echo "  Python $$version ($$py_major_minor):"; \
+		for mod in $(CORE_MODULES); do \
+			pyx_file="$$mod.pyx"; \
+			c_file="$${mod}_$$py_major_minor.c"; \
+			fallback_file="$${mod}_3.c"; \
+			if [ ! -f "$$pyx_file" ]; then \
+				echo "    ⚠️  No source: $$pyx_file (will use pre-built C)"; \
+			elif [ ! -f "$$c_file" ]; then \
+				echo "    ❌ Missing: $$c_file"; \
+				missing_count=$$((missing_count + 1)); \
+				need_rebuild=true; \
+			elif [ "$$pyx_file" -nt "$$c_file" ]; then \
+				echo "    ⚠️  Outdated: $$c_file ($$pyx_file is newer)"; \
+				outdated_count=$$((outdated_count + 1)); \
+				need_rebuild=true; \
+			else \
+				uptodate_count=$$((uptodate_count + 1)); \
+			fi; \
+		done; \
+	done; \
+	echo ""; \
+	echo "  📊 Summary: $$uptodate_count up-to-date, $$outdated_count outdated, $$missing_count missing"; \
+	if [ "$$need_rebuild" = "true" ]; then \
+		echo "  🔧 Rebuild needed: make all (sequential) or make parallel (faster)"; \
+	else \
+		echo "  ✅ All Cython sources are current"; \
+	fi
+
+# Check Docker environment dependencies
+check-docker-deps:
+	@echo "🐳 Docker Environment Dependencies:"
+	@if ! docker --version >/dev/null 2>&1; then \
+		echo "  ❌ Docker not available"; \
+		echo "     → Install Docker to use containerized builds"; \
+	else \
+		echo "  ✅ Docker available: $$(docker --version)"; \
+	fi; \
+	if ! docker-compose --version >/dev/null 2>&1; then \
+		echo "  ❌ Docker Compose not available"; \
+		echo "     → Install Docker Compose for multi-version builds"; \
+	else \
+		echo "  ✅ Docker Compose available: $$(docker-compose --version)"; \
+	fi; \
+	if [ -f "docker-compose.build.yml" ]; then \
+		echo "  ✅ Build configuration: docker-compose.build.yml"; \
+	else \
+		echo "  ❌ Missing: docker-compose.build.yml"; \
+	fi
+
+# Clean operations
+clean-non-versioned:
+	@echo "🧹 Cleaning non-versioned C sources..."
+	@find PyMaSC -name "*.c" ! -name "*_[0-9][0-9].c" ! -name "*_[0-9][0-9][0-9].c" -delete
+
+clean-versioned:
+	@echo "🧹 Cleaning versioned C sources..."
+	@find PyMaSC -name "*_[0-9][0-9].c" -delete
+	@find PyMaSC -name "*_[0-9][0-9][0-9].c" -delete
+
+clean-shared-libs:
+	@echo "🧹 Cleaning compiled shared libraries (.so files)..."
+	@so_count=$$(find PyMaSC -name "*.so" | wc -l | tr -d ' '); \
+	if [ "$$so_count" -gt 0 ]; then \
+		echo "  Removing $$so_count shared library files..."; \
+		find PyMaSC -name "*.so" -delete; \
+		echo "  ✅ Shared libraries cleaned"; \
+	else \
+		echo "  ✅ No shared libraries found"; \
+	fi
+
+clean-build-artifacts:
+	@echo "🧹 Cleaning build artifacts..."
+	@# Remove Python build directories
+	@if [ -d "build" ]; then \
+		echo "  Removing build/ directory..."; \
+		rm -rf build; \
+	fi
+	@# Remove .egg-info directories
+	@if find . -name "*.egg-info" -type d | grep -q .; then \
+		echo "  Removing .egg-info directories..."; \
+		find . -name "*.egg-info" -type d -exec rm -rf {} + 2>/dev/null || true; \
+	fi
+	@# Remove __pycache__ directories
+	@pycache_count=$$(find . -name "__pycache__" -type d | wc -l | tr -d ' '); \
+	if [ "$$pycache_count" -gt 0 ]; then \
+		echo "  Removing $$pycache_count __pycache__ directories..."; \
+		find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true; \
+	fi
+	@echo "  ✅ Build artifacts cleaned"
+
+clean: clean-non-versioned clean-versioned clean-shared-libs clean-build-artifacts docker-cleanup
+	@echo ""
+	@echo "🎉 Complete cleanup finished!"
+	@echo "  - C source files (versioned and non-versioned)"
+	@echo "  - Compiled shared libraries (.so)"
+	@echo "  - Python build artifacts"
+	@echo "  - Docker containers and volumes"
+
+# Docker cleanup
+docker-cleanup:
+	@echo "🧹 Cleaning up Docker containers..."
+	@docker-compose -f $(DOCKER_COMPOSE_FILE) down -v 2>/dev/null || true
+
+# Platform information
+platform-info:
+	@echo "🔧 Platform Information:"
+	@echo "  System: $(UNAME_S) $(UNAME_M)"
+	@echo "  Docker: $(DOCKER_PLATFORM)"
+	@echo "  Note: $(PLATFORM_NOTE)"
+	@echo ""
+
+# Show summary of generated files
+show-summary:
+	@for version in $(PYTHON_VERSIONS); do \
+		py_major_minor=$$(echo "$$version" | sed 's/\.//g'); \
+		files=$$(find PyMaSC -name "*_$$py_major_minor.c" | wc -l | tr -d ' '); \
+		if [ "$$files" -gt 0 ]; then \
+			echo "  Python $$version: $$files files"; \
+		fi; \
+	done
+	@fallback_files=$$(find PyMaSC -name "*_3.c" | wc -l | tr -d ' '); \
+	echo "  Fallback _3.c: $$fallback_files files"
+	@total_files=$$(find PyMaSC -name "*.c" | wc -l | tr -d ' '); \
+	echo "  Total C files: $$total_files"
+
+# Development helpers
+help:
+	@echo "PyMaSC C Source Generation - Makefile.sources"
+	@echo ""
+	@echo "Main Commands:"
+	@echo "  make all               - Build all versions sequentially with dependency tracking"
+	@echo "  make parallel          - Build all versions in isolated containers (recommended)"
+	@echo "  make parallel-staged   - Build all versions in staged groups (legacy)"
+	@echo "  make py38              - Build only Python 3.8 sources"
+	@echo "  make py39              - Build only Python 3.9 sources"  
+	@echo "  make py310             - Build only Python 3.10 sources"
+	@echo "  make py311             - Build only Python 3.11 sources"
+	@echo "  make py312             - Build only Python 3.12 sources"
+	@echo ""
+	@echo "Cleaning Commands:"
+	@echo "  make clean              - Complete cleanup (all sources, .so files, build artifacts)"
+	@echo "  make clean-shared-libs  - Remove compiled .so files only"
+	@echo "  make clean-versioned    - Remove versioned C files (*_38.c, *_39.c, etc.)"
+	@echo "  make clean-build-artifacts - Remove build/, __pycache__, .egg-info"
+	@echo ""
+	@echo "Utility Commands:"
+	@echo "  make check-deps   - Comprehensive dependency analysis"
+	@echo "  make platform-info - Show platform and Docker configuration"
+	@echo "  make help         - Show this help"
+	@echo ""
+	@echo "Expected Performance:"
+	@echo "  Sequential (make all): ~15 minutes"
+	@echo "  Isolated Parallel (make parallel): ~5-8 minutes (100% stable, race-free)"
+	@echo "  Staged Parallel (make parallel-staged): ~8-12 minutes (legacy, resource-constrained)"
+
+# Quick check command
+check: check-deps platform-info
+	@echo ""
+	@echo "✅ System check completed"

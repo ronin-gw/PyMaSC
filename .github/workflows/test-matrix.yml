@@ -7,7 +7,11 @@ on:
     branches: [ master ]
 
 jobs:
+  prebuild-sources:
+    uses: ./.github/workflows/test-prebuild.yml
+
   test-matrix:
+    needs: prebuild-sources
     name: Test Python ${{ matrix.python-version }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -26,6 +30,36 @@ jobs:
     - uses: actions/checkout@v4
       with:
         submodules: recursive
+    
+    - name: Download pre-built C sources
+      uses: actions/download-artifact@v4
+      with:
+        name: prebuilt-c-sources
+        path: prebuilt-c-sources/
+    
+    - name: Deploy pre-built C sources
+      run: |
+        echo "📁 Deploying pre-built C sources for Python ${{ matrix.python-version }}..."
+        py_major_minor="${{ matrix.python-version }}"
+        py_major_minor="${py_major_minor//.}"  # Remove dots: 3.8 -> 38
+        echo "Looking for files with suffix: _${py_major_minor}.c"
+        
+        # Copy version-specific C files to their correct locations
+        for file in prebuilt-c-sources/*_${py_major_minor}.c; do
+          if [ -f "$file" ]; then
+            basename=$(basename "$file" "_${py_major_minor}.c")
+            # Find the corresponding .pyx file to determine target location
+            target_dir=$(find PyMaSC -name "${basename}.pyx" | head -1 | xargs dirname)
+            if [ -n "$target_dir" ]; then
+              cp "$file" "${target_dir}/${basename}_${py_major_minor}.c"
+              echo "  ✅ Deployed: $file -> ${target_dir}/${basename}_${py_major_minor}.c"
+            fi
+          fi
+        done
+        
+        echo ""
+        echo "📊 Deployed C sources for Python ${{ matrix.python-version }}:"
+        find PyMaSC -name "*_${py_major_minor}.c" | sort
     
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
@@ -63,6 +97,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install numpy "pysam>=0.22.0" "bx-python>=0.10.0"
         pip install pytest pytest-cov matplotlib scipy
+        # Note: Cython is NOT installed - we use pre-built C sources
     
     - name: Build BitArray library
       run: |
@@ -75,14 +110,28 @@ jobs:
         fi
         cd ../..
     
-    - name: Build PyMaSC
+    - name: Build PyMaSC using pre-built C sources
+      env:
+        PYTHON_VERSION: ${{ matrix.python-version }}
+        PYTHON_MAJOR_MINOR: ${{ matrix.python-version == '3.8' && '38' || matrix.python-version == '3.9' && '39' || matrix.python-version == '3.10' && '310' || matrix.python-version == '3.11' && '311' || matrix.python-version == '3.12' && '312' }}
+        CYTHON_VERSION_SUFFIX: _${{ matrix.python-version == '3.8' && '38' || matrix.python-version == '3.9' && '39' || matrix.python-version == '3.10' && '310' || matrix.python-version == '3.11' && '311' || matrix.python-version == '3.12' && '312' }}
+        BUILD_MODE: versioned
       run: |
-        # For Python 3.8, we can use Cython
-        # For Python 3.9+, use pre-compiled C sources
-        if [ "${{ matrix.python-version }}" == "3.8" ]; then
-          pip install cython
-        fi
+        echo "🔧 Building PyMaSC using pre-built C sources for Python ${{ matrix.python-version }}..."
+        echo "Environment variables:"
+        echo "  PYTHON_VERSION=$PYTHON_VERSION"
+        echo "  PYTHON_MAJOR_MINOR=$PYTHON_MAJOR_MINOR"
+        echo "  CYTHON_VERSION_SUFFIX=$CYTHON_VERSION_SUFFIX"
+        echo "  BUILD_MODE=$BUILD_MODE"
+        echo ""
+        
+        # Build using setup.py with version-specific C sources
+        # setup.py will automatically detect and use the deployed C sources
         python setup.py build_ext --inplace
+        
+        echo ""
+        echo "📦 Verifying build results..."
+        find PyMaSC -name "*.so" | sort
     
     - name: Run import tests
       run: |

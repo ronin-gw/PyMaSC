@@ -1,0 +1,48 @@
+# PyMaSC C Source Generation Dockerfile
+# Purpose: Runtime source mounting with isolated build for race-condition prevention
+
+ARG PYTHON_VERSION=3.11
+FROM --platform=linux/amd64 python:${PYTHON_VERSION}-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    make \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+RUN pip install --upgrade pip && \
+    pip install setuptools wheel && \
+    pip install numpy cython "pysam>=0.22.0" "bx-python>=0.10.0"
+
+# Special handling for Python 3.9 - use numpy 1.x
+ARG PYTHON_VERSION
+RUN if [ "${PYTHON_VERSION}" = "3.9" ]; then \
+        pip install --upgrade "numpy<2.0"; \
+    fi
+
+# Create working directories
+WORKDIR /workspace
+RUN mkdir -p /build /output
+
+# Build command that:
+# 1. Copies mounted source to isolated build directory
+# 2. Builds BitArray
+# 3. Generates C sources 
+# 4. Copies only the generated C files to /output
+CMD ["bash", "-c", "\
+    set -e && \
+    echo '📁 Copying source to isolated build directory...' && \
+    cp -r /workspace/. /build/ && \
+    echo '🔨 Building BitArray library...' && \
+    cd /build/external/BitArray && \
+    make clean && make libbitarr.a && \
+    cd /build && \
+    echo '🐍 Generating C sources...' && \
+    python setup.py build_ext -if && \
+    echo '📦 Collecting generated C files...' && \
+    find /build/PyMaSC -name '*_'${PYTHON_MAJOR_MINOR}'.c' -exec cp {} /output/ \\; && \
+    echo '✅ C source generation complete. Files in /output:' && \
+    ls -la /output/ \
+"]

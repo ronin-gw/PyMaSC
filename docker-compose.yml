@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  pymasc-py38:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: pymasc:py38-full
+    container_name: pymasc-py38-test
+    volumes:
+      - ./tests:/pymasc/tests:ro
+      - ./test_results:/test_results
+    environment:
+      - PYTHONPATH=/pymasc
+    command: >
+      bash -c "echo 'PyMaSC Python 3.8 Tests' &&
+               python -c 'import PyMaSC; print(\"PyMaSC import successful\")' &&
+               pymasc --version &&
+               python -m pytest tests/unit/ -v"
+
+  pymasc-manylinux:
+    build:
+      context: .
+      dockerfile: Dockerfile.manylinux
+    image: pymasc:manylinux
+    container_name: pymasc-manylinux-test
+    volumes:
+      - ./tests:/project/tests:ro
+      - ./test_results:/test_results
+    environment:
+      - PYTHONPATH=/project
+    command: >
+      bash -c "echo 'PyMaSC manylinux Environment Tests' &&
+               python -c 'import PyMaSC; print(\"PyMaSC import successful on manylinux\")' &&
+               pymasc --version &&
+               python -m pytest tests/unit/ -v"
+
+  # Additional Python versions for future testing
+  # Currently focusing on Python 3.8 for GitHub Actions debugging

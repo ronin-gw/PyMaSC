@@ -1,0 +1,103 @@
+name: PyMaSC Pre-build C Sources
+
+on:
+  push:
+    branches: [ master, modernize-python-support ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  prebuild-sources:
+    name: Generate Pre-built C Sources
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Cache Docker layers
+      uses: actions/cache@v4
+      with:
+        path: /tmp/.buildx-cache
+        key: ${{ runner.os }}-buildx-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-buildx-
+    
+    - name: Install make and dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y make
+    
+    - name: Generate version-specific C sources using Isolated Build
+      run: |
+        echo "🚀 Starting Isolated Parallel C Source Generation..."
+        make -f Makefile.sources clean-versioned
+        make -f Makefile.sources parallel
+    
+    - name: Verify generated C sources
+      run: |
+        echo "📊 Verifying generated C sources..."
+        make -f Makefile.sources show-summary
+        echo ""
+        echo "🔍 Detailed file verification:"
+        for version in 38 39 310 311 312; do
+          echo "Python ${version}:"
+          find PyMaSC -name "*_${version}.c" | sort
+          echo "  Files: $(find PyMaSC -name "*_${version}.c" | wc -l)"
+        done
+        echo ""
+        echo "📦 Total versioned C files: $(find PyMaSC -name "*_[0-9][0-9].c" -o -name "*_[0-9][0-9][0-9].c" | wc -l)"
+    
+    - name: Collect generated C sources
+      run: |
+        echo "📁 Collecting all generated C sources for artifact..."
+        mkdir -p artifacts/c-sources
+        find PyMaSC -name "*_[0-9][0-9].c" -o -name "*_[0-9][0-9][0-9].c" | while read file; do
+          echo "  Copying: $file"
+          cp "$file" artifacts/c-sources/
+        done
+        echo ""
+        echo "📦 Artifact contents:"
+        ls -la artifacts/c-sources/
+        echo "Total files in artifact: $(ls artifacts/c-sources/ | wc -l)"
+    
+    - name: Upload pre-built C sources as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: prebuilt-c-sources
+        path: artifacts/c-sources/
+        retention-days: 30
+        compression-level: 6
+    
+    - name: Create build summary
+      run: |
+        echo "# 🎉 PyMaSC Pre-built C Sources Generation Summary" > build-summary.md
+        echo "" >> build-summary.md
+        echo "## 📊 Generated Files by Python Version" >> build-summary.md
+        for version in 38 39 310 311 312; do
+          count=$(find PyMaSC -name "*_${version}.c" | wc -l)
+          echo "- **Python ${version}**: ${count} files" >> build-summary.md
+        done
+        echo "" >> build-summary.md
+        echo "## 📁 Available Files" >> build-summary.md
+        echo '```' >> build-summary.md
+        ls artifacts/c-sources/ | sort >> build-summary.md
+        echo '```' >> build-summary.md
+        echo "" >> build-summary.md
+        echo "## ⚡ Build System Info" >> build-summary.md
+        echo "- **Build method**: Isolated Docker parallel build" >> build-summary.md
+        echo "- **Race conditions**: Eliminated" >> build-summary.md
+        echo "- **Artifact name**: \`prebuilt-c-sources\`" >> build-summary.md
+        echo "- **Retention**: 30 days" >> build-summary.md
+    
+    - name: Upload build summary
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-summary
+        path: build-summary.md
+        retention-days: 30

@@ -1,0 +1,90 @@
+version: '3.8'
+
+# Docker Compose configuration for generating version-specific C sources
+# Isolated build design with runtime source mounting to prevent race conditions
+
+services:
+  build-py38:
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: Dockerfile.build
+      args:
+        PYTHON_VERSION: "3.8"
+    image: pymasc:build-py38
+    container_name: pymasc-build-py38
+    volumes:
+      - .:/workspace:ro  # Mount source as read-only
+    environment:
+      - PYTHON_VERSION=3.8
+      - PYTHON_MAJOR_MINOR=38
+      - CYTHON_VERSION_SUFFIX=_38
+      - BUILD_MODE=versioned
+
+  build-py39:
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: Dockerfile.build
+      args:
+        PYTHON_VERSION: "3.9"
+    image: pymasc:build-py39
+    container_name: pymasc-build-py39
+    volumes:
+      - .:/workspace:ro  # Mount source as read-only
+    environment:
+      - PYTHON_VERSION=3.9
+      - PYTHON_MAJOR_MINOR=39
+      - CYTHON_VERSION_SUFFIX=_39
+      - BUILD_MODE=versioned
+
+  build-py310:
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: Dockerfile.build
+      args:
+        PYTHON_VERSION: "3.10"
+    image: pymasc:build-py310
+    container_name: pymasc-build-py310
+    volumes:
+      - .:/workspace:ro  # Mount source as read-only
+    environment:
+      - PYTHON_VERSION=3.10
+      - PYTHON_MAJOR_MINOR=310
+      - CYTHON_VERSION_SUFFIX=_310
+      - BUILD_MODE=versioned
+
+  build-py311:
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: Dockerfile.build
+      args:
+        PYTHON_VERSION: "3.11"
+    image: pymasc:build-py311
+    container_name: pymasc-build-py311
+    volumes:
+      - .:/workspace:ro  # Mount source as read-only
+    environment:
+      - PYTHON_VERSION=3.11
+      - PYTHON_MAJOR_MINOR=311
+      - CYTHON_VERSION_SUFFIX=_311
+      - BUILD_MODE=versioned
+
+  build-py312:
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: Dockerfile.build
+      args:
+        PYTHON_VERSION: "3.12"
+    image: pymasc:build-py312
+    container_name: pymasc-build-py312
+    volumes:
+      - .:/workspace:ro  # Mount source as read-only
+    environment:
+      - PYTHON_VERSION=3.12
+      - PYTHON_MAJOR_MINOR=312
+      - CYTHON_VERSION_SUFFIX=_312
+      - BUILD_MODE=versioned

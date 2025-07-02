@@ -1,0 +1,50 @@
+# PyMaSC manylinux Environment Test
+# Purpose: Reproduce the exact environment used by GitHub Actions cibuildwheel
+
+FROM quay.io/pypa/manylinux2014_x86_64:2024.10.01-1
+
+# Install system dependencies (CentOS/RHEL style)
+RUN yum install -y \
+    gcc-c++ \
+    make \
+    bzip2-devel \
+    zlib-devel \
+    openssl-devel \
+    libcurl-devel \
+    xz-devel
+
+# Set working directory
+WORKDIR /project
+
+# Use Python 3.8 from manylinux
+ENV PATH="/opt/python/cp38-cp38/bin:$PATH"
+ENV PYTHON_VERSION="3.8"
+
+# Copy source code
+COPY . .
+
+# Install Python dependencies in order
+RUN pip install --upgrade pip && \
+    pip install numpy cython && \
+    pip install scipy && \
+    pip install "pysam>=0.22.0" "bx-python>=0.10.0" && \
+    pip install pytest
+
+# Build BitArray library
+RUN cd external/BitArray && \
+    make clean && \
+    make CC="gcc -fPIC" libbitarr.a && \
+    cd ../..
+
+# Build PyMaSC
+RUN python setup.py build_ext --inplace
+
+# Test installation
+RUN python -c "import PyMaSC; print('PyMaSC import successful on manylinux')" && \
+    pymasc --version
+
+# Default test command
+CMD ["bash", "-c", "echo 'Running PyMaSC manylinux Tests...' && \
+     python -c 'import PyMaSC; print(\"PyMaSC import successful\")' && \
+     pymasc --version && \
+     python -m pytest tests/unit/ -v"]

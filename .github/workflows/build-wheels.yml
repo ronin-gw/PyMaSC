@@ -10,7 +10,11 @@ on:
     types: [ published ]
 
 jobs:
+  prebuild_sources:
+    uses: ./.github/workflows/test-prebuild.yml
+
   build_wheels:
+    needs: prebuild_sources
     name: Build wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -22,6 +26,36 @@ jobs:
       with:
         submodules: recursive
     
+    - name: Download pre-built C sources
+      uses: actions/download-artifact@v4
+      with:
+        name: prebuilt-c-sources
+        path: prebuilt-c-sources/
+    
+    - name: Deploy pre-built C sources for all Python versions
+      run: |
+        echo "📁 Deploying pre-built C sources for wheel building..."
+        
+        # Deploy all version-specific C files to their correct locations
+        for version in 38 39 310 311 312; do
+          echo "Deploying Python ${version} C sources..."
+          for file in prebuilt-c-sources/*_${version}.c; do
+            if [ -f "$file" ]; then
+              basename=$(basename "$file" "_${version}.c")
+              # Find the corresponding .pyx file to determine target location
+              target_dir=$(find PyMaSC -name "${basename}.pyx" | head -1 | xargs dirname)
+              if [ -n "$target_dir" ]; then
+                cp "$file" "${target_dir}/${basename}_${version}.c"
+                echo "  ✅ Deployed: $file -> ${target_dir}/${basename}_${version}.c"
+              fi
+            fi
+          done
+        done
+        
+        echo ""
+        echo "📊 All deployed C sources:"
+        find PyMaSC -name "*_[0-9][0-9].c" -o -name "*_[0-9][0-9][0-9].c" | sort
+    
     - name: Build wheels
       uses: pypa/cibuildwheel@v2.21.2
       env:
@@ -30,25 +64,28 @@ jobs:
         # Skip 32-bit builds and PyPy
         CIBW_SKIP: "*-win32 *-manylinux_i686 pp*"
         
-        # Install build dependencies before building
+        # Install build dependencies before building (NO Cython - using pre-built C sources)
         CIBW_BEFORE_BUILD: >
-          pip install numpy cython &&
+          pip install numpy &&
           pip install "pysam>=0.22.0" "bx-python>=0.10.0"
         
         # Build BitArray library before Python build
         CIBW_BEFORE_BUILD_LINUX: >
           yum install -y gcc-c++ make &&
-          pip install numpy cython &&
+          python -c "import sys; print('Python version:', sys.version)" &&
+          if python -c "import sys; sys.exit(0 if sys.version_info[:2] == (3, 9) else 1)"; then pip install 'numpy<2.0'; else pip install numpy; fi &&
           pip install "pysam>=0.22.0" "bx-python>=0.10.0" &&
           cd external/BitArray && make clean && make CC="gcc -fPIC" libbitarr.a && cd ../..
         
         CIBW_BEFORE_BUILD_MACOS: >
-          pip install numpy cython &&
+          python -c "import sys; print('Python version:', sys.version)" &&
+          if python -c "import sys; sys.exit(0 if sys.version_info[:2] == (3, 9) else 1)"; then pip install 'numpy<2.0'; else pip install numpy; fi &&
           pip install "pysam>=0.22.0" "bx-python>=0.10.0" &&
           cd external/BitArray && make clean && make CC="gcc -arch x86_64 -arch arm64" libbitarr.a && cd ../..
         
         CIBW_BEFORE_BUILD_WINDOWS: >
-          pip install numpy cython &&
+          python -c "import sys; print('Python version:', sys.version)" &&
+          if python -c "import sys; sys.exit(0 if sys.version_info[:2] == (3, 9) else 1)"; then pip install 'numpy<2.0'; else pip install numpy; fi &&
           pip install "pysam>=0.22.0" "bx-python>=0.10.0"
         
         # Test requirements
@@ -59,9 +96,10 @@ jobs:
           pymasc --version &&
           python -c "import PyMaSC; print('PyMaSC import successful')"
         
-        # Environment variables for build
+        # Environment variables for build (enable versioned C source mode)
         CIBW_ENVIRONMENT: >
           SETUPTOOLS_USE_DISTUTILS=stdlib
+          BUILD_MODE=versioned
         
         # Repair wheel settings for different platforms
         CIBW_REPAIR_WHEEL_COMMAND_LINUX: auditwheel repair -w {dest_dir} {wheel}

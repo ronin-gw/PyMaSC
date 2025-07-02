@@ -1,0 +1,134 @@
+[build-system]
+requires = [
+    "setuptools>=64",
+    "wheel",
+    "Cython>=0.29.0",
+    "numpy>=1.21.0",
+    "pysam>=0.22.0",
+    "bx-python>=0.10.0",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "PyMaSC"
+dynamic = ["version"]
+description = "Python implementation to calc mappability-sensitive cross-correlation for fragment length estimation and quality control for ChIP-Seq."
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.8"
+authors = [
+    {name = "Hayato Anzawa", email = "anzawa@sb.ecei.tohoku.ac.jp"},
+]
+keywords = ["NGS", "ChIP-Seq", "bioinformatics", "cross-correlation", "mappability"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: POSIX",
+    "Programming Language :: Cython",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+dependencies = [
+    "numpy>=1.21.0",
+    "pysam>=0.22.0",
+    "bx-python>=0.10.0",
+]
+
+[project.optional-dependencies]
+plot = [
+    "matplotlib>=3.5.0",
+    "scipy>=1.7.0",
+]
+test = [
+    "pytest>=6.0",
+    "pytest-cov",
+]
+dev = [
+    "PyMaSC[plot,test]",
+    "Cython>=0.29.0",
+    "build",
+    "twine",
+]
+
+[project.urls]
+Homepage = "https://github.com/ronin-gw/PyMaSC"
+Repository = "https://github.com/ronin-gw/PyMaSC"
+Documentation = "https://github.com/ronin-gw/PyMaSC"
+"Bug Tracker" = "https://github.com/ronin-gw/PyMaSC/issues"
+
+[project.scripts]
+pymasc = "PyMaSC.pymasc:main"
+pymasc-precalc = "PyMaSC.calcmappablelen:main"
+pymasc-plot = "PyMaSC.plot:main"
+
+[tool.setuptools.dynamic]
+version = {attr = "PyMaSC.VERSION"}
+
+[tool.setuptools.packages.find]
+include = ["PyMaSC*"]
+
+[tool.setuptools.package-data]
+"*" = ["*.ps"]
+
+[tool.cibuildwheel]
+build = "cp38-* cp39-* cp310-* cp311-* cp312-*"
+skip = "*-win32 *-manylinux_i686 pp*"
+
+[tool.cibuildwheel.linux]
+before-build = [
+    "yum install -y gcc-c++ make",
+    "pip install numpy cython",
+    "pip install 'pysam>=0.22.0' 'bx-python>=0.10.0'",
+    "cd external/BitArray && make clean && make CC='gcc -fPIC' libbitarr.a && cd ../..",
+]
+
+[tool.cibuildwheel.macos]
+before-build = [
+    "pip install numpy cython",
+    "pip install 'pysam>=0.22.0' 'bx-python>=0.10.0'",
+    "cd external/BitArray && make clean && make CC='gcc -arch x86_64 -arch arm64' libbitarr.a && cd ../..",
+]
+
+[tool.cibuildwheel.windows]
+before-build = [
+    "pip install numpy cython",
+    "pip install 'pysam>=0.22.0' 'bx-python>=0.10.0'",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "--verbose --tb=short"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+
+[tool.coverage.run]
+source = ["PyMaSC"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "setup.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+]

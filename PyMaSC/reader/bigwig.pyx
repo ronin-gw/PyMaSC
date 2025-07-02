@@ -1,3 +1,4 @@
+# cython: language_level=3
 from bx.bbi.types cimport bits32
 from PyMaSC.reader.bx.bbi_file cimport interval
 from PyMaSC.reader.bx.bigwig_file cimport BigWigFile

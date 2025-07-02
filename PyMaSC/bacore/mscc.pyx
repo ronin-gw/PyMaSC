@@ -1,3 +1,4 @@
+# cython: language_level=3
 import logging
 
 from libc.stdint cimport int_fast64_t as int64

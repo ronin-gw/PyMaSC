@@ -1,3 +1,4 @@
+# cython: language_level=3
 from bx.bbi.bpt_file cimport BPTFile as bxBPTFile
 from bx.bbi.types cimport UBYTE, bits16, bits64
 

@@ -1,3 +1,4 @@
+# cython: language_level=3
 cimport numpy
 from bx.bbi.types cimport bits32, bits16, UBYTE
 

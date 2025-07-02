@@ -128,18 +128,7 @@ jobs:
         echo "  Compiler used: $(gcc --version | head -1)"
         
         # Test that we can import all Cython modules
-        python -c "
-import sys
-try:
-    from PyMaSC.core import ncc, mscc, mappability, readlen
-    from PyMaSC.bacore import bitarray, mscc as ba_mscc
-    from PyMaSC.reader.bx import bbi_file, bigwig_file
-    from PyMaSC.reader import bigwig
-    print('✅ All Cython modules imported successfully on Python', sys.version_info[:2])
-except ImportError as e:
-    print('❌ Import failed:', e)
-    sys.exit(1)
-"
+        python -c "import sys; from PyMaSC.core import ncc, mscc, mappability, readlen; from PyMaSC.bacore import bitarray, mscc as ba_mscc; from PyMaSC.reader.bx import bbi_file, bigwig_file; from PyMaSC.reader import bigwig; print('✅ All Cython modules imported successfully on Python', sys.version_info[:2])"
     
     - name: Run unit tests
       run: |

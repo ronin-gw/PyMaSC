@@ -1,0 +1,115 @@
+name: PyMaSC Matrix Tests
+
+on:
+  push:
+    branches: [ master, modernize-python-support ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  test-matrix:
+    name: Test Python ${{ matrix.python-version }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+        exclude:
+          # Exclude some combinations to save CI time initially
+          - os: macos-latest
+            python-version: '3.9'
+          - os: macos-latest
+            python-version: '3.11'
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Get pip cache dir
+      id: pip-cache
+      run: |
+        echo "dir=$(pip cache dir)" >> $GITHUB_OUTPUT
+    
+    - name: Cache pip
+      uses: actions/cache@v3
+      with:
+        path: ${{ steps.pip-cache.outputs.dir }}
+        key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('**/setup.py') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-${{ matrix.python-version }}-
+          ${{ runner.os }}-pip-
+    
+    - name: Install system dependencies (Ubuntu)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc g++ make
+    
+    - name: Install system dependencies (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        # macOS has gcc/make by default with Xcode tools
+        echo "Using system compiler"
+    
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install numpy "pysam>=0.22.0" "bx-python>=0.10.0"
+        pip install pytest pytest-cov matplotlib scipy
+    
+    - name: Build BitArray library
+      run: |
+        cd external/BitArray
+        make clean
+        if [ "$RUNNER_OS" == "macOS" ]; then
+          make CC="gcc -arch x86_64" libbitarr.a
+        else
+          make libbitarr.a
+        fi
+        cd ../..
+    
+    - name: Build PyMaSC
+      run: |
+        # For Python 3.8, we can use Cython
+        # For Python 3.9+, use pre-compiled C sources
+        if [ "${{ matrix.python-version }}" == "3.8" ]; then
+          pip install cython
+        fi
+        python setup.py build_ext --inplace
+    
+    - name: Run import tests
+      run: |
+        python -c "import PyMaSC; print(f'PyMaSC version: {PyMaSC.VERSION}')"
+        python -c "from PyMaSC.core.ncc import NaiveCCCalculator; print('NCC imported')"
+        python -c "from PyMaSC.bacore.bitarray import bitarray; print('bitarray imported')"
+    
+    - name: Run unit tests
+      run: |
+        python -m pytest tests/unit/ -v --tb=short
+    
+    - name: Run integration tests (quick)
+      run: |
+        python -m pytest tests/integration/ -k "not slow" -v --tb=short
+    
+    - name: Test PyMaSC commands
+      run: |
+        python -m PyMaSC.pymasc --version
+        python -m PyMaSC.calcmappablelen --version
+        python -m PyMaSC.plot --version
+    
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-results-${{ matrix.os }}-${{ matrix.python-version }}
+        path: |
+          pytest-report.xml
+          coverage.xml
+        retention-days: 30

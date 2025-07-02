@@ -1,4 +1,4 @@
-name: PyMaSC Matrix Tests
+name: PyMaSC Matrix Tests - Source Build
 
 on:
   push:
@@ -7,12 +7,8 @@ on:
     branches: [ master ]
 
 jobs:
-  prebuild-sources:
-    uses: ./.github/workflows/test-prebuild.yml
-
   test-matrix:
-    needs: prebuild-sources
-    name: Test Python ${{ matrix.python-version }} on ${{ matrix.os }}
+    name: Test Python ${{ matrix.python-version }} on ${{ matrix.os }} (Source Build)
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -31,36 +27,6 @@ jobs:
       with:
         submodules: recursive
     
-    - name: Download pre-built C sources
-      uses: actions/download-artifact@v4
-      with:
-        name: prebuilt-c-sources
-        path: prebuilt-c-sources/
-    
-    - name: Deploy pre-built C sources
-      run: |
-        echo "📁 Deploying pre-built C sources for Python ${{ matrix.python-version }}..."
-        py_major_minor="${{ matrix.python-version }}"
-        py_major_minor="${py_major_minor//.}"  # Remove dots: 3.8 -> 38
-        echo "Looking for files with suffix: _${py_major_minor}.c"
-        
-        # Copy version-specific C files to their correct locations
-        for file in prebuilt-c-sources/*_${py_major_minor}.c; do
-          if [ -f "$file" ]; then
-            basename=$(basename "$file" "_${py_major_minor}.c")
-            # Find the corresponding .pyx file to determine target location
-            target_dir=$(find PyMaSC -name "${basename}.pyx" | head -1 | xargs dirname)
-            if [ -n "$target_dir" ]; then
-              cp "$file" "${target_dir}/${basename}_${py_major_minor}.c"
-              echo "  ✅ Deployed: $file -> ${target_dir}/${basename}_${py_major_minor}.c"
-            fi
-          fi
-        done
-        
-        echo ""
-        echo "📊 Deployed C sources for Python ${{ matrix.python-version }}:"
-        find PyMaSC -name "*_${py_major_minor}.c" | sort
-    
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
@@ -72,13 +38,13 @@ jobs:
         echo "dir=$(pip cache dir)" >> $GITHUB_OUTPUT
     
     - name: Cache pip
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ${{ steps.pip-cache.outputs.dir }}
-        key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('**/setup.py') }}
+        key: ${{ runner.os }}-pip-matrix-${{ matrix.python-version }}-${{ hashFiles('**/setup.py') }}
         restore-keys: |
-          ${{ runner.os }}-pip-${{ matrix.python-version }}-
-          ${{ runner.os }}-pip-
+          ${{ runner.os }}-pip-matrix-${{ matrix.python-version }}-
+          ${{ runner.os }}-pip-matrix-
     
     - name: Install system dependencies (Ubuntu)
       if: runner.os == 'Linux'
@@ -90,14 +56,21 @@ jobs:
       if: runner.os == 'macOS'
       run: |
         # macOS has gcc/make by default with Xcode tools
-        echo "Using system compiler"
+        echo "Using system compiler (Xcode Command Line Tools)"
+        xcode-select --print-path
     
-    - name: Install Python dependencies
+    - name: Install Python dependencies with Cython
       run: |
         python -m pip install --upgrade pip
-        pip install numpy "pysam>=0.22.0" "bx-python>=0.10.0"
+        # Python 3.9 requires numpy<2.0 for Cython compatibility
+        if [ "${{ matrix.python-version }}" = "3.9" ]; then
+          echo "Installing numpy<2.0 for Python 3.9 compatibility"
+          pip install "numpy<2.0" cython
+        else
+          pip install numpy cython
+        fi
+        pip install "pysam>=0.22.0" "bx-python>=0.10.0"
         pip install pytest pytest-cov matplotlib scipy
-        # Note: Cython is NOT installed - we use pre-built C sources
     
     - name: Build BitArray library
       run: |
@@ -106,58 +79,87 @@ jobs:
         if [ "$RUNNER_OS" == "macOS" ]; then
           make CC="gcc -arch x86_64" libbitarr.a
         else
-          make libbitarr.a
+          make CC="gcc -fPIC" libbitarr.a
         fi
         cd ../..
     
-    - name: Build PyMaSC using pre-built C sources
-      env:
-        PYTHON_VERSION: ${{ matrix.python-version }}
-        PYTHON_MAJOR_MINOR: ${{ matrix.python-version == '3.8' && '38' || matrix.python-version == '3.9' && '39' || matrix.python-version == '3.10' && '310' || matrix.python-version == '3.11' && '311' || matrix.python-version == '3.12' && '312' }}
-        CYTHON_VERSION_SUFFIX: _${{ matrix.python-version == '3.8' && '38' || matrix.python-version == '3.9' && '39' || matrix.python-version == '3.10' && '310' || matrix.python-version == '3.11' && '311' || matrix.python-version == '3.12' && '312' }}
-        BUILD_MODE: versioned
+    - name: Build PyMaSC from .pyx sources (Full Cython Build)
       run: |
-        echo "🔧 Building PyMaSC using pre-built C sources for Python ${{ matrix.python-version }}..."
-        echo "Environment variables:"
-        echo "  PYTHON_VERSION=$PYTHON_VERSION"
-        echo "  PYTHON_MAJOR_MINOR=$PYTHON_MAJOR_MINOR"
-        echo "  CYTHON_VERSION_SUFFIX=$CYTHON_VERSION_SUFFIX"
-        echo "  BUILD_MODE=$BUILD_MODE"
+        echo "🔧 Building PyMaSC from .pyx sources for Python ${{ matrix.python-version }}..."
+        echo "This tests the complete build process including Cython compilation"
         echo ""
         
-        # Build using setup.py with version-specific C sources
-        # setup.py will automatically detect and use the deployed C sources
+        # Clean any existing build artifacts
+        find PyMaSC -name "*.c" -delete 2>/dev/null || true
+        find PyMaSC -name "*.so" -delete 2>/dev/null || true
+        rm -rf build/ 2>/dev/null || true
+        
+        # Build directly from .pyx files - this is the REAL build test
         python setup.py build_ext --inplace
         
         echo ""
-        echo "📦 Verifying build results..."
+        echo "📦 Verifying build results (.so files):"
         find PyMaSC -name "*.so" | sort
+        echo "  Total .so files: $(find PyMaSC -name "*.so" | wc -l)"
+        
+        echo ""
+        echo "📁 Generated C files during build:"
+        find PyMaSC -name "*.c" | sort
+        echo "  Total .c files: $(find PyMaSC -name "*.c" | wc -l)"
     
     - name: Run import tests
       run: |
+        echo "🧪 Testing imports for Python ${{ matrix.python-version }}..."
         python -c "import PyMaSC; print(f'PyMaSC version: {PyMaSC.VERSION}')"
-        python -c "from PyMaSC.core.ncc import NaiveCCCalculator; print('NCC imported')"
-        python -c "from PyMaSC.bacore.bitarray import bitarray; print('bitarray imported')"
+        python -c "from PyMaSC.core.ncc import NaiveCCCalculator; print('✅ NCC imported successfully')"
+        python -c "from PyMaSC.bacore.bitarray import bitarray; print('✅ bitarray imported successfully')"
+        python -c "from PyMaSC.core.mscc import MSCCCalculator; print('✅ MSCC imported successfully')"
+    
+    - name: Test build-time compilation compatibility
+      run: |
+        echo "🔍 Testing Python ${{ matrix.python-version }} compilation compatibility..."
+        echo "  Python version: $(python --version)"
+        echo "  Numpy version: $(python -c 'import numpy; print(numpy.__version__)')"
+        echo "  Cython version: $(python -c 'import Cython; print(Cython.__version__)')"
+        echo "  Compiler used: $(gcc --version | head -1)"
+        
+        # Test that we can import all Cython modules
+        python -c "
+import sys
+try:
+    from PyMaSC.core import ncc, mscc, mappability, readlen
+    from PyMaSC.bacore import bitarray, mscc as ba_mscc
+    from PyMaSC.reader.bx import bbi_file, bigwig_file
+    from PyMaSC.reader import bigwig
+    print('✅ All Cython modules imported successfully on Python', sys.version_info[:2])
+except ImportError as e:
+    print('❌ Import failed:', e)
+    sys.exit(1)
+"
     
     - name: Run unit tests
       run: |
+        echo "🧪 Running unit tests for Python ${{ matrix.python-version }}..."
         python -m pytest tests/unit/ -v --tb=short
     
     - name: Run integration tests (quick)
       run: |
+        echo "🧪 Running integration tests for Python ${{ matrix.python-version }}..."
         python -m pytest tests/integration/ -k "not slow" -v --tb=short
     
     - name: Test PyMaSC commands
       run: |
+        echo "🧪 Testing PyMaSC command-line interfaces..."
         python -m PyMaSC.pymasc --version
         python -m PyMaSC.calcmappablelen --version
         python -m PyMaSC.plot --version
+        echo "✅ All CLI commands working on Python ${{ matrix.python-version }}"
     
     - name: Upload test results
       if: always()
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
-        name: test-results-${{ matrix.os }}-${{ matrix.python-version }}
+        name: test-results-source-build-${{ matrix.os }}-${{ matrix.python-version }}
         path: |
           pytest-report.xml
           coverage.xml

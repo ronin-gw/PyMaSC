@@ -11,62 +11,142 @@ jobs:
   prebuild-sources:
     name: Generate Pre-built C Sources
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
     
     steps:
     - uses: actions/checkout@v4
       with:
         submodules: recursive
     
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
     
-    - name: Cache Docker layers
+    - name: Get pip cache dir
+      id: pip-cache
+      run: |
+        echo "dir=$(pip cache dir)" >> $GITHUB_OUTPUT
+    
+    - name: Cache pip
       uses: actions/cache@v4
       with:
-        path: /tmp/.buildx-cache
-        key: ${{ runner.os }}-buildx-${{ github.sha }}
+        path: ${{ steps.pip-cache.outputs.dir }}
+        key: ${{ runner.os }}-pip-prebuild-${{ matrix.python-version }}-${{ hashFiles('**/setup.py') }}
         restore-keys: |
-          ${{ runner.os }}-buildx-
+          ${{ runner.os }}-pip-prebuild-${{ matrix.python-version }}-
+          ${{ runner.os }}-pip-prebuild-
     
-    - name: Install make and dependencies
+    - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y make
+        sudo apt-get install -y gcc g++ make
     
-    - name: Generate version-specific C sources using Isolated Build
+    - name: Install Python dependencies
       run: |
-        echo "🚀 Starting Isolated Parallel C Source Generation..."
-        make -f Makefile.sources clean-versioned
-        make -f Makefile.sources parallel
+        python -m pip install --upgrade pip
+        # Python 3.9 requires numpy<2.0 for Cython compatibility
+        if [ "${{ matrix.python-version }}" = "3.9" ]; then
+          pip install "numpy<2.0" cython
+        else
+          pip install numpy cython
+        fi
+        pip install "pysam>=0.22.0" "bx-python>=0.10.0"
     
-    - name: Verify generated C sources
+    - name: Build BitArray library
       run: |
-        echo "📊 Verifying generated C sources..."
-        make -f Makefile.sources show-summary
+        cd external/BitArray
+        make clean
+        make CC="gcc -fPIC" libbitarr.a
+        cd ../..
+    
+    - name: Generate version-specific C sources
+      env:
+        PYTHON_VERSION: ${{ matrix.python-version }}
+        PYTHON_MAJOR_MINOR: ${{ matrix.python-version == '3.8' && '38' || matrix.python-version == '3.9' && '39' || matrix.python-version == '3.10' && '310' || matrix.python-version == '3.11' && '311' || matrix.python-version == '3.12' && '312' }}
+        CYTHON_VERSION_SUFFIX: _${{ matrix.python-version == '3.8' && '38' || matrix.python-version == '3.9' && '39' || matrix.python-version == '3.10' && '310' || matrix.python-version == '3.11' && '311' || matrix.python-version == '3.12' && '312' }}
+        BUILD_MODE: versioned
+      run: |
+        echo "🐍 Generating C sources for Python ${{ matrix.python-version }}..."
+        echo "Environment variables:"
+        echo "  PYTHON_VERSION=$PYTHON_VERSION"
+        echo "  PYTHON_MAJOR_MINOR=$PYTHON_MAJOR_MINOR"
+        echo "  CYTHON_VERSION_SUFFIX=$CYTHON_VERSION_SUFFIX"
+        echo "  BUILD_MODE=$BUILD_MODE"
         echo ""
-        echo "🔍 Detailed file verification:"
-        for version in 38 39 310 311 312; do
-          echo "Python ${version}:"
-          find PyMaSC -name "*_${version}.c" | sort
-          echo "  Files: $(find PyMaSC -name "*_${version}.c" | wc -l)"
-        done
+        
+        # Build using setup.py with version-specific environment variables
+        python setup.py build_ext --build-temp=build_${{ matrix.python-version }}
+        
         echo ""
-        echo "📦 Total versioned C files: $(find PyMaSC -name "*_[0-9][0-9].c" -o -name "*_[0-9][0-9][0-9].c" | wc -l)"
+        echo "📁 Generated C sources for Python ${{ matrix.python-version }}:"
+        find PyMaSC -name "*_$PYTHON_MAJOR_MINOR.c" | sort
+        echo "  Files: $(find PyMaSC -name "*_$PYTHON_MAJOR_MINOR.c" | wc -l)"
     
-    - name: Collect generated C sources
+    - name: Collect generated C sources for artifact
+      env:
+        PYTHON_MAJOR_MINOR: ${{ matrix.python-version == '3.8' && '38' || matrix.python-version == '3.9' && '39' || matrix.python-version == '3.10' && '310' || matrix.python-version == '3.11' && '311' || matrix.python-version == '3.12' && '312' }}
       run: |
-        echo "📁 Collecting all generated C sources for artifact..."
-        mkdir -p artifacts/c-sources
-        find PyMaSC -name "*_[0-9][0-9].c" -o -name "*_[0-9][0-9][0-9].c" | while read file; do
+        echo "📦 Collecting C sources for Python ${{ matrix.python-version }}..."
+        mkdir -p artifacts/c-sources-${{ matrix.python-version }}
+        find PyMaSC -name "*_$PYTHON_MAJOR_MINOR.c" | while read file; do
           echo "  Copying: $file"
-          cp "$file" artifacts/c-sources/
+          cp "$file" artifacts/c-sources-${{ matrix.python-version }}/
         done
+        
         echo ""
-        echo "📦 Artifact contents:"
-        ls -la artifacts/c-sources/
-        echo "Total files in artifact: $(ls artifacts/c-sources/ | wc -l)"
+        echo "📊 Artifact contents for Python ${{ matrix.python-version }}:"
+        ls -la artifacts/c-sources-${{ matrix.python-version }}/
+        echo "Total files: $(ls artifacts/c-sources-${{ matrix.python-version }}/ | wc -l)"
     
-    - name: Upload pre-built C sources as artifact
+    - name: Upload C sources for Python ${{ matrix.python-version }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: prebuilt-c-sources-py${{ matrix.python-version }}
+        path: artifacts/c-sources-${{ matrix.python-version }}/
+        retention-days: 30
+        compression-level: 6
+
+  collect-all-sources:
+    name: Collect All C Sources
+    runs-on: ubuntu-latest
+    needs: prebuild-sources
+    
+    steps:
+    - name: Download all C source artifacts
+      uses: actions/download-artifact@v4
+      with:
+        pattern: prebuilt-c-sources-py*
+        path: downloaded-sources/
+        merge-multiple: false
+    
+    - name: Merge all C sources into single artifact
+      run: |
+        echo "📁 Merging all C sources into single artifact..."
+        mkdir -p artifacts/c-sources
+        
+        for version_dir in downloaded-sources/prebuilt-c-sources-py*/; do
+          if [ -d "$version_dir" ]; then
+            echo "  Processing: $version_dir"
+            cp "$version_dir"*.c artifacts/c-sources/ 2>/dev/null || true
+          fi
+        done
+        
+        echo ""
+        echo "📊 Final merged artifact contents:"
+        ls -la artifacts/c-sources/
+        echo "Total files: $(ls artifacts/c-sources/ | wc -l)"
+        
+        echo ""
+        echo "🔍 Files by Python version:"
+        for version in 38 39 310 311 312; do
+          count=$(ls artifacts/c-sources/*_${version}.c 2>/dev/null | wc -l)
+          echo "  Python ${version}: ${count} files"
+        done
+    
+    - name: Upload merged pre-built C sources
       uses: actions/upload-artifact@v4
       with:
         name: prebuilt-c-sources
@@ -80,7 +160,7 @@ jobs:
         echo "" >> build-summary.md
         echo "## 📊 Generated Files by Python Version" >> build-summary.md
         for version in 38 39 310 311 312; do
-          count=$(find PyMaSC -name "*_${version}.c" | wc -l)
+          count=$(ls artifacts/c-sources/*_${version}.c 2>/dev/null | wc -l)
           echo "- **Python ${version}**: ${count} files" >> build-summary.md
         done
         echo "" >> build-summary.md
@@ -90,8 +170,8 @@ jobs:
         echo '```' >> build-summary.md
         echo "" >> build-summary.md
         echo "## ⚡ Build System Info" >> build-summary.md
-        echo "- **Build method**: Isolated Docker parallel build" >> build-summary.md
-        echo "- **Race conditions**: Eliminated" >> build-summary.md
+        echo "- **Build method**: GitHub Actions matrix with native Python environments" >> build-summary.md
+        echo "- **Dependencies**: No Docker/Docker Compose required" >> build-summary.md
         echo "- **Artifact name**: \`prebuilt-c-sources\`" >> build-summary.md
         echo "- **Retention**: 30 days" >> build-summary.md
     

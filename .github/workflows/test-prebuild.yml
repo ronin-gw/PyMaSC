@@ -47,6 +47,10 @@ jobs:
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
+        # Python 3.12+ requires setuptools to be explicitly installed
+        if [ "${{ matrix.python-version }}" = "3.12" ] || [ "${{ matrix.python-version }}" = "3.13" ]; then
+          pip install setuptools wheel
+        fi
         # Python 3.9 requires numpy<2.0 for Cython compatibility
         if [ "${{ matrix.python-version }}" = "3.9" ]; then
           pip install "numpy<2.0" cython

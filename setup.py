@@ -51,12 +51,15 @@ EXTRA_BA_ARGS = ["-Wextra", "-Wc++-compat"]
 
 
 def _basedir(path):
-    return os.path.join(BASEDIR, path)
+    # Return relative path for sources
+    return path
 
 
 class BuildExtCommand(build_ext.build_ext):
     def run(self):
-        command = ' '.join(["cd", BITARRAY_DIR, "&&", "make", "libbitarr.a"])
+        # Use relative path for BitArray directory
+        bitarray_rel_path = os.path.join("external", "BitArray")
+        command = ' '.join(["cd", bitarray_rel_path, "&&", "make", "libbitarr.a"])
         subprocess.check_call(command, shell=True)
         build_ext.build_ext.run(self)
 
@@ -90,7 +93,7 @@ def _build_extensions():
         _define_extension(
             name,
             include_dirs=BITARRAY_INCLUDES,
-            extra_link_args=["-Wl,-all_load", os.path.join(BITARRAY_DIR, "libbitarr.a")],
+            extra_link_args=["-Wl,-all_load", os.path.join("external", "BitArray", "libbitarr.a")],
             extra_compile_args=EXTRA_BA_ARGS
         ) for name in (
             "PyMaSC.bacore.bitarray",

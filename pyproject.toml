@@ -5,7 +5,7 @@ requires = [
     "Cython>=0.29.0",
     "numpy>=1.21.0",
     "pysam>=0.22.0",
-    "bx-python>=0.10.0",
+    "pyBigWig>=0.3.18",
 ]
 build-backend = "setuptools.build_meta"
 
@@ -42,7 +42,7 @@ classifiers = [
 dependencies = [
     "numpy>=1.21.0",
     "pysam>=0.22.0",
-    "bx-python>=0.10.0",
+    "pyBigWig>=0.3.18",
 ]
 
 [project.optional-dependencies]

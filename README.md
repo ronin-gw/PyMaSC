@@ -34,13 +34,13 @@ MaSC algorithm.
 
 Install
 -------
-Python version 2.7 or >=3.5 are recommended.  
+Python version 3.8 or higher is recommended (Python 3.8-3.12 officially supported).  
 C compiler needs to build C sources (recommend GCC).  
 
 ### Install using pip
-1. `numpy` and `pysam==0.15.1` must be installed ___before___ installing PyMaSC
+1. `numpy`, `pysam>=0.22.0`, and `pyBigWig>=0.3.18` must be installed ___before___ installing PyMaSC
 
-    $ pip install numpy pysam==0.15.1
+    $ pip install numpy "pysam>=0.22.0" "pyBigWig>=0.3.18"
 
 2. Install PyMaSC from PyPI
 

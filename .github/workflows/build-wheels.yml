@@ -69,7 +69,7 @@ jobs:
         
         # Install build dependencies before building (NO Cython - using pre-built C sources)
         CIBW_BEFORE_BUILD: >
-          if python -c "import sys; sys.exit(0 if sys.version_info[:2] >= (3, 12) else 1)"; then pip install setuptools wheel; fi &&
+          pip install setuptools wheel &&
           pip install numpy &&
           pip install "pysam>=0.22.0" "bx-python>=0.10.0"
         
@@ -77,14 +77,14 @@ jobs:
         CIBW_BEFORE_BUILD_LINUX: >
           yum install -y gcc-c++ make bzip2-devel xz-devel zlib-devel curl-devel openssl-devel &&
           python -c "import sys; print('Python version:', sys.version)" &&
-          if python -c "import sys; sys.exit(0 if sys.version_info[:2] >= (3, 12) else 1)"; then pip install setuptools wheel; fi &&
+          pip install setuptools wheel &&
           if python -c "import sys; sys.exit(0 if sys.version_info[:2] == (3, 9) else 1)"; then pip install 'numpy<2.0'; else pip install numpy; fi &&
           pip install "pysam>=0.22.0" "bx-python>=0.10.0" &&
           cd external/BitArray && make clean && make CC="gcc -fPIC" libbitarr.a && cd ../..
         
         CIBW_BEFORE_BUILD_MACOS: >
           python -c "import sys; print('Python version:', sys.version)" &&
-          if python -c "import sys; sys.exit(0 if sys.version_info[:2] >= (3, 12) else 1)"; then pip install setuptools wheel; fi &&
+          pip install setuptools wheel &&
           if python -c "import sys; sys.exit(0 if sys.version_info[:2] == (3, 9) else 1)"; then pip install 'numpy<2.0'; else pip install numpy; fi &&
           pip install "pysam>=0.22.0" "bx-python>=0.10.0" &&
           cd external/BitArray && make clean && make CC="gcc -arch x86_64 -arch arm64" libbitarr.a && cd ../..

@@ -8,13 +8,7 @@ include external/BitArray/README.md
 
 include external/bitcnt.h
 
-include external/bx-python/lib/bx/__init__.py
-include external/bx-python/lib/bx/bbi/__init__.py
-include external/bx-python/lib/bx/bbi/types.pxd
-include external/bx-python/lib/bx/bbi/cirtree_file.pxd
-include external/bx-python/lib/bx/bbi/bpt_file.pxd
-include external/bx-python/lib/bx/bbi/bpt_file/__init__.py
-include external/bx-python/lib/bx/bbi/bpt_file/BPTFile.pxd
+# bx-python includes removed - using pyBigWig implementation
 
 recursive-exclude PyMaSC *.c
 recursive-include PyMaSC *_2.c *_3.c *.pyx *.pxd

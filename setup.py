@@ -107,8 +107,7 @@ NUMPY_INCLUDES = [numpy.get_include()]
 # pysam path
 PYSAM_PATH = pysam.__path__[0]
 PYSAM_INCLUDES = [PYSAM_PATH, os.path.join(PYSAM_PATH, "include", "htslib")]
-# bx-python path
-sys.path.append(os.path.join(BASEDIR, "external", "bx-python", "lib"))
+# bx-python path removed - using pyBigWig implementation
 # BitArray path
 BITARRAY_DIR = os.path.join(BASEDIR, "external", "BitArray")
 BITARRAY_INCLUDES = [

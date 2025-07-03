@@ -1,12 +1,22 @@
-from PyMaSC.reader.bx.bigwig_file cimport BigWigFile
+# Define interval structure to match original API
+cdef struct interval:
+    unsigned int begin, end
+    float value
+
+
+cdef class BigWigFileIterator(object):
+    cdef:
+        list _intervals
+        int _index
+
+    cdef interval next(self)
 
 
 cdef class BigWigReader(object):
-    cdef readonly:
-        str path
+    cdef:
+        public str path
         object file
         bint closed
-        BigWigFile bigwig
-        dict chromsizes
+        public dict chromsizes
 
-    cpdef BigWigFile fetch(self, float valfilter, chrom)
+    cpdef BigWigFileIterator fetch(self, float valfilter, chrom)

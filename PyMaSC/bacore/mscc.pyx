@@ -6,7 +6,7 @@ from libc.string cimport strcmp, strcpy
 from cython cimport boundscheck, wraparound
 
 from .bitarray cimport bit_index_t, bitarray
-from PyMaSC.reader.bx.bigwig_file cimport BigWigFile
+from PyMaSC.reader.bigwig cimport BigWigFileIterator
 
 from PyMaSC.core.ncc import ReadUnsortedError
 from PyMaSC.utils.progress import ProgressBar
@@ -198,7 +198,7 @@ cdef class CCBitArrayCalculator(object):
 
     cdef inline bitarray _load_mappability(self):
         cdef bitarray mappability
-        cdef BigWigFile feeder
+        cdef BigWigFileIterator feeder
         cdef float _val
 
         if not self._bwfeeder:

@@ -295,8 +295,6 @@ def _build_extensions():
     extensions = [
         # numpy dependent modules
         _define_extension(name, include_dirs=NUMPY_INCLUDES) for name in (
-            "PyMaSC.reader.bx.bbi_file",
-            "PyMaSC.reader.bx.bigwig_file", 
             "PyMaSC.reader.bigwig",
             "PyMaSC.core.mappability",
             "PyMaSC.core.ncc",
@@ -317,12 +315,6 @@ def _build_extensions():
         # pysam dependent modules
         _define_extension(name, include_dirs=PYSAM_INCLUDES) for name in (
             "PyMaSC.core.readlen",
-        )
-    ] + [
-        # others
-        _define_extension(name) for name in (
-            "PyMaSC.reader.bx.bpt_file",
-            "PyMaSC.utils.bx.binary_file"
         )
     ]
     

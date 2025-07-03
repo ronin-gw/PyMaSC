@@ -2,14 +2,9 @@
 import logging
 
 cimport numpy as np
-from bx.bbi.types cimport bits32
-
-from PyMaSC.reader.bigwig cimport BigWigReader
-from PyMaSC.reader.bx.bbi_file cimport interval
-from PyMaSC.reader.bx.bigwig_file cimport BigWigFile
+from PyMaSC.reader.bigwig cimport BigWigReader, BigWigFileIterator, interval
 from cython cimport boundscheck, wraparound
 
-from .utils cimport bits32_min
 
 import numpy as np
 from PyMaSC.utils.progress import ProgressBar
@@ -25,7 +20,7 @@ class ContinueCalculation(Exception):
 cdef class MappableLengthCalculator(BigWigReader):
     cdef:
         public double MAPPABILITY_THRESHOLD
-        readonly bits32 max_shift
+        readonly unsigned int max_shift
         public dict chrom2is_called
         public dict chrom2mappable_len
         public list mappable_len
@@ -35,7 +30,7 @@ cdef class MappableLengthCalculator(BigWigReader):
         str _chr
 
         np.ndarray _sumbins
-        bits32 _buff_tail_pos
+        unsigned int _buff_tail_pos
         np.ndarray _buff
 
         public object _progress
@@ -102,7 +97,7 @@ cdef class MappableLengthCalculator(BigWigReader):
             chroms = [chrom]
 
         cdef char* _chrom
-        cdef BigWigFile gen
+        cdef BigWigFileIterator gen
         cdef interval i
 
         for c in chroms:
@@ -119,20 +114,20 @@ cdef class MappableLengthCalculator(BigWigReader):
 
     @wraparound(False)
     @boundscheck(False)
-    cdef inline _feed_track(self, bits32 begin, bits32 end):
-        cdef bits32 i
-        cdef bits32 track_len = end - begin
-        cdef bits32 gap_len = begin - self._buff_tail_pos - 1
+    cdef inline _feed_track(self, unsigned int begin, unsigned int end):
+        cdef unsigned int i
+        cdef unsigned int track_len = end - begin
+        cdef unsigned int gap_len = begin - self._buff_tail_pos - 1
         cdef overlap_len, remain_buff_len
 
-        for i in range(bits32_min(self.max_shift + 1, track_len)):
+        for i in range(min(self.max_shift + 1, track_len)):
             self._sumbins[i] += track_len - i
 
         if gap_len < self.max_shift:
             overlap_len = self.max_shift - gap_len
 
             self._sumbins[gap_len+1:] += np.correlate(
-                np.ones(bits32_min(overlap_len, track_len), dtype=np.int64),
+                np.ones(min(overlap_len, track_len), dtype=np.int64),
                 self._buff[self.max_shift - overlap_len:], "full"
             )[:overlap_len]
 

@@ -97,23 +97,23 @@ jobs:
             echo "  Clang version: $(clang --version | head -1)"
           fi
           
-          # Try native ARM64 build first
-          echo "🔍 Attempting native ARM64 build..."
-          if make CC="clang -arch arm64" libbitarr.a 2>&1; then
-            echo "✅ Native ARM64 build successful"
+          # For ARM64 macOS, build universal binary to match Python's universal2 build
+          echo "🔍 Building universal binary for Python universal2 compatibility..."
+          if make CC="clang -arch x86_64 -arch arm64" libbitarr.a 2>&1; then
+            echo "✅ Universal binary build successful"
             if command -v lipo > /dev/null; then
               echo "Library architecture: $(lipo -info libbitarr.a)"
             fi
           else
-            echo "❌ Native ARM64 build failed, trying universal binary..."
+            echo "⚠️ Universal binary build failed, trying native ARM64..."
             make clean
-            if make CC="clang -arch x86_64 -arch arm64" libbitarr.a 2>&1; then
-              echo "✅ Universal binary build successful"
+            if make CC="clang -arch arm64" libbitarr.a 2>&1; then
+              echo "✅ Native ARM64 build successful"
               if command -v lipo > /dev/null; then
                 echo "Library architecture: $(lipo -info libbitarr.a)"
               fi
             else
-              echo "❌ Universal binary build failed, trying default build..."
+              echo "❌ ARM64 build failed, trying default build..."
               make clean
               echo "Default build output:"
               make CC="clang" libbitarr.a 2>&1 || {
@@ -143,6 +143,10 @@ jobs:
         cd ../..
     
     - name: Build PyMaSC from .pyx sources (Full Cython Build)
+      env:
+        # Set explicit architecture flags for macOS ARM64/universal2 compatibility
+        ARCHFLAGS: ${{ runner.os == 'macOS' && '-arch x86_64 -arch arm64' || '' }}
+        CFLAGS: ${{ runner.os == 'macOS' && '-arch x86_64 -arch arm64' || '' }}
       run: |
         echo "🔧 Building PyMaSC from .pyx sources for Python ${{ matrix.python-version }}..."
         echo "This tests the complete build process including Cython compilation"
@@ -206,10 +210,22 @@ jobs:
         fi
         
         echo "📝 Running setup.py build with verbose output..."
-        build_output=$(python setup.py build_ext --inplace --verbose 2>&1)
-        build_exit_code=$?
+        echo "🔧 Build environment variables:"
+        echo "  ARCHFLAGS: ${ARCHFLAGS:-not set}"
+        echo "  CFLAGS: ${CFLAGS:-not set}"
+        echo "  LDFLAGS: ${LDFLAGS:-not set}"
+        echo ""
         
-        echo "$build_output"
+        # Capture build output to file and display with exit code handling
+        echo "Starting Python extension build..."
+        set +e  # Don't exit on error to capture full output
+        python setup.py build_ext --inplace --verbose > build_full.log 2>&1
+        build_exit_code=$?
+        set -e
+        
+        echo "=== COMPLETE BUILD OUTPUT START ==="
+        cat build_full.log
+        echo "=== COMPLETE BUILD OUTPUT END ==="
         
         if [ $build_exit_code -eq 0 ]; then
           echo "✅ PyMaSC build completed successfully on $(uname -m) architecture"
@@ -218,22 +234,27 @@ jobs:
           echo ""
           echo "🔍 Detailed error analysis:"
           
-          # Check for specific error patterns
-          if echo "$build_output" | grep -q "ignoring file.*found architecture.*required architecture"; then
+          # Check for specific error patterns in the full log
+          if grep -q "ignoring file.*found architecture.*required architecture" build_full.log; then
             echo "  🎯 ARCHITECTURE MISMATCH DETECTED:"
-            echo "$build_output" | grep "ignoring file.*found architecture.*required architecture"
+            grep "ignoring file.*found architecture.*required architecture" build_full.log
             echo "  This indicates BitArray library architecture doesn't match Python architecture"
           fi
           
-          if echo "$build_output" | grep -q "symbol not found"; then
+          if grep -q "symbol not found" build_full.log; then
             echo "  🎯 SYMBOL NOT FOUND ERROR:"
-            echo "$build_output" | grep "symbol not found"
+            grep "symbol not found" build_full.log
             echo "  This indicates linking issues with BitArray library"
           fi
           
-          if echo "$build_output" | grep -q "ld:"; then
+          if grep -q "ld:" build_full.log; then
             echo "  🎯 LINKER ERRORS:"
-            echo "$build_output" | grep "ld:"
+            grep "ld:" build_full.log
+          fi
+          
+          if grep -q "fatal error\|error:" build_full.log; then
+            echo "  🎯 COMPILATION ERRORS:"
+            grep "fatal error\|error:" build_full.log | head -10
           fi
           
           echo ""

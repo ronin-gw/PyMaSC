@@ -39,7 +39,7 @@ jobs:
         python -m pip install --upgrade pip
         # Install Cython for building from source
         pip install numpy cython
-        pip install "pysam>=0.22.0" "bx-python>=0.10.0"
+        pip install "pysam>=0.22.0" "pyBigWig>=0.3.18"
         pip install scipy matplotlib
         pip install pytest pytest-cov
     

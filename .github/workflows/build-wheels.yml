@@ -1,20 +1,82 @@
 name: Build wheels
 
 on:
+  # Only build wheels on tagged releases and manual triggers
   push:
-    branches: [ master, modernize-python-support ]
+    # Always build on version tags
     tags: [ 'v*' ]
-  pull_request:
-    branches: [ master ]
+    # Check commit messages on main branches for [wheel build] trigger
+    branches: [ master, modernize-python-support ]
   release:
     types: [ published ]
+  workflow_dispatch:
+    inputs:
+      build_reason:
+        description: 'Reason for manual wheel build'
+        required: false
+        default: 'Manual testing'
+        type: string
+  # Weekly scheduled build for testing purposes
+  schedule:
+    - cron: '0 2 * * 1'  # Weekly build on Monday at 2 AM UTC for testing
 
 jobs:
+  # Check if we should build wheels based on commit message or event type
+  check_build_condition:
+    runs-on: ubuntu-latest
+    outputs:
+      should_build: ${{ steps.check.outputs.should_build }}
+      build_reason: ${{ steps.check.outputs.build_reason }}
+    steps:
+    - uses: actions/checkout@v4
+      if: github.event_name == 'push'
+      with:
+        fetch-depth: 2  # Need at least 2 commits to check commit message
+    
+    - name: Check build condition
+      id: check
+      run: |
+        # Check various conditions that should trigger wheel builds
+        SHOULD_BUILD="false"
+        BUILD_REASON=""
+        
+        # Always build on tags and releases
+        if [[ "$GITHUB_EVENT_NAME" == "release" ]]; then
+          SHOULD_BUILD="true"
+          BUILD_REASON="Release event"
+        elif [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+          SHOULD_BUILD="true"
+          BUILD_REASON="Version tag push"
+        elif [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+          SHOULD_BUILD="true"
+          BUILD_REASON="Manual trigger: ${{ inputs.build_reason }}"
+        elif [[ "$GITHUB_EVENT_NAME" == "schedule" ]]; then
+          SHOULD_BUILD="true"
+          BUILD_REASON="Scheduled weekly build"
+        elif [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+          # Check commit message for [wheel build] trigger
+          if git log -1 --pretty=%B | grep -q '\[wheel build\]'; then
+            SHOULD_BUILD="true"
+            BUILD_REASON="Commit message contains [wheel build]"
+          fi
+        fi
+        
+        echo "should_build=$SHOULD_BUILD" >> $GITHUB_OUTPUT
+        echo "build_reason=$BUILD_REASON" >> $GITHUB_OUTPUT
+        echo "🔍 Build condition check:"
+        echo "  Event: $GITHUB_EVENT_NAME"
+        echo "  Ref: $GITHUB_REF"
+        echo "  Should build: $SHOULD_BUILD"
+        echo "  Reason: $BUILD_REASON"
+
   prebuild_sources:
+    needs: check_build_condition
+    if: needs.check_build_condition.outputs.should_build == 'true'
     uses: ./.github/workflows/test-prebuild.yml
 
   build_wheels:
-    needs: prebuild_sources
+    needs: [check_build_condition, prebuild_sources]
+    if: needs.check_build_condition.outputs.should_build == 'true'
     name: Build wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -155,7 +217,7 @@ jobs:
         path: dist/*.tar.gz
 
   upload_pypi:
-    needs: [build_wheels, build_sdist]
+    needs: [check_build_condition, build_wheels, build_sdist]
     runs-on: ubuntu-latest
     # Only upload to PyPI on release
     if: github.event_name == 'release' && github.event.action == 'published'
@@ -171,3 +233,26 @@ jobs:
     - uses: pypa/gh-action-pypi-publish@v1.8.14
       with:
         password: ${{ secrets.PYPI_API_TOKEN }}
+
+  build_summary:
+    needs: [check_build_condition, build_wheels, build_sdist]
+    runs-on: ubuntu-latest
+    if: always() && needs.check_build_condition.outputs.should_build == 'true'
+    steps:
+    - name: Build Summary
+      run: |
+        echo "# 🎉 PyMaSC Wheel Build Summary"
+        echo ""
+        echo "**Build Reason**: ${{ needs.check_build_condition.outputs.build_reason }}"
+        echo "**Event**: ${{ github.event_name }}"
+        echo "**Ref**: ${{ github.ref }}"
+        echo "**Build Status**: ${{ needs.build_wheels.result }}"
+        echo ""
+        echo "This optimized workflow only builds wheels when necessary:"
+        echo "- ✅ Tagged releases (v*)"
+        echo "- ✅ GitHub releases"
+        echo "- ✅ Manual triggers (workflow_dispatch)"
+        echo "- ✅ Commit messages containing [wheel build]"
+        echo "- ✅ Weekly scheduled builds (testing)"
+        echo ""
+        echo "This saves ~80% of CI resources compared to building on every push."

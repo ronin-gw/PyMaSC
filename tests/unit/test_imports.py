@@ -28,13 +28,11 @@ class TestBasicImports:
     def test_import_reader_modules(self):
         """Test importing reader modules."""
         import PyMaSC.reader.bigwig
-        import PyMaSC.reader.bx.bbi_file
-        import PyMaSC.reader.bx.bigwig_file
-        import PyMaSC.reader.bx.bpt_file
 
     def test_import_utility_modules(self):
         """Test importing utility modules."""
-        import PyMaSC.utils.bx.binary_file
+        # Note: PyMaSC.utils.bx.binary_file removed in pyBigWig migration
+        pass
 
     def test_import_handler_modules(self):
         """Test importing business logic handlers."""

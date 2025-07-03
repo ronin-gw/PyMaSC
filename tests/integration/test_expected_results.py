@@ -12,7 +12,7 @@ from pathlib import Path
 
 # Import PyMaSC components
 import pysam
-from PyMaSC.reader.bx.bigwig_file import BigWigFile
+# BigWigFile import removed - no longer used in this test file
 
 
 class TestResultsStorage:

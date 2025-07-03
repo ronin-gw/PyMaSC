@@ -12,7 +12,7 @@ from unittest.mock import patch
 import tempfile
 
 # Import PyMaSC components for testing
-from PyMaSC.reader.bx.bigwig_file import BigWigFile
+# BigWigFile import removed - using pyBigWig implementation
 import pysam
 from PyMaSC.core.ncc import NaiveCCCalculator
 from PyMaSC.handler.masc import CCCalcHandler
@@ -60,17 +60,20 @@ class TestENCODEDataValidation:
             print(f"BAM validation: {total_reads} reads across {len(refs)} chromosomes")
     
     def test_encode_bigwig_basic_validation(self, test_data_paths):
-        """Test basic BigWig file validation with internal reader."""
+        """Test basic BigWig file validation with pyBigWig."""
+        import pyBigWig
         bigwig_path = test_data_paths['bigwig']
         
         # Open BigWig file and validate basic properties
-        with open(bigwig_path, 'rb') as f:
-            bw = BigWigFile(f)
-            
-            # File should open without errors
-            assert bw is not None, "BigWig file failed to open"
-            
-            print(f"BigWig validation: File opened successfully")
+        bw = pyBigWig.open(bigwig_path)
+        assert bw is not None, "BigWig file failed to open"
+        
+        # Check that we have chromosome data
+        chroms = bw.chroms()
+        assert len(chroms) > 0, "No chromosomes found in BigWig file"
+        
+        bw.close()
+        print(f"BigWig validation: File opened successfully")
     
     def test_encode_bam_read_positions(self, test_data_paths):
         """Test extraction of read positions from ENCODE BAM file."""
@@ -230,7 +233,7 @@ class TestCrossCorrelationNumerics:
 
 
 class TestBigWigMappabilityValidation:
-    """Test BigWig mappability data validation."""
+    """Test BigWig mappability data validation with pyBigWig."""
     
     @pytest.fixture
     def bigwig_test_data(self):
@@ -245,78 +248,39 @@ class TestBigWigMappabilityValidation:
         return bigwig_path
     
     def test_bigwig_file_structure(self, bigwig_test_data):
-        """Test BigWig file basic structure."""
-        with open(bigwig_test_data, 'rb') as f:
-            bw = BigWigFile(f)
-            
-            # File should open successfully
-            assert bw is not None
-            
-            print("BigWig structure validation passed")
+        """Test BigWig file basic structure with pyBigWig."""
+        import pyBigWig
+        
+        bw = pyBigWig.open(bigwig_test_data)
+        assert bw is not None, "BigWig file failed to open"
+        
+        # Check chromosome data
+        chroms = bw.chroms()
+        assert len(chroms) > 0, "No chromosomes found"
+        
+        bw.close()
+        print("BigWig structure validation passed")
     
     def test_bigwig_mappability_values(self, bigwig_test_data):
         """Test that BigWig contains reasonable mappability values."""
-        with open(bigwig_test_data, 'rb') as f:
-            bw = BigWigFile(f)
-            
-            # Try to access some data from the file
-            # Note: This is a basic structural test since the exact API 
-            # for value extraction may vary
-            
-            # The file should be readable without errors
-            assert bw is not None
-            
-            print("BigWig mappability values accessible")
+        import pyBigWig
+        
+        bw = pyBigWig.open(bigwig_test_data)
+        assert bw is not None, "BigWig file failed to open"
+        
+        # Check that we can access intervals from a chromosome
+        chroms = bw.chroms()
+        if 'chr1' in chroms:
+            intervals = bw.intervals('chr1', 0, min(1000000, chroms['chr1']))
+            # Should have some mappability data
+            assert intervals is not None, "No interval data found"
+        
+        bw.close()
+        print("BigWig mappability values accessible")
 
 
-class TestExistingTestDataComparison:
-    """Compare results with existing bx-python test data."""
-    
-    @pytest.fixture
-    def bx_python_test_data(self):
-        """Load existing bx-python test data for comparison."""
-        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-        test_bw_path = os.path.join(base_dir, 'external/bx-python/test_data/bbi_tests/test.bw')
-        test_exp_path = os.path.join(base_dir, 'external/bx-python/test_data/bbi_tests/test.expectation')
-        
-        if not os.path.exists(test_bw_path):
-            pytest.skip("bx-python test BigWig file not found")
-        
-        if not os.path.exists(test_exp_path):
-            pytest.skip("bx-python test expectation file not found")
-        
-        return {
-            'bigwig_path': test_bw_path,
-            'expectation_path': test_exp_path
-        }
-    
-    def test_bx_python_bigwig_accessible(self, bx_python_test_data):
-        """Test that existing bx-python BigWig file is accessible."""
-        with open(bx_python_test_data['bigwig_path'], 'rb') as f:
-            bw = BigWigFile(f)
-            assert bw is not None
-            
-        print("bx-python test BigWig file accessible")
-    
-    def test_multiple_bigwig_files_consistent(self, bx_python_test_data):
-        """Test that both BigWig files can be opened consistently."""
-        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-        test_data_dir = os.path.join(base_dir, 'tests', 'data')
-        encode_bigwig = os.path.join(test_data_dir, 'hg19_36mer-test.bigwig')
-        
-        if not os.path.exists(encode_bigwig):
-            pytest.skip("ENCODE BigWig file not found")
-        
-        # Test both files can be opened
-        with open(bx_python_test_data['bigwig_path'], 'rb') as f:
-            bw1 = BigWigFile(f)
-            assert bw1 is not None
-        
-        with open(encode_bigwig, 'rb') as f:
-            bw2 = BigWigFile(f)
-            assert bw2 is not None
-        
-        print("Both BigWig files accessible and consistent")
+# TestExistingTestDataComparison class removed - bx-python test data no longer used
+# ENCODE test data provides comprehensive coverage through other test classes
 
 
 @pytest.mark.slow

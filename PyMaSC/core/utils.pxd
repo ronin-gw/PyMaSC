@@ -1,8 +1,7 @@
-from bx.bbi.types cimport bits32
-from libc.stdint cimport int_fast64_t as int64
+from libc.stdint cimport uint32_t, int_fast64_t as int64
 
 
-cdef inline bits32 bits32_min(bits32 a, bits32 b):
+cdef inline uint32_t bits32_min(uint32_t a, uint32_t b):
     return a if a < b else b
 
 

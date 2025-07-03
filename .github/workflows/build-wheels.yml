@@ -75,7 +75,7 @@ jobs:
         
         # Build BitArray library before Python build
         CIBW_BEFORE_BUILD_LINUX: >
-          yum install -y gcc-c++ make &&
+          yum install -y gcc-c++ make bzip2-devel xz-devel zlib-devel curl-devel openssl-devel &&
           python -c "import sys; print('Python version:', sys.version)" &&
           if python -c "import sys; sys.exit(0 if sys.version_info[:2] >= (3, 12) else 1)"; then pip install setuptools wheel; fi &&
           if python -c "import sys; sys.exit(0 if sys.version_info[:2] == (3, 9) else 1)"; then pip install 'numpy<2.0'; else pip install numpy; fi &&

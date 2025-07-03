@@ -66,11 +66,13 @@ jobs:
         if [ "${{ matrix.python-version }}" = "3.9" ]; then
           echo "Installing numpy<2.0 for Python 3.9 compatibility"
           pip install "numpy<2.0" cython
+          # Install other dependencies from requirements and optional dependencies
+          pip install -r requirements.txt
+          pip install -e .[plot,test]
         else
-          pip install numpy cython
+          # Install all dependencies for development
+          pip install -e .[dev]
         fi
-        pip install "pysam>=0.22.0" "pyBigWig>=0.3.18"
-        pip install pytest pytest-cov matplotlib scipy
     
     - name: Build BitArray library
       run: |

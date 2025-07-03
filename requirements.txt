@@ -1,0 +1,7 @@
+# PyMaSC Runtime Dependencies
+# These are the minimum dependencies required to run PyMaSC
+# For development dependencies, use: pip install -e .[dev]
+
+numpy>=1.21.0
+pysam>=0.22.0
+pyBigWig>=0.3.18

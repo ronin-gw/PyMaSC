@@ -2,7 +2,7 @@
 # This is a convenience wrapper for common development tasks
 # For C source generation from Cython files, see Makefile.sources
 
-.PHONY: test test-quick test-all test-integration test-unit build install clean sources sources-parallel help
+.PHONY: test test-quick test-all test-integration test-unit build install install-dev install-test install-plot install-requirements clean sources sources-parallel help
 
 # Default target
 help:
@@ -14,6 +14,10 @@ help:
 	@echo "  make test-all      - Run all tests verbosely"
 	@echo "  make build         - Build Cython extensions in-place"
 	@echo "  make install       - Install package in development mode"
+	@echo "  make install-dev   - Install with all development dependencies"
+	@echo "  make install-test  - Install with testing dependencies"
+	@echo "  make install-plot  - Install with plotting dependencies"
+	@echo "  make install-requirements - Install minimal runtime dependencies"
 	@echo "  make clean         - Remove build artifacts and caches"
 	@echo "  make sources       - Generate C sources from .pyx files"
 	@echo "  make sources-parallel - Generate C sources in parallel"
@@ -48,6 +52,22 @@ build:
 # Install package in development mode
 install:
 	pip install -e .
+
+# Install for development with all dependencies
+install-dev:
+	pip install -e .[dev]
+
+# Install for testing (without plot dependencies)
+install-test:
+	pip install -e .[test]
+
+# Install for plotting features
+install-plot:
+	pip install -e .[plot]
+
+# Install using requirements.txt (minimal runtime dependencies)
+install-requirements:
+	pip install -r requirements.txt
 
 # Clean build artifacts and caches
 clean:

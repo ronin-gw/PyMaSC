@@ -90,21 +90,21 @@ skip = "*-win32 *-manylinux_i686 *-win_amd64 pp*"
 before-build = [
     "yum install -y gcc-c++ make",
     "pip install numpy cython",
-    "pip install 'pysam>=0.22.0' 'bx-python>=0.10.0'",
+    "pip install 'pysam>=0.22.0' 'pyBigWig>=0.3.18'",
     "cd external/BitArray && make clean && make CC='gcc -fPIC' libbitarr.a && cd ../..",
 ]
 
 [tool.cibuildwheel.macos]
 before-build = [
     "pip install numpy cython",
-    "pip install 'pysam>=0.22.0' 'bx-python>=0.10.0'",
+    "pip install 'pysam>=0.22.0' 'pyBigWig>=0.3.18'",
     "cd external/BitArray && make clean && make CC='gcc -arch x86_64 -arch arm64' libbitarr.a && cd ../..",
 ]
 
 [tool.cibuildwheel.windows]
 before-build = [
     "pip install numpy cython",
-    "pip install 'pysam>=0.22.0' 'bx-python>=0.10.0'",
+    "pip install 'pysam>=0.22.0' 'pyBigWig>=0.3.18'",
 ]
 
 [tool.pytest.ini_options]

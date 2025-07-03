@@ -12,15 +12,8 @@ from setuptools import setup, Extension
 from setuptools.command import build_ext
 
 # Import build-time dependencies
-try:
-    import numpy
-except ImportError:
-    raise ImportError("numpy is required for building PyMaSC. Please install it first: pip install numpy")
-
-try:
-    import pysam
-except ImportError:
-    raise ImportError("pysam is required for building PyMaSC. Please install it first: pip install 'pysam>=0.22.0'")
+import numpy
+import pysam
 
 #
 BASEDIR = os.path.abspath(os.path.dirname(__file__))

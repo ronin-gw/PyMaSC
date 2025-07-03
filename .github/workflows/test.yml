@@ -37,11 +37,8 @@ jobs:
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
-        # Install Cython for building from source
-        pip install numpy cython
-        pip install "pysam>=0.22.0" "pyBigWig>=0.3.18"
-        pip install scipy matplotlib
-        pip install pytest pytest-cov
+        # Install all dependencies for development
+        pip install -e .[dev]
     
     - name: Build BitArray library
       run: |

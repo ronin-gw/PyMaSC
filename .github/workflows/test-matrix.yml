@@ -81,7 +81,7 @@ jobs:
         cd external/BitArray
         make clean
         if [ "$RUNNER_OS" == "macOS" ]; then
-          make CC="gcc -arch x86_64" libbitarr.a
+          make CC="gcc -arch x86_64 -arch arm64" libbitarr.a
         else
           make CC="gcc -fPIC" libbitarr.a
         fi

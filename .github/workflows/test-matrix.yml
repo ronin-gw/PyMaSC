@@ -202,16 +202,7 @@ jobs:
           echo "  Python sysconfig platform:"
           python -c "import sysconfig; print('    Platform:', sysconfig.get_platform())"
           echo "  setup.py BitArray link configuration check:"
-          python -c "
-import platform, os
-print('    Platform detected by setup.py:', platform.system())
-if platform.system() == 'Darwin':
-    print('    Will use: -Wl,-all_load external/BitArray/libbitarr.a')
-else:
-    print('    Will use: external/BitArray/bit_array.o')
-print('    BitArray lib exists:', os.path.exists('external/BitArray/libbitarr.a'))
-print('    BitArray obj exists:', os.path.exists('external/BitArray/bit_array.o'))
-"
+          python -c 'import platform, os; print("    Platform detected by setup.py:", platform.system()); print("    Will use: -Wl,-all_load external/BitArray/libbitarr.a" if platform.system() == "Darwin" else "    Will use: external/BitArray/bit_array.o"); print("    BitArray lib exists:", os.path.exists("external/BitArray/libbitarr.a")); print("    BitArray obj exists:", os.path.exists("external/BitArray/bit_array.o"))'
         fi
         
         echo "📝 Running setup.py build with verbose output..."
@@ -247,14 +238,7 @@ print('    BitArray obj exists:', os.path.exists('external/BitArray/bit_array.o'
           
           echo ""
           echo "  📊 System configuration summary:"
-          python -c "
-import sysconfig, platform, os
-print('    Python platform:', sysconfig.get_platform())
-print('    Python architecture:', platform.machine())
-print('    System architecture:', os.uname().machine if hasattr(os, 'uname') else 'unknown')
-print('    CFLAGS:', sysconfig.get_config_var('CFLAGS'))
-print('    LDFLAGS:', sysconfig.get_config_var('LDFLAGS'))
-"
+          python -c 'import sysconfig, platform, os; print("    Python platform:", sysconfig.get_platform()); print("    Python architecture:", platform.machine()); print("    System architecture:", os.uname().machine if hasattr(os, "uname") else "unknown"); print("    CFLAGS:", sysconfig.get_config_var("CFLAGS")); print("    LDFLAGS:", sysconfig.get_config_var("LDFLAGS"))'
           exit 1
         fi
         

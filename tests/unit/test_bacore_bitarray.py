@@ -193,14 +193,24 @@ class TestBitArrayArchitectureCompatibility:
             if result.returncode == 0:
                 output = result.stdout.lower()
                 
-                # Should be built for x86_64 (our fix)
-                # and should NOT be arm64 (the original problem)
+                # Should be built for x86_64 (always required)
                 assert 'x86_64' in output or 'x86-64' in output, \
                     f"BitArray not built for x86_64: {output}"
                 
-                # Explicitly check it's not the problematic arm64
-                assert 'arm64' not in output, \
-                    f"BitArray still built for arm64: {output}"
+                # ARM64 compatibility check - updated for successful ARM64 support
+                import platform
+                if platform.system() == 'Darwin':
+                    # On macOS, ARM64 support is now working correctly
+                    # Universal binaries with both x86_64 and arm64 are expected
+                    if 'arm64' in output:
+                        # Verify it's a proper universal binary
+                        assert 'universal binary' in output or 'fat file' in output, \
+                            f"ARM64 present but not in universal binary format: {output}"
+                    # ARM64 presence is now correct and expected on macOS
+                else:
+                    # On non-macOS platforms, ARM64 should not be present
+                    assert 'arm64' not in output, \
+                        f"Unexpected ARM64 build on non-macOS platform: {output}"
             
         except FileNotFoundError:
             # 'file' command not available - skip this test

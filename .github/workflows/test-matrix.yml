@@ -13,13 +13,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-13]
         python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
         exclude:
           # Exclude some combinations to save CI time initially
-          - os: macos-latest
+          - os: macos-13
             python-version: '3.9'
-          - os: macos-latest
+          - os: macos-13
             python-version: '3.11'
     
     steps:
@@ -80,11 +80,46 @@ jobs:
       run: |
         cd external/BitArray
         make clean
+        
         if [ "$RUNNER_OS" == "macOS" ]; then
-          make CC="gcc -arch x86_64 -arch arm64" libbitarr.a
+          echo "🍎 Building BitArray for macOS..."
+          echo "System info: $(uname -a)"
+          echo "Architecture: $(uname -m)"
+          echo "Available compilers:"
+          which gcc || echo "gcc not found"
+          which clang || echo "clang not found"
+          
+          # Try universal binary first, fallback to native if it fails
+          echo "Attempting universal binary build..."
+          if make CC="clang -arch x86_64 -arch arm64" libbitarr.a; then
+            echo "✅ Universal binary build successful"
+            lipo -info libbitarr.a || echo "lipo not available"
+          else
+            echo "⚠️ Universal binary build failed, trying x86_64 only..."
+            make clean
+            if make CC="clang -arch x86_64" libbitarr.a; then
+              echo "✅ x86_64 build successful"
+            else
+              echo "❌ x86_64 build failed, trying default build..."
+              make clean
+              make CC="clang" libbitarr.a
+            fi
+          fi
         else
+          echo "🐧 Building BitArray for Linux..."
           make CC="gcc -fPIC" libbitarr.a
         fi
+        
+        # Verify library was created
+        if [ -f libbitarr.a ]; then
+          echo "✅ BitArray library created successfully"
+          ls -la libbitarr.a
+          file libbitarr.a || echo "file command not available"
+        else
+          echo "❌ BitArray library creation failed"
+          exit 1
+        fi
+        
         cd ../..
     
     - name: Build PyMaSC from .pyx sources (Full Cython Build)
@@ -93,18 +128,56 @@ jobs:
         echo "This tests the complete build process including Cython compilation"
         echo ""
         
+        # Display build environment information
+        echo "🔍 Build Environment Information:"
+        echo "  Python version: $(python --version)"
+        echo "  Python executable: $(which python)"
+        echo "  Platform: $(python -c 'import platform; print(platform.platform())')"
+        echo "  Architecture: $(python -c 'import platform; print(platform.machine())')"
+        if [ "$RUNNER_OS" == "macOS" ]; then
+          echo "  macOS version: $(sw_vers -productVersion)"
+          echo "  Xcode version: $(xcode-select --version)"
+        fi
+        echo ""
+        
         # Clean any existing build artifacts
+        echo "🧹 Cleaning previous build artifacts..."
         find PyMaSC -name "*.c" -delete 2>/dev/null || true
         find PyMaSC -name "*.so" -delete 2>/dev/null || true
         rm -rf build/ 2>/dev/null || true
         
+        # Verify BitArray library before build
+        echo "🔍 Verifying BitArray library:"
+        if [ -f "external/BitArray/libbitarr.a" ]; then
+          echo "  ✅ BitArray library exists"
+          ls -la external/BitArray/libbitarr.a
+          if command -v file > /dev/null; then
+            echo "  Library info: $(file external/BitArray/libbitarr.a)"
+          fi
+        else
+          echo "  ❌ BitArray library missing!"
+          exit 1
+        fi
+        echo ""
+        
         # Build directly from .pyx files - this is the REAL build test
-        python setup.py build_ext --inplace
+        echo "🏗️ Starting PyMaSC build..."
+        if python setup.py build_ext --inplace; then
+          echo "✅ PyMaSC build completed successfully"
+        else
+          echo "❌ PyMaSC build failed"
+          exit 1
+        fi
         
         echo ""
         echo "📦 Verifying build results (.so files):"
-        find PyMaSC -name "*.so" | sort
-        echo "  Total .so files: $(find PyMaSC -name "*.so" | wc -l)"
+        if find PyMaSC -name "*.so" | head -1 > /dev/null; then
+          find PyMaSC -name "*.so" | sort
+          echo "  Total .so files: $(find PyMaSC -name "*.so" | wc -l)"
+        else
+          echo "  ❌ No .so files generated!"
+          exit 1
+        fi
         
         echo ""
         echo "📁 Generated C files during build:"

@@ -219,13 +219,31 @@ jobs:
         # Capture build output to file and display with exit code handling
         echo "Starting Python extension build..."
         set +e  # Don't exit on error to capture full output
+        
+        # Split output to avoid GitHub Actions log size limits
         python setup.py build_ext --inplace --verbose > build_full.log 2>&1
         build_exit_code=$?
         set -e
         
-        echo "=== COMPLETE BUILD OUTPUT START ==="
-        cat build_full.log
-        echo "=== COMPLETE BUILD OUTPUT END ==="
+        echo "=== BUILD OUTPUT SUMMARY ==="
+        echo "Exit code: $build_exit_code"
+        echo "Log file size: $(wc -l < build_full.log) lines"
+        echo ""
+        
+        # Show the last part of the build (where errors typically occur)
+        echo "=== LAST 100 LINES OF BUILD OUTPUT ==="
+        tail -n 100 build_full.log
+        echo ""
+        
+        # Show any lines containing errors, warnings, or linking info
+        echo "=== ERROR AND WARNING SUMMARY ==="
+        grep -i "error\|warning\|failed\|linking\|ld:" build_full.log | tail -n 20 || echo "No errors/warnings found in grep"
+        echo ""
+        
+        # Show linking commands specifically
+        echo "=== LINKING COMMANDS ==="
+        grep -E "gcc|clang.*-o.*\.so" build_full.log || echo "No linking commands found"
+        echo ""
         
         if [ $build_exit_code -eq 0 ]; then
           echo "✅ PyMaSC build completed successfully on $(uname -m) architecture"

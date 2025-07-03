@@ -126,14 +126,9 @@ BITARRAY_OBJ_PATH = os.path.join("external", "BitArray", "bit_array.o")
 if platform.system() == "Darwin":
     # macOS uses -all_load
     BITARRAY_LINK_ARGS = ["-Wl,-all_load", BITARRAY_LIB_PATH]
-    # Debug: Print linker configuration for CI debugging
-    logging.info(f"macOS BitArray linking: {BITARRAY_LINK_ARGS}")
-    logging.info(f"BitArray library exists: {os.path.exists(BITARRAY_LIB_PATH)}")
 else:
     # Linux: link object file directly to avoid archive issues
     BITARRAY_LINK_ARGS = [BITARRAY_OBJ_PATH]
-    logging.info(f"Linux BitArray linking: {BITARRAY_LINK_ARGS}")
-    logging.info(f"BitArray object exists: {os.path.exists(BITARRAY_OBJ_PATH)}")
 
 
 # _basedir function removed - using direct path handling in _get_source_file

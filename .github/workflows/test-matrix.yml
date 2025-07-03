@@ -13,13 +13,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-13]
+        os: [ubuntu-latest, macos-latest]
         python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
         exclude:
           # Exclude some combinations to save CI time initially
-          - os: macos-13
+          - os: macos-latest
             python-version: '3.9'
-          - os: macos-13
+          - os: macos-latest
             python-version: '3.11'
     
     steps:
@@ -82,27 +82,47 @@ jobs:
         make clean
         
         if [ "$RUNNER_OS" == "macOS" ]; then
-          echo "🍎 Building BitArray for macOS..."
+          echo "🍎 Building BitArray for macOS (ARM64 environment debug)..."
           echo "System info: $(uname -a)"
           echo "Architecture: $(uname -m)"
+          echo "Python info:"
+          echo "  Python executable: $(which python)"
+          echo "  Python version: $(python --version)"
+          echo "  Python architecture: $(python -c 'import platform; print(platform.machine())')"
+          echo "  Python platform: $(python -c 'import platform; print(platform.platform())')"
           echo "Available compilers:"
           which gcc || echo "gcc not found"
           which clang || echo "clang not found"
+          if which clang > /dev/null; then
+            echo "  Clang version: $(clang --version | head -1)"
+          fi
           
-          # Try universal binary first, fallback to native if it fails
-          echo "Attempting universal binary build..."
-          if make CC="clang -arch x86_64 -arch arm64" libbitarr.a; then
-            echo "✅ Universal binary build successful"
-            lipo -info libbitarr.a || echo "lipo not available"
+          # Try native ARM64 build first
+          echo "🔍 Attempting native ARM64 build..."
+          if make CC="clang -arch arm64" libbitarr.a 2>&1; then
+            echo "✅ Native ARM64 build successful"
+            if command -v lipo > /dev/null; then
+              echo "Library architecture: $(lipo -info libbitarr.a)"
+            fi
           else
-            echo "⚠️ Universal binary build failed, trying x86_64 only..."
+            echo "❌ Native ARM64 build failed, trying universal binary..."
             make clean
-            if make CC="clang -arch x86_64" libbitarr.a; then
-              echo "✅ x86_64 build successful"
+            if make CC="clang -arch x86_64 -arch arm64" libbitarr.a 2>&1; then
+              echo "✅ Universal binary build successful"
+              if command -v lipo > /dev/null; then
+                echo "Library architecture: $(lipo -info libbitarr.a)"
+              fi
             else
-              echo "❌ x86_64 build failed, trying default build..."
+              echo "❌ Universal binary build failed, trying default build..."
               make clean
-              make CC="clang" libbitarr.a
+              echo "Default build output:"
+              make CC="clang" libbitarr.a 2>&1 || {
+                echo "❌ All builds failed. Makefile content:"
+                cat Makefile
+                echo "BitArray source files:"
+                ls -la *.c *.h
+                exit 1
+              }
             fi
           fi
         else
@@ -162,10 +182,79 @@ jobs:
         
         # Build directly from .pyx files - this is the REAL build test
         echo "🏗️ Starting PyMaSC build..."
-        if python setup.py build_ext --inplace; then
-          echo "✅ PyMaSC build completed successfully"
+        echo "📋 Build environment details:"
+        echo "  CC: ${CC:-default}"
+        echo "  CFLAGS: ${CFLAGS:-default}"
+        echo "  LDFLAGS: ${LDFLAGS:-default}"
+        
+        if [ "$RUNNER_OS" == "macOS" ]; then
+          echo "🔍 macOS-specific build debugging:"
+          echo "  Python architecture: $(python -c 'import platform; print(platform.machine())')"
+          echo "  System architecture: $(uname -m)"
+          echo "  BitArray library detailed check:"
+          if command -v file > /dev/null; then
+            echo "    File type: $(file external/BitArray/libbitarr.a)"
+          fi
+          if command -v lipo > /dev/null; then
+            echo "    Library architectures: $(lipo -info external/BitArray/libbitarr.a 2>/dev/null || echo 'lipo info failed')"
+            echo "    Detailed arch info: $(lipo -detailed_info external/BitArray/libbitarr.a 2>/dev/null || echo 'detailed lipo info failed')"
+          fi
+          echo "  Python sysconfig platform:"
+          python -c "import sysconfig; print('    Platform:', sysconfig.get_platform())"
+          echo "  setup.py BitArray link configuration check:"
+          python -c "
+import platform, os
+print('    Platform detected by setup.py:', platform.system())
+if platform.system() == 'Darwin':
+    print('    Will use: -Wl,-all_load external/BitArray/libbitarr.a')
+else:
+    print('    Will use: external/BitArray/bit_array.o')
+print('    BitArray lib exists:', os.path.exists('external/BitArray/libbitarr.a'))
+print('    BitArray obj exists:', os.path.exists('external/BitArray/bit_array.o'))
+"
+        fi
+        
+        echo "📝 Running setup.py build with verbose output..."
+        build_output=$(python setup.py build_ext --inplace --verbose 2>&1)
+        build_exit_code=$?
+        
+        echo "$build_output"
+        
+        if [ $build_exit_code -eq 0 ]; then
+          echo "✅ PyMaSC build completed successfully on $(uname -m) architecture"
         else
-          echo "❌ PyMaSC build failed"
+          echo "❌ PyMaSC build failed on $(uname -m) architecture (exit code: $build_exit_code)"
+          echo ""
+          echo "🔍 Detailed error analysis:"
+          
+          # Check for specific error patterns
+          if echo "$build_output" | grep -q "ignoring file.*found architecture.*required architecture"; then
+            echo "  🎯 ARCHITECTURE MISMATCH DETECTED:"
+            echo "$build_output" | grep "ignoring file.*found architecture.*required architecture"
+            echo "  This indicates BitArray library architecture doesn't match Python architecture"
+          fi
+          
+          if echo "$build_output" | grep -q "symbol not found"; then
+            echo "  🎯 SYMBOL NOT FOUND ERROR:"
+            echo "$build_output" | grep "symbol not found"
+            echo "  This indicates linking issues with BitArray library"
+          fi
+          
+          if echo "$build_output" | grep -q "ld:"; then
+            echo "  🎯 LINKER ERRORS:"
+            echo "$build_output" | grep "ld:"
+          fi
+          
+          echo ""
+          echo "  📊 System configuration summary:"
+          python -c "
+import sysconfig, platform, os
+print('    Python platform:', sysconfig.get_platform())
+print('    Python architecture:', platform.machine())
+print('    System architecture:', os.uname().machine if hasattr(os, 'uname') else 'unknown')
+print('    CFLAGS:', sysconfig.get_config_var('CFLAGS'))
+print('    LDFLAGS:', sysconfig.get_config_var('LDFLAGS'))
+"
           exit 1
         fi
         

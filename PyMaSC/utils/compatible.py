@@ -6,16 +6,10 @@ Currently focused on Python 3 support with legacy compatibility
 stubs for previously supported Python 2 functionality.
 
 Key functionality:
-- String conversion utilities (tostr)
-- Iterator compatibility imports (zip_longest, xrange)
-- I/O compatibility (StringIO)
+- Iterator compatibility imports (zip_longest)
 
 These utilities abstract away version-specific differences to maintain
 clean code throughout the PyMaSC codebase.
 """
 
-
-
 from itertools import zip_longest
-from io import BytesIO as StringIO
-xrange = range

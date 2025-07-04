@@ -243,9 +243,9 @@ class StandardWorkflowService(WorkflowService, ProgressSubject):
         if not request.bam_path:
             errors.append("BAM file path is required")
         
-        # Validate output prefix
-        if not request.output_prefix:
-            errors.append("Output prefix is required")
+        # Validate output prefix (only required if output formats specified)
+        if request.output_formats and not request.output_prefix:
+            errors.append("Output prefix is required when output formats are specified")
         
         # Validate calculation config
         if request.calculation_config.max_shift <= 0:
@@ -256,7 +256,7 @@ class StandardWorkflowService(WorkflowService, ProgressSubject):
         
         # Validate algorithm-specific requirements
         algorithm = request.calculation_config.algorithm
-        if algorithm in [AlgorithmType.MSCC, AlgorithmType.BITARRAY]:
+        if algorithm == AlgorithmType.MSCC:
             if not request.mappability_config or not request.mappability_config.is_enabled():
                 errors.append(f"{algorithm.value} requires mappability configuration")
         

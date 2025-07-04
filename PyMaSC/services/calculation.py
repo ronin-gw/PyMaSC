@@ -221,12 +221,13 @@ class StandardCalculationService(CalculationService):
         
         if cache_key not in self._calculator_cache:
             # Create calculator for this configuration
+            # Use all references from original config, not just current chromosome
             calc_config = CalculationConfig(
                 algorithm=config.algorithm,
                 max_shift=config.max_shift,
                 mapq_criteria=config.mapq_criteria,
-                references=[data.chromosome],
-                lengths=[data.length],
+                references=config.references,  # Use all references
+                lengths=config.lengths,        # Use all lengths
                 read_length=config.read_length,
                 skip_ncc=config.skip_ncc
             )

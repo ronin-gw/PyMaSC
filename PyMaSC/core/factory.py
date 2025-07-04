@@ -140,7 +140,7 @@ class CalculatorFactory:
             ValueError: If algorithm is not supported or configuration is invalid
         """
         # Validate algorithm-specific requirements
-        if algorithm in [AlgorithmType.MSCC, AlgorithmType.BITARRAY]:
+        if algorithm == AlgorithmType.MSCC:
             if not mappability_config or not mappability_config.is_enabled():
                 raise ValueError(f"{algorithm.value} algorithm requires mappability configuration")
         

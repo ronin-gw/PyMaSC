@@ -28,6 +28,7 @@ from PyMaSC.core.interfaces import CrossCorrelationCalculator
 from PyMaSC.utils.progress import ProgressBar, ProgressHook, MultiLineProgressManager
 from PyMaSC.utils.calc import filter_chroms, exec_worker_pool
 from PyMaSC.core.readlen import estimate_readlen
+from PyMaSC.core.progress_adapter import ProgressBarAdapter, ProgressManager, get_progress_manager
 
 logger = logging.getLogger(__name__)
 
@@ -147,6 +148,11 @@ class UnifiedCalcHandler:
         
         # Legacy attributes for backward compatibility
         self._esttype = getattr(config, 'esttype', 'mean')
+        
+        # Observer pattern support
+        self.use_observer_progress = True
+        self._progress_observers = []
+        self._progress_manager = None
     
     def set_readlen(self, readlen: Optional[int] = None):
         """Set or estimate read length.
@@ -228,8 +234,19 @@ class UnifiedCalcHandler:
             self.mappability_config
         )
         
-        # Process all reads
-        progress = ProgressBar()
+        # Create progress bar with observer support if enabled
+        use_observer = getattr(self, 'use_observer_progress', True)
+        if use_observer:
+            progress = ProgressBarAdapter()
+            # Get or create progress manager
+            progress_manager = getattr(self, '_progress_manager', None) or get_progress_manager()
+            # Attach any configured observers
+            if hasattr(self, '_progress_observers'):
+                for observer in self._progress_observers:
+                    progress._subject.attach(observer)
+        else:
+            progress = ProgressBar()
+        
         ref2genomelen = dict(zip(self.references, self.lengths))
         current_chr = None
         
@@ -418,3 +435,38 @@ class UnifiedCalcHandler:
     def esttype(self, value: str):
         """Set read length estimation type."""
         self._esttype = value
+    
+    # Progress observer methods
+    def attach_progress_observer(self, observer: 'ProgressObserver') -> None:
+        """Attach a progress observer.
+        
+        Args:
+            observer: Progress observer to attach
+        """
+        if observer not in self._progress_observers:
+            self._progress_observers.append(observer)
+    
+    def detach_progress_observer(self, observer: 'ProgressObserver') -> None:
+        """Detach a progress observer.
+        
+        Args:
+            observer: Progress observer to detach
+        """
+        if observer in self._progress_observers:
+            self._progress_observers.remove(observer)
+    
+    def set_progress_manager(self, manager: ProgressManager) -> None:
+        """Set a custom progress manager.
+        
+        Args:
+            manager: Progress manager to use
+        """
+        self._progress_manager = manager
+    
+    def enable_observer_progress(self, enabled: bool = True) -> None:
+        """Enable or disable observer-based progress reporting.
+        
+        Args:
+            enabled: Whether to use observer pattern for progress
+        """
+        self.use_observer_progress = enabled

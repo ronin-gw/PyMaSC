@@ -364,6 +364,110 @@ class ProgressManager:
         }
 
 
+class ReadCountProgressBarAdapter:
+    """Adapter for ReadCountProgressBar with observer support.
+    
+    This adapter wraps ReadCountProgressBar to add observer pattern
+    capabilities while maintaining the original API.
+    """
+    
+    def __init__(self, *args, **kwargs):
+        """Initialize adapter."""
+        from PyMaSC.utils.progress import ReadCountProgressBar
+        self._bar = ReadCountProgressBar(*args, **kwargs)
+        self._subject = ProgressSubject()
+        self._current_chrom = None
+        self._current_genome_total = None
+        self._current_chrom_total = None
+        self._genome_progress = 0
+    
+    def attach_observer(self, observer: ProgressObserver) -> None:
+        """Attach an observer."""
+        self._subject.attach(observer)
+    
+    def detach_observer(self, observer: ProgressObserver) -> None:
+        """Detach an observer."""
+        self._subject.detach(observer)
+    
+    def set_genome(self, maxval: int) -> None:
+        """Set genome size and notify observers."""
+        self._bar.set_genome(maxval)
+        self._current_genome_total = maxval
+        
+        # Notify about genome-level start
+        self._subject.notify_start(
+            source="genome",
+            total=maxval,
+            message="Starting genome-wide read counting"
+        )
+    
+    def set_chrom(self, maxval: int, name: str) -> None:
+        """Set chromosome and notify observers."""
+        # Complete previous chromosome if any
+        if self._current_chrom:
+            self._subject.notify_complete(
+                source=f"chromosome:{self._current_chrom}",
+                message=f"Completed {self._current_chrom}"
+            )
+        
+        self._bar.set_chrom(maxval, name)
+        self._current_chrom = name
+        self._current_chrom_total = maxval
+        
+        # Notify about chromosome start
+        self._subject.notify_start(
+            source=f"chromosome:{name}",
+            total=maxval,
+            message=f"Processing {name}"
+        )
+    
+    def update(self, val: int) -> None:
+        """Update progress and notify observers."""
+        self._bar.update(val)
+        
+        # Update chromosome progress
+        if self._current_chrom:
+            self._subject.notify_progress(
+                source=f"chromosome:{self._current_chrom}",
+                current=val,
+                total=self._current_chrom_total
+            )
+        
+        # Update genome progress
+        self._genome_progress += 1
+        if self._current_genome_total:
+            self._subject.notify_progress(
+                source="genome",
+                current=self._genome_progress,
+                total=self._current_genome_total
+            )
+    
+    def finish(self) -> None:
+        """Finish and notify completion."""
+        self._bar.finish()
+        
+        # Complete current chromosome
+        if self._current_chrom:
+            self._subject.notify_complete(
+                source=f"chromosome:{self._current_chrom}",
+                message=f"Completed {self._current_chrom}"
+            )
+        
+        # Complete genome
+        self._subject.notify_complete(
+            source="genome",
+            message="Completed genome-wide read counting"
+        )
+    
+    def disable_bar(self) -> None:
+        """Disable visual progress bar but keep observer notifications."""
+        self._bar.disable_bar()
+    
+    def __getattr__(self, name):
+        """Delegate unknown attributes to wrapped bar."""
+        return getattr(self._bar, name)
+
+
 # Global progress manager instance
 _global_progress_manager = None
 

@@ -64,11 +64,16 @@ class BACalcHandler(CCCalcHandler):
             self.mappability_handler.chrom2mappable_len = mappable_len
             self.mappability_handler.mappable_len = list(map(sum, zip(*mappable_len.values())))
 
-    def _run_multiprocess_calcuration(self):
-        self._order_queue = Queue()
-        self._report_queue = Queue()
-        self._logger_lock = Lock()
+    def _run_multiprocess_calculation(self):
+        """Execute calculation using multiprocess mode with BitArray workers.
+        
+        Overrides parent method to use BitArray-specific workers while
+        leveraging the parent's queue creation and workflow coordination.
+        """
+        # Use parent's queue creation
+        self._create_worker_queues()
 
+        # Create BitArray-specific workers
         workers = [
             BACalcWorker(
                 self._order_queue, self._report_queue, self._logger_lock,

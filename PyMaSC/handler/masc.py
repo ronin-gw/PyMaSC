@@ -18,11 +18,12 @@ from multiprocessing import Queue, Lock
 
 import pysam
 
+from PyMaSC.handler.base import BaseCalcHandler, NothingToCalc
 from PyMaSC.handler.masc_noindex_worker import SingleProcessCalculator
 from PyMaSC.handler.masc_worker import NaiveCCCalcWorker, MSCCCalcWorker, NCCandMSCCCalcWorker
 from PyMaSC.core.readlen import estimate_readlen
 from PyMaSC.utils.progress import MultiLineProgressManager, ProgressBar, ProgressHook
-from PyMaSC.utils.calc import exec_worker_pool, filter_chroms
+from PyMaSC.utils.calc import exec_worker_pool
 
 logger = logging.getLogger(__name__)
 
@@ -36,17 +37,10 @@ class InputUnseekable(Exception):
     pass
 
 
-class NothingToCalc(Exception):
-    """Exception raised when no chromosomes match the filtering criteria.
-    
-    This exception is raised when chromosome filtering results in no target
-    chromosomes for analysis, typically due to overly restrictive include/exclude
-    chromosome patterns.
-    """
-    pass
+# NothingToCalc is now imported from base module
 
 
-class CCCalcHandler(object):
+class CCCalcHandler(BaseCalcHandler):
     """Main cross-correlation calculation handler.
     
     This class orchestrates the complete cross-correlation analysis workflow,
@@ -55,6 +49,9 @@ class CCCalcHandler(object):
     
     The handler supports both single-process and multiprocess execution modes,
     automatically falling back to single-process for unindexed BAM files.
+    
+    This class now extends BaseCalcHandler, which provides common initialization
+    and workflow logic, eliminating duplicate code across handlers.
     
     Attributes:
         path: Input BAM file path
@@ -84,55 +81,23 @@ class CCCalcHandler(object):
             ValueError: If BAM file has no sequences defined
             NothingToCalc: If no chromosomes match filtering criteria
         """
-        self.path = path
+        # Store esttype before calling parent init
         self.esttype = esttype
-        self.max_shift = max_shift
-        self.mapq_criteria = mapq_criteria
-        self.nworker = nworker
-        self.skip_ncc = skip_ncc
-
-        #
-        try:
-            self.align_file = pysam.AlignmentFile(path)
-        except ValueError:
-            logger.error("File has no sequences defined.")
-            raise
-
-        #
-        target_references = filter_chroms(self.align_file.references, chromfilter)
-        if not target_references:
-            logger.error("There is no targeted chromosomes.")
-            raise NothingToCalc
-        self.references = []
-        self.lengths = []
-        need_warning = False
-        for reference, length in zip(self.align_file.references, self.align_file.lengths):
-            if reference in target_references:
-                self.references.append(reference)
-                self.lengths.append(length)
-
-        #
-        if not self.align_file.has_index() and self.nworker > 1:
-            logger.error("Need indexed alignment file for multi-processng. "
-                         "Calculation will be executed by single process.")
-            self.nworker = 1
-        elif self.nworker > 1:
+        
+        # Call parent init which handles common initialization
+        super().__init__(
+            path=path,
+            mapq_criteria=mapq_criteria,
+            max_shift=max_shift,
+            nworker=nworker,
+            mappability_handler=None,
+            skip_ncc=skip_ncc,
+            chroms=chromfilter  # Pass chromfilter as chroms
+        )
+        
+        # Close alignment file for multiprocessing mode (handled after parent init)
+        if self.nworker > 1 and hasattr(self, 'align_file') and self.align_file:
             self.align_file.close()
-
-        #
-        self.ref2forward_sum = {}
-        self.ref2reverse_sum = {}
-        self.ref2ccbins = {}
-
-        #
-        self.mappable_ref2forward_sum = {}
-        self.mappable_ref2reverse_sum = {}
-        self.mappable_ref2ccbins = {}
-        self.ref2mappable_len = {}
-
-        #
-        self.read_len = None
-        self.mappability_handler = None
 
     def set_readlen(self, readlen=None):
         """Set or estimate read length for cross-correlation calculation.
@@ -213,15 +178,10 @@ class CCCalcHandler(object):
         the number of workers and BAM file indexing status.
         
         Note:
-            Automatically disables single-line progress bars for multiprocess mode
+            This method delegates to the parent's run() method which handles
+            the common workflow pattern. Kept for backward compatibility.
         """
-        if self.nworker > 1:
-            # to avoid interfering mappability progress bar with multiline progress bar
-            ProgressBar.global_switch = False
-            ProgressHook.global_switch = True
-            self._run_multiprocess_calcuration()
-        else:
-            self._run_singleprocess_calculation()
+        self.run()
 
     def _run_singleprocess_calculation(self):
         """Execute calculation using single-process mode.
@@ -251,21 +211,21 @@ class CCCalcHandler(object):
 
         self._calc_unsolved_mappabilty()
 
-    def _run_multiprocess_calcuration(self):
+    def _run_multiprocess_calculation(self):
         """Execute calculation using multiprocess mode.
         
         Sets up inter-process communication queues and launches worker processes
         for parallel chromosome processing. Manages worker coordination and
-        result aggregation.
+        result aggregation. This method leverages the parent's queue creation.
         
         Note:
             Requires indexed BAM files and automatically falls back to single-process
             if the file is not indexed
         """
-        self._order_queue = Queue()
-        self._report_queue = Queue()
-        self._logger_lock = Lock()
+        # Use parent's queue creation method
+        self._create_worker_queues()
 
+        # Create workers with algorithm-specific arguments
         worker_args = [self._order_queue, self._report_queue, self._logger_lock, self.path,
                        self.mapq_criteria, self.max_shift, self.references, self.lengths]
         if self.mappability_handler:
@@ -322,8 +282,9 @@ class CCCalcHandler(object):
     def _receive_results(self, chrom, mappable_len, cc_stats, masc_stats):
         """Process and store results from worker processes.
         
-        Unpacks worker results and stores them in the appropriate handler
-        attributes for both naive cross-correlation and MSCC results.
+        Extends the parent's result processing to handle mappability-specific
+        attributes. This method adds mappability handler updates while
+        using the parent's standard result aggregation.
         
         Args:
             chrom: Chromosome name
@@ -331,18 +292,26 @@ class CCCalcHandler(object):
             cc_stats: Tuple of (forward_sum, reverse_sum, ccbins) for naive CC
             masc_stats: Tuple of (forward_sum, reverse_sum, ccbins) for MSCC
         """
+        # Use parent's aggregation logic by formatting result tuple
+        result_tuple = (chrom, (mappable_len, cc_stats, masc_stats))
+        
+        # Store result in report queue format for parent processing
+        # But since we're calling directly, we'll unpack and process here
         f_sum, r_sum, ccbins = cc_stats
         mf_sum, mr_sum, mccbins = masc_stats
 
-        if mappable_len is not None:
+        # Additional mappability handler updates
+        if mappable_len is not None and self.mappability_handler:
             self.mappability_handler.chrom2mappable_len[chrom] = mappable_len
             self.mappability_handler.chrom2is_called[chrom] = True
 
+        # Store NCC results
         if None not in (f_sum, r_sum, ccbins):
             self.ref2forward_sum[chrom] = f_sum
             self.ref2reverse_sum[chrom] = r_sum
             self.ref2ccbins[chrom] = ccbins
 
+        # Store MSCC results
         if None not in (mappable_len, mf_sum, mr_sum, mccbins):
             self.mappable_ref2forward_sum[chrom] = mf_sum
             self.mappable_ref2reverse_sum[chrom] = mr_sum

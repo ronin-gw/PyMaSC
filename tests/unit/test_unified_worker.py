@@ -124,6 +124,11 @@ class TestStandardReadProcessor(unittest.TestCase):
         read.reference_name = "chr1"
         read.reference_start = 100
         read.infer_query_length.return_value = 50
+        # Add required attributes for filtering
+        read.is_read2 = False
+        read.mapping_quality = 30
+        read.is_unmapped = False
+        read.is_duplicate = False
         
         self.processor.process_read(read)
         
@@ -136,6 +141,11 @@ class TestStandardReadProcessor(unittest.TestCase):
         read.reference_name = "chr1"
         read.reference_start = 200
         read.infer_query_length.return_value = 50
+        # Add required attributes for filtering
+        read.is_read2 = False
+        read.mapping_quality = 30
+        read.is_unmapped = False
+        read.is_duplicate = False
         
         self.processor.process_read(read)
         
@@ -162,6 +172,11 @@ class TestDualReadProcessor(unittest.TestCase):
         read.reference_name = "chr1"
         read.reference_start = 100
         read.infer_query_length.return_value = 50
+        # Add required attributes for filtering
+        read.is_read2 = False
+        read.mapping_quality = 30
+        read.is_unmapped = False
+        read.is_duplicate = False
         
         self.processor.process_read(read)
         
@@ -175,6 +190,11 @@ class TestDualReadProcessor(unittest.TestCase):
         read.reference_name = "chr1"
         read.reference_start = 200
         read.infer_query_length.return_value = 50
+        # Add required attributes for filtering
+        read.is_read2 = False
+        read.mapping_quality = 30
+        read.is_unmapped = False
+        read.is_duplicate = False
         
         self.processor.process_read(read)
         

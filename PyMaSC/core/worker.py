@@ -22,6 +22,7 @@ from pysam import AlignmentFile, AlignedSegment
 from PyMaSC.core.interfaces import CrossCorrelationCalculator
 from PyMaSC.core.models import WorkerConfig, CalculationConfig, AlgorithmType
 from PyMaSC.utils.progress import ProgressHook
+from PyMaSC.utils.read_processing import ReadFilter, ReadProcessor as ReadProcessorUtil, create_standard_filter
 
 logger = logging.getLogger(__name__)
 
@@ -237,8 +238,8 @@ class StandardReadProcessor:
     """Standard read processor implementation.
     
     Provides the common read filtering and processing logic used by
-    most PyMaSC calculations. Filters reads based on quality criteria
-    and feeds them to the calculator.
+    most PyMaSC calculations. Now uses the centralized read processing
+    utilities to eliminate duplicate filtering logic.
     """
     
     def __init__(self, 
@@ -252,9 +253,14 @@ class StandardReadProcessor:
         """
         self.calculator = calculator
         self.mapq_criteria = mapq_criteria
+        # Use centralized read processing utilities
+        self._filter = create_standard_filter(mapq_criteria)
+        self._processor = ReadProcessorUtil(calculator, self._filter)
     
     def should_skip_read(self, read: AlignedSegment) -> bool:
         """Check if read should be skipped based on quality criteria.
+        
+        Uses centralized filtering logic to ensure consistency.
         
         Args:
             read: Read to check
@@ -262,29 +268,17 @@ class StandardReadProcessor:
         Returns:
             True if read should be skipped
         """
-        return (read.is_read2 or 
-                read.mapping_quality < self.mapq_criteria or
-                read.is_unmapped or 
-                read.is_duplicate)
+        return self._filter.should_skip_read(read)
     
     def process_read(self, read: AlignedSegment) -> None:
         """Process a single read by feeding to calculator.
         
+        Uses centralized processing logic to eliminate duplication.
+        
         Args:
             read: Read to process
         """
-        if read.is_reverse:
-            self.calculator.feed_reverse_read(
-                read.reference_name,
-                read.reference_start + 1,
-                read.infer_query_length()
-            )
-        else:
-            self.calculator.feed_forward_read(
-                read.reference_name,
-                read.reference_start + 1,
-                read.infer_query_length()
-            )
+        self._processor.process_read(read)
 
 
 class UnifiedWorker(BaseWorker):
@@ -448,7 +442,7 @@ class DualReadProcessor:
     
     Used for simultaneous NCC and MSCC calculations, feeding each
     read to both calculators to compute both standard and
-    mappability-corrected results.
+    mappability-corrected results. Now uses centralized utilities.
     """
     
     def __init__(self,
@@ -465,38 +459,21 @@ class DualReadProcessor:
         self.primary_calculator = primary_calculator
         self.secondary_calculator = secondary_calculator
         self.mapq_criteria = mapq_criteria
+        # Use centralized read processing utilities
+        from PyMaSC.utils.read_processing import create_dual_processor
+        self._dual_processor = create_dual_processor(
+            primary_calculator, 
+            secondary_calculator, 
+            mapq_criteria
+        )
     
     def should_skip_read(self, read: AlignedSegment) -> bool:
-        """Check if read should be skipped."""
-        return (read.is_read2 or 
-                read.mapping_quality < self.mapq_criteria or
-                read.is_unmapped or 
-                read.is_duplicate)
+        """Check if read should be skipped using centralized logic."""
+        return self._dual_processor.filter.should_skip_read(read)
     
     def process_read(self, read: AlignedSegment) -> None:
-        """Process read in both calculators."""
-        if read.is_reverse:
-            self.primary_calculator.feed_reverse_read(
-                read.reference_name,
-                read.reference_start + 1,
-                read.infer_query_length()
-            )
-            self.secondary_calculator.feed_reverse_read(
-                read.reference_name,
-                read.reference_start + 1,
-                read.infer_query_length()
-            )
-        else:
-            self.primary_calculator.feed_forward_read(
-                read.reference_name,
-                read.reference_start + 1,
-                read.infer_query_length()
-            )
-            self.secondary_calculator.feed_forward_read(
-                read.reference_name,
-                read.reference_start + 1,
-                read.infer_query_length()
-            )
+        """Process read in both calculators using centralized logic."""
+        self._dual_processor.process_read(read)
 
 
 # Backward compatibility aliases

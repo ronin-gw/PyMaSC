@@ -6,7 +6,7 @@ import logging
 import os
 import sys
 
-from PyMaSC.utils.compatible import zip_longest
+from itertools import zip_longest
 
 from PyMaSC import entrypoint, logging_version
 from PyMaSC.utils.logfmt import set_rootlogger

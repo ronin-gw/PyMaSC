@@ -20,7 +20,6 @@ import os.path
 import numpy as np
 
 from PyMaSC.utils.output import catch_IOError
-from PyMaSC.utils.compatible import xrange
 
 logger = logging.getLogger(__name__)
 
@@ -167,9 +166,9 @@ def plot_naive_cc(ccr, name=None, xlim=None):
     plt.xlabel("Reverse Strand Shift")
     plt.ylabel("Cross-Correlation")
 
-    plt.fill_between(xrange(stats.max_shift + 1), ccr.ncc_lower, ccr.ncc_upper,
+    plt.fill_between(range(stats.max_shift + 1), ccr.ncc_lower, ccr.ncc_upper,
                      color="lightskyblue", alpha=0.5, linewidth=0)
-    plt.plot(xrange(stats.max_shift + 1), stats.cc.cc, color="black", linewidth=0.5)
+    plt.plot(range(stats.max_shift + 1), stats.cc.cc, color="black", linewidth=0.5)
     axes = plt.gca()
     if xlim:
         axes.set_xlim(xlim)
@@ -244,11 +243,11 @@ def plot_masc(ccr, name=None):
 
     stats = ccr.whole
 
-    plt.fill_between(xrange(stats.max_shift + 1), ccr.mscc_lower, ccr.mscc_upper,
+    plt.fill_between(range(stats.max_shift + 1), ccr.mscc_lower, ccr.mscc_upper,
                      color="lightskyblue", alpha=0.5, linewidth=0)
-    plt.plot(xrange(stats.max_shift + 1), stats.masc.cc,
+    plt.plot(range(stats.max_shift + 1), stats.masc.cc,
              color="black", linewidth=0.5, label="MSCC")
-    plt.plot(xrange(stats.max_shift + 1), stats.masc.avr_cc,
+    plt.plot(range(stats.max_shift + 1), stats.masc.avr_cc,
              alpha=0.8, label="Smoothed", color="pink")
 
     lower, upper, height = _set_ylim()
@@ -323,10 +322,10 @@ def _plot_ncc_vs_masc(stats, title):
     plt.ylabel("Relative Cross-Correlation from each minimum")
 
     if stats.calc_ncc:
-        plt.plot(xrange(stats.max_shift + 1), stats.cc.cc - stats.cc.cc_min,
+        plt.plot(range(stats.max_shift + 1), stats.cc.cc - stats.cc.cc_min,
                  color="black", linewidth=0.5, label="Naive CC")
     if stats.calc_masc:
-        plt.plot(xrange(stats.max_shift + 1), stats.masc.cc - stats.masc.cc_min,
+        plt.plot(range(stats.max_shift + 1), stats.masc.cc - stats.masc.cc_min,
                  alpha=1 if not stats.calc_ncc else 0.8, linewidth=0.5, label="MSCC")
 
     lower, upper, height = _set_ylim()

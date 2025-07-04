@@ -24,7 +24,6 @@ import numpy as np
 
 from PyMaSC.core.mappability import MappableLengthCalculator
 from PyMaSC.utils.progress import ProgressHook, MultiLineProgressManager
-from PyMaSC.utils.compatible import xrange
 from PyMaSC.utils.output import prepare_outdir
 from PyMaSC.utils.calc import exec_worker_pool
 
@@ -317,7 +316,7 @@ class MappabilityHandler(MappableLengthCalculator):
 
     def _sumup_mappability(self):
         for length in self.chrom2mappable_len.values():
-            for i in xrange(self.max_shift + 1):
+            for i in range(self.max_shift + 1):
                 self.mappable_len[i] += length[i]
 
 

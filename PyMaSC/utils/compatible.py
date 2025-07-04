@@ -15,23 +15,6 @@ clean code throughout the PyMaSC codebase.
 """
 
 
-def tostr(s):
-    """Convert input to string (Python 3 compatibility stub).
-    
-    In Python 3, this function simply returns the input unchanged.
-    Previously provided Python 2/3 compatibility for string handling.
-    
-    Args:
-        s: Input object to convert to string
-        
-    Returns:
-        The input object unchanged (Python 3 strings are already Unicode)
-        
-    Note:
-        This function is maintained for backward compatibility but
-        is essentially a pass-through in Python 3 environments
-    """
-    return s
 
 from itertools import zip_longest
 from io import BytesIO as StringIO

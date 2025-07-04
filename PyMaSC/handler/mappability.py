@@ -24,7 +24,7 @@ import numpy as np
 
 from PyMaSC.core.mappability import MappableLengthCalculator
 from PyMaSC.utils.progress import ProgressHook, MultiLineProgressManager
-from PyMaSC.utils.compatible import tostr, xrange
+from PyMaSC.utils.compatible import xrange
 from PyMaSC.utils.output import prepare_outdir
 from PyMaSC.utils.calc import exec_worker_pool
 
@@ -284,7 +284,7 @@ class MappabilityHandler(MappableLengthCalculator):
             Uses multiprocessing for efficient parallel computation
             across available CPU cores
         """
-        target_chroms = [tostr(c) for c, b in self.chrom2is_called.items() if b is False]
+        target_chroms = [c for c, b in self.chrom2is_called.items() if b is False]
         if not target_chroms:
             return self._sumup_mappability()
 

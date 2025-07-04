@@ -28,7 +28,7 @@ class TestCCCalcHandlerBasics:
         assert issubclass(InputUnseekable, Exception)
         assert issubclass(NothingToCalc, Exception)
 
-    @patch('pysam.AlignmentFile')
+    @patch('PyMaSC.handler.base.AlignmentFile')
     def test_handler_initialization_basic(self, mock_alignment_file):
         """Test basic handler initialization."""
         from PyMaSC.handler.masc import CCCalcHandler
@@ -59,7 +59,7 @@ class TestCCCalcHandlerBasics:
             # May fail due to file validation or other requirements
             pytest.skip(f"Handler initialization requires specific setup: {e}")
 
-    @patch('pysam.AlignmentFile')
+    @patch('PyMaSC.handler.base.AlignmentFile')
     def test_handler_initialization_with_workers(self, mock_alignment_file):
         """Test handler initialization with multiple workers."""
         from PyMaSC.handler.masc import CCCalcHandler
@@ -102,7 +102,7 @@ class TestCCCalcHandlerBasics:
 class TestCCCalcHandlerConfiguration:
     """Test CCCalcHandler configuration options."""
 
-    @patch('pysam.AlignmentFile')
+    @patch('PyMaSC.handler.base.AlignmentFile')
     def test_handler_estimation_types(self, mock_alignment_file):
         """Test different estimation types."""
         from PyMaSC.handler.masc import CCCalcHandler
@@ -129,7 +129,7 @@ class TestCCCalcHandlerConfiguration:
             except Exception:
                 pytest.skip(f"EstType {esttype} not supported or requires setup")
 
-    @patch('pysam.AlignmentFile')
+    @patch('PyMaSC.handler.base.AlignmentFile')
     def test_handler_mapq_criteria(self, mock_alignment_file):
         """Test different MAPQ filtering criteria."""
         from PyMaSC.handler.masc import CCCalcHandler
@@ -156,7 +156,7 @@ class TestCCCalcHandlerConfiguration:
             except Exception:
                 pytest.skip("Handler requires specific setup")
 
-    @patch('pysam.AlignmentFile')
+    @patch('PyMaSC.handler.base.AlignmentFile')
     def test_handler_skip_ncc_option(self, mock_alignment_file):
         """Test skip_ncc option."""
         from PyMaSC.handler.masc import CCCalcHandler
@@ -185,7 +185,7 @@ class TestCCCalcHandlerConfiguration:
 class TestCCCalcHandlerReferenceHandling:
     """Test how handler processes reference sequences."""
 
-    @patch('pysam.AlignmentFile')
+    @patch('PyMaSC.handler.base.AlignmentFile')
     def test_reference_processing(self, mock_alignment_file):
         """Test reference sequence processing."""
         from PyMaSC.handler.masc import CCCalcHandler
@@ -216,7 +216,7 @@ class TestCCCalcHandlerReferenceHandling:
         except Exception:
             pytest.skip("Handler requires specific setup")
 
-    @patch('pysam.AlignmentFile')
+    @patch('PyMaSC.handler.base.AlignmentFile')
     def test_chromosome_filtering(self, mock_alignment_file):
         """Test chromosome filtering functionality."""
         from PyMaSC.handler.masc import CCCalcHandler
@@ -251,7 +251,7 @@ class TestCCCalcHandlerReferenceHandling:
         except Exception as e:
             pytest.fail(f"Unexpected error in chromosome filtering: {type(e).__name__}: {e}")
 
-    @patch('pysam.AlignmentFile')
+    @patch('PyMaSC.handler.base.AlignmentFile')
     def test_empty_references_handling(self, mock_alignment_file):
         """Test handling of empty reference list."""
         from PyMaSC.handler.masc import CCCalcHandler, NothingToCalc
@@ -262,8 +262,8 @@ class TestCCCalcHandlerReferenceHandling:
         mock_bam.lengths = []
         mock_alignment_file.return_value = mock_bam
         
-        # Should raise NothingToCalc exception
-        with pytest.raises(NothingToCalc):
+        # Should raise RuntimeError for empty references (raised by BaseCalcHandler)
+        with pytest.raises(RuntimeError, match="BAM file has no sequences defined"):
             CCCalcHandler(
                 path="mock_path.bam",
                 esttype="ncc",
@@ -287,7 +287,7 @@ class TestCCCalcHandlerFileHandling:
                 mapq_criteria=20
             )
 
-    @patch('pysam.AlignmentFile')
+    @patch('PyMaSC.handler.base.AlignmentFile')
     def test_invalid_bam_file_handling(self, mock_alignment_file):
         """Test handling of invalid BAM files."""
         from PyMaSC.handler.masc import CCCalcHandler
@@ -315,7 +315,7 @@ class TestCCCalcHandlerFileHandling:
 class TestCCCalcHandlerWorkerManagement:
     """Test worker process management."""
 
-    @patch('pysam.AlignmentFile')
+    @patch('PyMaSC.handler.base.AlignmentFile')
     def test_single_worker_mode(self, mock_alignment_file):
         """Test single worker mode."""
         from PyMaSC.handler.masc import CCCalcHandler
@@ -341,7 +341,7 @@ class TestCCCalcHandlerWorkerManagement:
         except Exception:
             pytest.skip("Handler requires specific setup")
 
-    @patch('pysam.AlignmentFile')
+    @patch('PyMaSC.handler.base.AlignmentFile')
     def test_multiworker_mode(self, mock_alignment_file):
         """Test multi-worker mode."""
         from PyMaSC.handler.masc import CCCalcHandler

@@ -134,7 +134,11 @@ class TestServicePerformanceBenchmark:
         
         # Verify result
         assert result is not None
-        assert result.forward_count == len(forward_reads)
+        # BitArray algorithm counts unique positions only (deduplication)
+        unique_forward_positions = len(set(pos for pos, _ in data.forward_reads))
+        unique_reverse_positions = len(set(pos for pos, _ in data.reverse_reads))
+        assert result.forward_count == unique_forward_positions
+        assert result.reverse_count == unique_reverse_positions
         
         # Performance assertion - should complete in under 1 second
         assert timer.elapsed < 1.0, f"Too slow: {timer.elapsed}s"

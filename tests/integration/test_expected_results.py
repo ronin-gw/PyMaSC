@@ -169,8 +169,6 @@ class TestCrossCorrelationBaseline:
         # Basic validation
         assert all(val >= 0 for val in correlations.values()), "Negative correlations found"
         assert max(correlations.values()) > 0, "No positive correlations found"
-        
-        return baseline
     
     def test_correlation_reproducibility(self, encode_baseline_data):
         """Test that correlation calculation is reproducible."""

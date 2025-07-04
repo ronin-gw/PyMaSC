@@ -272,17 +272,51 @@ class TestReadLengthIntegration:
         mock_bam.fetch.return_value = mock_reads
         
         try:
-            result = estimate_readlen(mock_bam)
+            # estimate_readlen expects (path, esttype, mapq_criteria) not a bam object
+            # This test is fundamentally flawed - mock objects can't substitute file paths
+            result = estimate_readlen("mock_path.bam", "MEAN", 20)
             
             if result is not None:
                 # Larger sample sizes should give more confident estimates
                 assert isinstance(result, (int, float))
                 assert 40 <= result <= 60
                 
-        except Exception:
-            # Function might have minimum sample size requirements
+        except (FileNotFoundError, OSError):
+            # Expected: mock_path.bam doesn't exist
+            pytest.skip("Function requires actual BAM file path, not mock objects")
+        except Exception as e:
+            # Other unexpected errors
             if sample_size < 10:
                 pass  # Small sample size might be rejected
             else:
                 # Larger sample sizes should work
-                pytest.skip("Function requires specific parameters or dependencies")
+                pytest.skip(f"Function requires specific parameters or dependencies: {e}")
+
+    def test_readlen_with_real_test_data(self):
+        """Test read length estimation with real test BAM file."""
+        import os
+        from PyMaSC.core.readlen import estimate_readlen
+        
+        test_bam = "/Users/anzawa/github/PyMaSC/tests/data/ENCFF000RMB-test.bam"
+        
+        if not os.path.exists(test_bam):
+            pytest.skip("Test BAM file not available")
+        
+        # Test different estimation methods
+        for method in ["MEAN", "MEDIAN", "MODE"]:
+            try:
+                result = estimate_readlen(test_bam, method, 20)
+                
+                # Golden test data shows read length should be 36
+                assert result is not None, f"estimate_readlen returned None for {method}"
+                assert isinstance(result, (int, float)), f"Result should be numeric for {method}"
+                assert 30 <= result <= 50, f"Read length {result} seems unreasonable for {method} (expected ~36)"
+                
+                # For our specific test data, we expect close to 36
+                if method in ["MEAN", "MEDIAN"]:
+                    assert 34 <= result <= 38, f"Read length {result} differs from expected 36 for {method}"
+                    
+            except FileNotFoundError:
+                pytest.skip(f"BAM file not accessible for {method}")
+            except Exception as e:
+                pytest.fail(f"Unexpected error in estimate_readlen with {method}: {e}")

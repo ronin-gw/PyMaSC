@@ -53,6 +53,7 @@ plot = [
 test = [
     "pytest>=6.0",
     "pytest-cov",
+    "psutil>=5.8.0",
 ]
 dev = [
     "PyMaSC[plot,test]",
@@ -112,10 +113,22 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "--verbose --tb=short"
+addopts = "--verbose --tb=short --strict-markers --disable-warnings -ra"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+    "bitarray: marks tests that require BitArray functionality",
+    "plot: marks tests that require matplotlib/plotting functionality",
+    "golden_test: marks tests that validate against golden reference data",
+    "pyBigWig: marks tests that specifically test pyBigWig functionality",
+    "baseline_testing: marks tests that generate baseline data for comparison",
+    "numerical_validation: marks tests that perform detailed numerical validation",
+]
 filterwarnings = [
     "ignore::DeprecationWarning",
     "ignore::PendingDeprecationWarning",
+    "ignore::FutureWarning",
 ]
 
 [tool.coverage.run]

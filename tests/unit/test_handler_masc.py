@@ -231,20 +231,25 @@ class TestCCCalcHandlerReferenceHandling:
         
         try:
             # Test with chromosome filter
+            # chromfilter expects (include_flag, patterns) tuples
             handler = CCCalcHandler(
                 path="mock_path.bam",
                 esttype="ncc",
                 max_shift=200,
                 mapq_criteria=20,
-                chromfilter=['chr1', 'chr2']
+                chromfilter=[(True, ['chr1', 'chr2'])]
             )
             
             # Should filter to only specified chromosomes
             if hasattr(handler, 'references'):
                 assert all(ref in ['chr1', 'chr2'] for ref in handler.references)
                 
-        except Exception:
-            pytest.skip("ChromFilter not supported or requires setup")
+        except (ImportError, NotImplementedError) as e:
+            pytest.skip(f"ChromFilter not supported: {e}")
+        except (AttributeError, TypeError) as e:
+            pytest.skip(f"ChromFilter requires proper setup: {e}")
+        except Exception as e:
+            pytest.fail(f"Unexpected error in chromosome filtering: {type(e).__name__}: {e}")
 
     @patch('pysam.AlignmentFile')
     def test_empty_references_handling(self, mock_alignment_file):

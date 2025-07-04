@@ -23,7 +23,6 @@ from cython cimport boundscheck, wraparound
 
 import numpy as np
 from PyMaSC.utils.progress import ProgressBar
-from PyMaSC.utils.compatible import tostr
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +149,7 @@ cdef class MappableLengthCalculator(BigWigReader):
             with calculated statistics
         """
         if not chrom:
-            chroms = [tostr(c) for c, b in self.chrom2is_called.items() if b is False]
+            chroms = [c for c, b in self.chrom2is_called.items() if b is False]
         elif self.chrom2is_called[chrom]:
             return None
         else:

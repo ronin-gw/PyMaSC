@@ -247,7 +247,8 @@ class WorkerFactory:
         order_queue: Queue,
         report_queue: Queue,
         logger_lock: Lock,
-        bam_path: str
+        bam_path: str,
+        use_unified: bool = True
     ) -> Any:  # Returns Process-based worker
         """Create a worker instance with the specified configuration.
         
@@ -257,6 +258,7 @@ class WorkerFactory:
             report_queue: Queue for reporting results
             logger_lock: Lock for thread-safe logging
             bam_path: Path to BAM file to process
+            use_unified: Whether to use new unified worker (default True)
             
         Returns:
             Worker instance ready for multiprocessing execution
@@ -264,6 +266,18 @@ class WorkerFactory:
         Raises:
             ImportError: If required worker class is not available
         """
+        # Use unified worker by default
+        if use_unified:
+            from PyMaSC.core.worker import UnifiedWorker
+            return UnifiedWorker(
+                worker_config,
+                order_queue,
+                report_queue,
+                logger_lock,
+                bam_path
+            )
+        
+        # Legacy worker creation for backward compatibility
         calc_config = worker_config.calculation_config
         map_config = worker_config.mappability_config
         

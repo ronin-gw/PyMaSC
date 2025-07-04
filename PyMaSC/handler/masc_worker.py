@@ -13,6 +13,9 @@ Key components:
 
 The workers use inter-process communication to coordinate with the main
 process and report progress and results efficiently.
+
+NOTE: This module is deprecated. Use PyMaSC.core.worker.UnifiedWorker instead.
+Legacy workers are available for backward compatibility through compatibility wrappers.
 """
 import logging
 import os
@@ -279,3 +282,18 @@ class NCCandMSCCCalcWorker(MSCCCalcWorker):
                 )
             )
         ))
+
+
+# Import compatibility wrappers for backward compatibility
+# These replace the original classes with unified worker implementations
+from PyMaSC.core.worker_compat import (
+    NaiveCCCalcWorker as _NaiveCCCalcWorker,
+    MSCCCalcWorker as _MSCCCalcWorker,
+    NCCandMSCCCalcWorker as _NCCandMSCCCalcWorker
+)
+
+# Replace existing classes with compatibility wrappers
+# This ensures existing code continues to work without modification
+NaiveCCCalcWorker = _NaiveCCCalcWorker
+MSCCCalcWorker = _MSCCCalcWorker
+NCCandMSCCCalcWorker = _NCCandMSCCCalcWorker

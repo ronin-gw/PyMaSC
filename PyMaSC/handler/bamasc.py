@@ -12,6 +12,9 @@ Key components:
 
 The BitArray implementation is the default algorithm for PyMaSC due to its
 performance advantages, though it requires more memory (~250MB per worker).
+
+NOTE: This module is deprecated. Use PyMaSC.core.worker.UnifiedWorker instead.
+Legacy workers are available for backward compatibility through compatibility wrappers.
 """
 import logging
 from multiprocessing import Queue, Lock
@@ -184,3 +187,10 @@ class BACalcWorker(CalcWorkerBase):
     def _deconstruct(self):
         if self._bwfeeder:
             self._bwfeeder.close()
+
+
+# Import compatibility wrapper for backward compatibility
+from PyMaSC.core.worker_compat import BACalcWorker as _BACalcWorker
+
+# Replace existing class with compatibility wrapper
+BACalcWorker = _BACalcWorker

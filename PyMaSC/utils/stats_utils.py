@@ -48,8 +48,15 @@ class CrossCorrelationMetrics:
             NSC value (higher is better, typically > 1.05)
         """
         try:
-            # Get fragment peak value
-            fragment_peak = ccbins[fragment_peak_pos]
+            # Validate inputs
+            if len(ccbins) == 0:
+                return 1.0
+                
+            # Get fragment peak value safely
+            if fragment_peak_pos < 0 or fragment_peak_pos >= len(ccbins):
+                fragment_peak = np.max(ccbins) if len(ccbins) > 0 else 0
+            else:
+                fragment_peak = ccbins[fragment_peak_pos]
             
             # Calculate background (excluding read-length phantom peak region)
             phantom_start = max(0, read_length - 5)
@@ -97,9 +104,20 @@ class CrossCorrelationMetrics:
             RSC value (higher is better, typically > 0.8)
         """
         try:
-            # Get peak values
-            fragment_peak = ccbins[fragment_peak_pos]
-            phantom_peak = ccbins[phantom_peak_pos]
+            # Validate inputs
+            if len(ccbins) == 0:
+                return 1.0
+                
+            # Get peak values safely
+            if fragment_peak_pos < 0 or fragment_peak_pos >= len(ccbins):
+                fragment_peak = np.max(ccbins) if len(ccbins) > 0 else 0
+            else:
+                fragment_peak = ccbins[fragment_peak_pos]
+                
+            if phantom_peak_pos < 0 or phantom_peak_pos >= len(ccbins):
+                phantom_peak = np.max(ccbins) if len(ccbins) > 0 else 0
+            else:
+                phantom_peak = ccbins[phantom_peak_pos]
             
             # Use provided minimum or calculate
             if min_value is None:
@@ -308,11 +326,16 @@ def calculate_quality_metrics(ccbins: np.ndarray,
     nsc = metrics.calculate_nsc(ccbins, fragment_peak_pos, read_length)
     rsc = metrics.calculate_rsc(ccbins, fragment_peak_pos, phantom_pos)
     
+    # Get fragment peak value safely
+    fragment_peak_value = 0.0
+    if 0 <= fragment_peak_pos < len(ccbins):
+        fragment_peak_value = float(ccbins[fragment_peak_pos])
+    
     return {
         'nsc': nsc,
         'rsc': rsc,
         'fragment_peak_pos': fragment_peak_pos,
-        'fragment_peak_value': float(ccbins[fragment_peak_pos]),
+        'fragment_peak_value': fragment_peak_value,
         'phantom_peak_pos': phantom_pos,
         'phantom_peak_value': phantom_value
     }

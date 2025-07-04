@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 class InputUnseekable(Exception):
     """Exception raised when input stream cannot be rewound for read length estimation.
-    
+
     This exception is raised when trying to estimate read length from unseekable
     input streams (like stdin) that cannot be rewound for multiple passes.
     """
@@ -42,17 +42,17 @@ class InputUnseekable(Exception):
 
 class CCCalcHandler(BaseCalcHandler):
     """Main cross-correlation calculation handler.
-    
+
     This class orchestrates the complete cross-correlation analysis workflow,
     including file validation, chromosome filtering, read length estimation,
     mappability correction setup, and calculation execution.
-    
+
     The handler supports both single-process and multiprocess execution modes,
     automatically falling back to single-process for unindexed BAM files.
-    
+
     This class now extends BaseCalcHandler, which provides common initialization
     and workflow logic, eliminating duplicate code across handlers.
-    
+
     Attributes:
         path: Input BAM file path
         esttype: Read length estimation method
@@ -67,7 +67,7 @@ class CCCalcHandler(BaseCalcHandler):
     """
     def __init__(self, path, esttype, max_shift, mapq_criteria, nworker=1, skip_ncc=False, chromfilter=None):
         """Initialize calculation handler with file and parameter validation.
-        
+
         Args:
             path: Path to input BAM file
             esttype: Read length estimation method ('mean' or 'median')
@@ -76,14 +76,14 @@ class CCCalcHandler(BaseCalcHandler):
             nworker: Number of worker processes (default: 1)
             skip_ncc: Whether to skip naive cross-correlation (default: False)
             chromfilter: Chromosome filtering patterns (default: None)
-            
+
         Raises:
             ValueError: If BAM file has no sequences defined
             NothingToCalc: If no chromosomes match filtering criteria
         """
         # Store esttype before calling parent init
         self.esttype = esttype
-        
+
         # Call parent init which handles common initialization
         super().__init__(
             path=path,
@@ -94,20 +94,20 @@ class CCCalcHandler(BaseCalcHandler):
             skip_ncc=skip_ncc,
             chroms=chromfilter  # Pass chromfilter as chroms
         )
-        
+
         # Close alignment file for multiprocessing mode (handled after parent init)
         if self.nworker > 1 and hasattr(self, 'align_file') and self.align_file:
             self.align_file.close()
 
     def set_readlen(self, readlen=None):
         """Set or estimate read length for cross-correlation calculation.
-        
+
         Either uses the provided read length or estimates it from the BAM file
         using the specified estimation method.
-        
+
         Args:
             readlen: Explicit read length to use, or None to estimate
-            
+
         Raises:
             InputUnseekable: If read length estimation is needed but input is unseekable
             ValueError: If read length exceeds maximum shift distance
@@ -129,13 +129,13 @@ class CCCalcHandler(BaseCalcHandler):
 
     def set_mappability_handler(self, mappability_handler):
         """Configure mappability correction handler.
-        
+
         Sets up the mappability handler for MSCC calculation and validates
         chromosome size consistency between BAM and BigWig files.
-        
+
         Args:
             mappability_handler: MappabilityHandler instance for correction
-            
+
         Note:
             Automatically adjusts chromosome lengths if BigWig has longer sequences
         """
@@ -150,14 +150,14 @@ class CCCalcHandler(BaseCalcHandler):
 
     def _compare_refsize(self, reference, bw_chr_size):
         """Compare and validate chromosome sizes between BAM and BigWig files.
-        
+
         Checks for size mismatches and adjusts BAM chromosome lengths if the
         BigWig file has longer sequences for the same chromosome.
-        
+
         Args:
             reference: Chromosome name
             bw_chr_size: Chromosome size from BigWig file
-            
+
         Note:
             Logs warnings for size mismatches and automatically uses longer length
         """
@@ -173,10 +173,10 @@ class CCCalcHandler(BaseCalcHandler):
 
     def run_calcuration(self):
         """Execute cross-correlation calculation workflow.
-        
+
         Chooses between single-process or multiprocess execution based on
         the number of workers and BAM file indexing status.
-        
+
         Note:
             This method delegates to the parent's run() method which handles
             the common workflow pattern. Kept for backward compatibility.
@@ -185,10 +185,10 @@ class CCCalcHandler(BaseCalcHandler):
 
     def _run_singleprocess_calculation(self):
         """Execute calculation using single-process mode.
-        
+
         Creates a single process calculator worker and runs the complete
         cross-correlation analysis for all chromosomes sequentially.
-        
+
         Note:
             Used when nworker=1 or when BAM file is not indexed
         """
@@ -213,11 +213,11 @@ class CCCalcHandler(BaseCalcHandler):
 
     def _run_multiprocess_calculation(self):
         """Execute calculation using multiprocess mode.
-        
+
         Sets up inter-process communication queues and launches worker processes
         for parallel chromosome processing. Manages worker coordination and
         result aggregation. This method leverages the parent's queue creation.
-        
+
         Note:
             Requires indexed BAM files and automatically falls back to single-process
             if the file is not indexed
@@ -246,13 +246,13 @@ class CCCalcHandler(BaseCalcHandler):
 
     def _run_calculation_with_workers(self, workers):
         """Coordinate worker processes and collect results.
-        
+
         Manages the worker process pool, handles progress reporting,
         and collects calculation results from all workers.
-        
+
         Args:
             workers: List of worker process instances
-            
+
         Note:
             Uses multiline progress display for concurrent chromosome processing
         """
@@ -281,29 +281,25 @@ class CCCalcHandler(BaseCalcHandler):
 
     def _receive_results(self, chrom, mappable_len, cc_stats, masc_stats):
         """Process and store results from worker processes.
-        
-        Extends the parent's result processing to handle mappability-specific
-        attributes. This method adds mappability handler updates while
-        using the parent's standard result aggregation.
-        
+
         Args:
             chrom: Chromosome name
             mappable_len: Calculated mappable length for the chromosome
             cc_stats: Tuple of (forward_sum, reverse_sum, ccbins) for naive CC
             masc_stats: Tuple of (forward_sum, reverse_sum, ccbins) for MSCC
         """
-        # Use parent's aggregation logic by formatting result tuple
-        result_tuple = (chrom, (mappable_len, cc_stats, masc_stats))
-        
-        # Store result in report queue format for parent processing
-        # But since we're calling directly, we'll unpack and process here
-        f_sum, r_sum, ccbins = cc_stats
-        mf_sum, mr_sum, mccbins = masc_stats
-
         # Additional mappability handler updates
         if mappable_len is not None and self.mappability_handler:
             self.mappability_handler.chrom2mappable_len[chrom] = mappable_len
             self.mappability_handler.chrom2is_called[chrom] = True
+            
+        # Store mappable length
+        if mappable_len is not None:
+            self.ref2mappable_len[chrom] = mappable_len
+
+        # Unpack results
+        f_sum, r_sum, ccbins = cc_stats
+        mf_sum, mr_sum, mccbins = masc_stats
 
         # Store NCC results
         if None not in (f_sum, r_sum, ccbins):
@@ -311,19 +307,20 @@ class CCCalcHandler(BaseCalcHandler):
             self.ref2reverse_sum[chrom] = r_sum
             self.ref2ccbins[chrom] = ccbins
 
-        # Store MSCC results
-        if None not in (mappable_len, mf_sum, mr_sum, mccbins):
+        # Store MSCC results - these are the critical mappable_ref2* attributes
+        # that the result handler expects for calc_masc calculation
+        if None not in (mf_sum, mr_sum, mccbins):
             self.mappable_ref2forward_sum[chrom] = mf_sum
             self.mappable_ref2reverse_sum[chrom] = mr_sum
             self.mappable_ref2ccbins[chrom] = mccbins
 
     def _calc_unsolved_mappabilty(self):
         """Complete any remaining mappability calculations.
-        
+
         Finalizes mappability calculations if they haven't been completed
         during the main calculation workflow and updates the mappable
         length dictionary.
-        
+
         Note:
             Called at the end of both single-process and multiprocess workflows
         """

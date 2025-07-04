@@ -1,4 +1,19 @@
 # cython: language_level=3
+"""BigWig file reader interface for mappability data.
+
+This module provides a Cython-optimized interface for reading BigWig files
+containing mappability data used in MSCC calculations. It wraps the pyBigWig
+library to provide efficient access to mappability tracks.
+
+Key components:
+- BigWigFileIterator: Iterator for BigWig intervals
+- BigWigReader: Main BigWig file reader interface
+- Efficient interval data structures for genomic regions
+- Compatible API for seamless integration with MSCC algorithms
+
+The module replaces the original bx-python implementation with pyBigWig
+for improved performance and maintainability.
+"""
 import os
 import sys
 import pyBigWig
@@ -11,13 +26,33 @@ cdef struct interval:
 
 
 cdef class BigWigFileIterator(object):
-    """Iterator wrapper to match the original BigWigFile API."""
+    """Iterator for BigWig intervals with original API compatibility.
+    
+    Provides iteration over BigWig intervals while maintaining compatibility
+    with the original BigWigFile API. The iterator yields interval structures
+    containing genomic coordinates and associated values.
+    
+    Attributes:
+        _intervals: List of intervals to iterate over
+        _index: Current iteration position
+    """
 
     def __init__(self, intervals):
+        """Initialize iterator with interval data.
+        
+        Args:
+            intervals: List of interval tuples (start, end, value) or None
+        """
         self._intervals = intervals if intervals else []
         self._index = 0
 
     cdef interval next(self):
+        """Get next interval in Cython-optimized format.
+        
+        Returns:
+            interval structure with begin, end, and value fields
+            Returns end=0 when iteration is complete
+        """
         cdef interval result
 
         if self._index >= len(self._intervals):
@@ -36,10 +71,23 @@ cdef class BigWigFileIterator(object):
         return result
 
     def __iter__(self):
+        """Return iterator object for Python iteration protocol.
+        
+        Returns:
+            Self as the iterator object
+        """
         """Python iterator protocol - return self."""
         return self
 
     def __next__(self):
+        """Get next interval for Python iteration protocol.
+        
+        Returns:
+            Tuple of (start, end, value) for the next interval
+            
+        Raises:
+            StopIteration: When no more intervals are available
+        """
         """Python iterator protocol - return next interval as tuple."""
         if self._index >= len(self._intervals):
             raise StopIteration
@@ -50,9 +98,32 @@ cdef class BigWigFileIterator(object):
 
 
 cdef class BigWigReader(object):
-    """pyBigWig-based BigWig reader with API compatibility."""
+    """pyBigWig-based BigWig file reader with original API compatibility.
+    
+    Provides efficient access to BigWig files containing mappability data
+    for MSCC calculations. The class wraps pyBigWig functionality while
+    maintaining compatibility with the original bx-python-based API.
+    
+    Attributes:
+        path: Path to the BigWig file
+        closed: Whether the file has been closed
+        _bw: pyBigWig file object for data access
+        chromsizes: Dictionary mapping chromosome names to lengths
+    """
 
     def __init__(self, str path):
+        """Initialize BigWig reader.
+        
+        Opens the BigWig file and extracts chromosome size information
+        for efficient data access during MSCC calculations.
+        
+        Args:
+            path: Path to BigWig file to read
+            
+        Raises:
+            IOError: If the specified file does not exist
+            RuntimeError: If the BigWig file cannot be opened
+        """
         if not os.path.exists(path) and path != '-':
             raise IOError("input file '{0}' dose not exist.".format(path))
 
@@ -71,6 +142,22 @@ cdef class BigWigReader(object):
         self.chromsizes = self.file.chroms()
 
     cpdef BigWigFileIterator fetch(self, float valfilter, chrom):
+        """Fetch intervals from BigWig file for specified chromosome.
+        
+        Retrieves all intervals from the specified chromosome that meet
+        the value filter criteria. Returns an iterator for efficient
+        processing of large datasets.
+        
+        Args:
+            valfilter: Minimum value threshold for intervals
+            chrom: Chromosome name to fetch data from
+            
+        Returns:
+            BigWigFileIterator containing filtered intervals
+            
+        Note:
+            Only intervals with values >= valfilter are included
+        """
         """Fetch intervals for chromosome with value filter."""
         if chrom not in self.chromsizes:
             raise KeyError(chrom)
@@ -87,6 +174,11 @@ cdef class BigWigReader(object):
         return BigWigFileIterator(intervals)
 
     def close(self):
+        """Close the BigWig file and release resources.
+        
+        Closes the underlying pyBigWig file object and marks the
+        reader as closed to prevent further operations.
+        """
         """Close the BigWig file."""
         if not self.closed:
             if self.file:

@@ -1,3 +1,18 @@
+"""Mathematical and computational utility functions.
+
+This module provides essential computational utilities used throughout PyMaSC,
+including array processing functions, chromosome filtering logic, and
+multiprocessing coordination utilities.
+
+Key functionality:
+- Moving average filtering for signal smoothing
+- Unix-style pattern matching for chromosome filtering
+- Context manager for multiprocessing worker pool coordination
+- Logging and debugging support for computational operations
+
+These utilities support the core PyMaSC algorithms and provide reusable
+computational building blocks for cross-correlation analysis.
+"""
 import fnmatch
 from itertools import groupby, chain
 import logging
@@ -8,6 +23,21 @@ logger = logging.getLogger(__name__)
 
 
 def moving_avr_filter(arr, window):
+    """Apply moving average filter to array.
+    
+    Computes a moving average filter over the input array using a specified
+    window size. Handles edge effects by using partial windows at array boundaries.
+    
+    Args:
+        arr: Input array to filter
+        window: Window size for moving average (must be positive)
+        
+    Returns:
+        Filtered array of same length as input with smoothed values
+        
+    Note:
+        Edge values use progressively larger windows to avoid boundary artifacts
+    """
     f = np.repeat(1, window) / float(window)
     avr = np.correlate(arr, f, mode="same")
     h_w = window // 2
@@ -18,6 +48,23 @@ def moving_avr_filter(arr, window):
 
 
 def filter_chroms(chroms, filters):
+    """Filter chromosome list using Unix-style patterns.
+    
+    Applies include/exclude patterns to filter a list of chromosome names.
+    Supports Unix shell-style wildcards (*, ?, []) for flexible pattern matching.
+    
+    Args:
+        chroms: List of chromosome names to filter
+        filters: List of (include_flag, patterns) tuples where include_flag
+                is True for include patterns and False for exclude patterns
+                
+    Returns:
+        Set of chromosome names that match the filtering criteria
+        
+    Note:
+        Filters are applied in order, with exclude patterns removing chromosomes
+        from the current set and include patterns adding them back
+    """
     if filters is None:
         logger.debug("There is no chromosome filters.")
         return chroms
@@ -47,12 +94,35 @@ def filter_chroms(chroms, filters):
 
 
 class exec_worker_pool(object):
+    """Context manager for multiprocessing worker pool execution.
+    
+    Manages the lifecycle of worker processes including startup, task distribution,
+    and cleanup. Provides a clean context manager interface for coordinating
+    parallel processing across multiple chromosomes.
+    
+    Attributes:
+        workers: List of worker process instances
+        tasks: List of tasks to distribute to workers
+        task_queue: Queue for distributing tasks to workers
+    """
     def __init__(self, workers, tasks, task_queue):
+        """Initialize worker pool manager.
+        
+        Args:
+            workers: List of worker process instances
+            tasks: List of tasks to distribute to workers
+            task_queue: Queue object for task distribution
+        """
         self.workers = workers
         self.tasks = tasks
         self.task_queue = task_queue
 
     def __enter__(self):
+        """Start all workers and distribute tasks.
+        
+        Starts all worker processes, distributes tasks to the queue,
+        and sends termination signals for clean shutdown.
+        """
         for w in self.workers:
             w.start()
         for t in self.tasks:
@@ -61,6 +131,15 @@ class exec_worker_pool(object):
             self.task_queue.put(None)
 
     def __exit__(self, type, value, traceback):
+        """Clean up worker processes.
+        
+        Terminates any remaining worker processes to ensure clean shutdown.
+        
+        Args:
+            type: Exception type (if any)
+            value: Exception value (if any) 
+            traceback: Exception traceback (if any)
+        """
         for w in self.workers:
             if w.is_alive():
                 w.terminate()

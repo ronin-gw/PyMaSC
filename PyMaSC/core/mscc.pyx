@@ -1,4 +1,21 @@
 # cython: language_level=3
+"""Mappability-Sensitive Cross-Correlation (MSCC) calculation implementation.
+
+This module implements the MSCC algorithm, which extends naive cross-correlation
+by incorporating mappability information from BigWig files. The algorithm
+corrects for non-uniform mappability across the genome, addressing the
+'phantom peak' problem in ChIP-seq analysis.
+
+Key components:
+- MSCCCalculator: Cython-optimized MSCC calculator with mappability correction
+- Integration with BigWig mappability tracks
+- Sliding window algorithm with mappability weighting
+- Memory-efficient processing of large genomic datasets
+
+The MSCC algorithm provides more accurate fragment length estimation by
+accounting for regions of variable mappability that can confound traditional
+cross-correlation analysis.
+"""
 import logging
 
 cimport numpy as np
@@ -16,6 +33,27 @@ logger = logging.getLogger(__name__)
 
 
 cdef class MSCCCalculator(object):
+    """Cython implementation of Mappability-Sensitive Cross-Correlation.
+    
+    This class implements the MSCC algorithm using Cython for performance.
+    It extends naive cross-correlation by incorporating mappability weights
+    from BigWig files to correct for genomic regions with variable mappability.
+    
+    The algorithm processes reads using a sliding window approach while
+    consulting mappability tracks to weight cross-correlation contributions
+    appropriately. This helps eliminate phantom peaks caused by mappability
+    biases in repetitive or low-mappability regions.
+    
+    Attributes:
+        max_shift: Maximum shift distance for correlation calculation
+        read_len: Read length for mappability window calculation
+        ref2genomelen: Dictionary mapping chromosome names to lengths
+        genomelen: Total genome length
+        ref2forward_sum: Forward read counts by chromosome
+        ref2reverse_sum: Reverse read counts by chromosome
+        ccbins: Cross-correlation bins with mappability correction
+        ref2ccbins: Cross-correlation bins by chromosome
+    """
     cdef readonly:
         int64 max_shift
         dict ref2genomelen
@@ -39,6 +77,16 @@ cdef class MSCCCalculator(object):
         int64 _bwbuff_head, _extra_size, _double_shift_len
 
     def __init__(self, max_shift, read_len, references, lengths, bwfeeder, logger_lock=None):
+        """Initialize MSCC calculator with mappability support.
+        
+        Args:
+            max_shift: Maximum shift distance for correlation calculation
+            read_len: Read length for mappability window calculation
+            references: List of chromosome names
+            lengths: List of chromosome lengths
+            bwfeeder: BigWig reader for mappability data
+            logger_lock: Optional lock for thread-safe logging
+        """
         #    _last_pos      pos + read_len - 1
         #        |-----------------| read_len
         #        /=================>
@@ -91,6 +139,11 @@ cdef class MSCCCalculator(object):
         self.logger_lock = logger_lock
 
     def _init_pos_buff(self):
+        """Initialize position buffers for a new chromosome.
+        
+        Resets all internal buffers, counters, and mappability state
+        for processing a new chromosome in the MSCC calculation.
+        """
         self._forward_sum.fill(0)
         self._reverse_sum.fill(0)
         self._ccbins.fill(0)
@@ -106,6 +159,15 @@ cdef class MSCCCalculator(object):
         self._last_forward_pos = 0
 
     def _init_bw(self):
+        """Initialize BigWig mappability reader for current chromosome.
+        
+        Sets up the BigWig iterator and buffers for reading mappability
+        values for the current chromosome. Handles cases where mappability
+        data is not available for certain chromosomes.
+        
+        Raises:
+            ContinueCalculation: If mappability data is unavailable
+        """
         self._bwbuff = np.array([], dtype=np.int64)
         self._bwbuff_head = 1
         self._bwiter_stopped = False
@@ -121,6 +183,12 @@ cdef class MSCCCalculator(object):
             self._bwiter_stopped = True
 
     def flush(self):
+        """Finalize MSCC calculation for current chromosome.
+        
+        Completes the mappability-weighted cross-correlation calculation
+        for the current chromosome and stores results in the appropriate
+        bins. Handles final mappability corrections before storing.
+        """
         if self._reverse_buff:
             self._shift_with_update(self._forward_buff_size)
 
@@ -139,6 +207,18 @@ cdef class MSCCCalculator(object):
         self._init_pos_buff()
 
     cdef inline _check_pos(self, str chrom, int64 pos):
+        """Validate read position and handle chromosome transitions.
+        
+        Ensures reads are sorted by position and handles switching between
+        chromosomes. Initializes mappability data for new chromosomes.
+        
+        Args:
+            chrom: Chromosome name
+            pos: Read position
+            
+        Raises:
+            ReadUnsortedError: If reads are not sorted by position
+        """
         if chrom != self._chr:
             if self._chr != '':
                 if chrom in self._solved_chr:
@@ -163,6 +243,20 @@ cdef class MSCCCalculator(object):
 
     @boundscheck(False)
     def feed_forward_read(self, str chrom, int64 pos, int64 readlen):
+        """Process a forward strand read with mappability weighting.
+        
+        Incorporates a forward strand read into the MSCC calculation,
+        applying mappability weights from BigWig data to correct for
+        regional mappability biases.
+        
+        Args:
+            chrom: Chromosome name
+            pos: Read start position (1-based)
+            readlen: Read length in base pairs
+            
+        Note:
+            Duplicate reads at the same position are ignored
+        """
         cdef int64 offset, read_mappability
         cdef np.ndarray[np.int64_t] mappability
 
@@ -190,6 +284,20 @@ cdef class MSCCCalculator(object):
     @wraparound(False)
     @boundscheck(False)
     def feed_reverse_read(self, str chrom, int64 pos, int64 readlen):
+        """Process a reverse strand read with mappability weighting.
+        
+        Incorporates a reverse strand read into the MSCC calculation,
+        applying appropriate mappability weights and position adjustments
+        for reverse strand processing.
+        
+        Args:
+            chrom: Chromosome name
+            pos: Read start position (1-based)
+            readlen: Read length in base pairs
+            
+        Note:
+            Reverse read positions are adjusted for 3' end calculation
+        """
         cdef int64 offset, revbuff_pos
         cdef np.ndarray[np.int64_t] mappability
 
@@ -335,6 +443,12 @@ cdef class MSCCCalculator(object):
         self._fb_tail_pos += offset
 
     def finishup_calculation(self):
+        """Complete MSCC calculation for all chromosomes.
+        
+        Finalizes the mappability-sensitive cross-correlation calculation
+        by flushing any remaining data and ensuring all results are
+        properly stored with mappability corrections applied.
+        """
         self.flush()
 
         if not self._bwiter_stopped:

@@ -1,3 +1,18 @@
+"""PyMaSC package initialization with version and common utilities.
+
+This module provides the main entry point for the PyMaSC (Python Mappability-sensitive
+Cross-Correlation) package. It defines package-level constants, version information,
+and common utilities used across all PyMaSC command-line tools.
+
+The module provides:
+- VERSION: Package version string
+- WEBSITE_URL: Official PyMaSC website
+- logging_version(): Version logging utility
+- entrypoint(): Decorator for main entry point exception handling
+
+These utilities ensure consistent version reporting and error handling across
+all PyMaSC applications.
+"""
 import sys
 from functools import wraps
 
@@ -6,6 +21,15 @@ WEBSITE_URL = "https://pymasc.sb.ecei.tohoku.ac.jp/"
 
 
 def logging_version(logger):
+    """Log PyMaSC and Python version information.
+    
+    Outputs comprehensive version information including PyMaSC version,
+    Python version numbers, and full Python version details for debugging
+    and support purposes.
+    
+    Args:
+        logger: Logger instance to use for version output
+    """
     logger.info("PyMaSC version {} with Python{}.{}.{}".format(
                 *[VERSION] + list(sys.version_info[:3])))
     for line in sys.version.split('\n'):
@@ -13,6 +37,24 @@ def logging_version(logger):
 
 
 def entrypoint(logger):
+    """Decorator for main entry point exception handling.
+    
+    Provides consistent exception handling and cleanup for all PyMaSC
+    command-line entry points. Handles KeyboardInterrupt gracefully
+    and ensures proper logging of completion status.
+    
+    Args:
+        logger: Logger instance for status messages
+        
+    Returns:
+        Decorator function that wraps main entry point functions
+        
+    Example:
+        @entrypoint(logger)
+        def main():
+            # Main application logic
+            pass
+    """
     def _entrypoint_wrapper_base(main_func):
         @wraps(main_func)
         def _inner():

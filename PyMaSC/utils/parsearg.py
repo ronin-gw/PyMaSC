@@ -1,3 +1,20 @@
+"""Command-line argument parsing utilities for all PyMaSC entry points.
+
+This module provides comprehensive argument parsing functionality for PyMaSC's
+three main command-line utilities: pymasc, pymasc-plot, and pymasc-precalc.
+It defines reusable argument groups and custom argparse actions for consistent
+command-line interfaces across all PyMaSC tools.
+
+Key functionality:
+- Common argument groups shared across utilities
+- Custom argparse actions for validation and type conversion
+- Parser factories for each PyMaSC command-line tool
+- Input validation and error handling
+- Consistent help text and option naming
+
+The module ensures that all PyMaSC tools have consistent command-line interfaces
+with proper validation and helpful error messages.
+"""
 import argparse
 import logging
 
@@ -10,15 +27,33 @@ EPILOG = (" \nVisit PyMaSC web site for more information and to get human genome
 
 
 def _make_upper(s):
+    """Convert string to uppercase.
+    
+    Args:
+        s: String to convert
+        
+    Returns:
+        Uppercase version of the input string
+    """
     return s.upper()
 
 
 class StoreLoggingLevel(argparse.Action):
+    """Custom argparse action for logging level arguments.
+    
+    Converts string logging level names (e.g., 'INFO', 'DEBUG') to their
+    corresponding logging module constants for use in log level configuration.
+    """
     def __call__(self, parser, namespace, values, option_string=None):
         setattr(namespace, self.dest, getattr(logging, values))
 
 
 class ForceNaturalNumber(argparse.Action):
+    """Custom argparse action for positive integer validation.
+    
+    Ensures that integer arguments are positive (> 0) and provides
+    clear error messages for invalid values.
+    """
     def __call__(self, parser, namespace, values, option_string=None):
         if values < 1:
             parser.error("argument {} must be > 0.".format('/'.join(self.option_strings)))
@@ -26,6 +61,17 @@ class ForceNaturalNumber(argparse.Action):
 
 
 def make_multistate_append_action(key):
+    """Create multi-state argument action factory.
+    
+    Creates a custom argparse action that appends (key, value) tuples
+    to a list, allowing multiple related arguments to be collected.
+    
+    Args:
+        key: Key to associate with values in the tuple list
+        
+    Returns:
+        Custom argparse Action class for multi-state arguments
+    """
     class _MultistateAppendAction(argparse.Action):
         def __call__(self, parser, namespace, values, option_string=None):
             args = getattr(namespace, self.dest)
@@ -37,6 +83,14 @@ def make_multistate_append_action(key):
 
 
 def add_common_args(parser):
+    """Add common arguments shared across all PyMaSC utilities.
+    
+    Adds logging, progress control, and color output arguments that
+    are used by all PyMaSC command-line tools.
+    
+    Args:
+        parser: ArgumentParser instance to add arguments to
+    """
     parser.add_argument(
         "-v", "--log-level", type=_make_upper, default=logging.INFO,
         action=StoreLoggingLevel, choices=("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"),
@@ -56,6 +110,11 @@ def add_common_args(parser):
 
 
 def add_multiprocess_args(group):
+    """Add multiprocessing-related arguments.
+    
+    Args:
+        group: Argument group to add multiprocessing options to
+    """
     group.add_argument(
         "-p", "--process", type=int, default=1, action=ForceNaturalNumber,
         help="Number of worker process. (Default: 1)"
@@ -63,6 +122,14 @@ def add_multiprocess_args(group):
 
 
 def add_mappability_args(group):
+    """Add mappability file and statistics arguments.
+    
+    Adds arguments for specifying BigWig mappability files and
+    pre-calculated mappability statistics for MSCC analysis.
+    
+    Args:
+        group: Argument group to add mappability options to
+    """
     group.add_argument(
         "-m", "--mappability", metavar="REGION_FILE",
         help="BigWig format mappable region file."
@@ -75,6 +142,11 @@ def add_mappability_args(group):
 
 
 def add_shift_arg(group):
+    """Add maximum shift distance argument.
+    
+    Args:
+        group: Argument group to add shift argument to
+    """
     group.add_argument(
         "-d", "--max-shift", type=int, action=ForceNaturalNumber, default=1000,
         help="PyMaSC calculate CC with reverse strand shift from 1 to [MAX_SHIFT] bases. (Default: 1000)"
@@ -82,6 +154,11 @@ def add_shift_arg(group):
 
 
 def add_liblen_arg(group):
+    """Add library length argument for expected fragment size.
+    
+    Args:
+        group: Argument group to add library length option to
+    """
     group.add_argument(
         "-l", "--library-length", type=int, action=ForceNaturalNumber,
         help="Your expected library length for input sample(s)."
@@ -89,6 +166,14 @@ def add_liblen_arg(group):
 
 
 def add_chrom_filter_args(group):
+    """Add chromosome filtering arguments.
+    
+    Adds include and exclude chromosome pattern arguments for
+    selective analysis of chromosome subsets.
+    
+    Args:
+        group: Argument group to add chromosome filtering options to
+    """
     group.add_argument(
         "-i", "--include-chrom", nargs='+', dest="chromfilter", metavar="CHROM",
         action=make_multistate_append_action(True),
@@ -108,6 +193,14 @@ def add_chrom_filter_args(group):
 
 
 def add_result_proc_args(group):
+    """Add result processing arguments.
+    
+    Adds arguments for controlling result processing including smoothing,
+    statistical testing, masking, and fragment length estimation.
+    
+    Args:
+        group: Argument group to add result processing options to
+    """
     group.add_argument(
         "--chi2-pval", type=float, default=0.05,
         help="p-value threshold for Chi-squared test to check strand specificity "
@@ -132,6 +225,14 @@ def add_result_proc_args(group):
 
 
 def get_pymasc_parser():
+    """Create main PyMaSC argument parser.
+    
+    Constructs the complete argument parser for the main pymasc command,
+    including all argument groups and options for cross-correlation analysis.
+    
+    Returns:
+        ArgumentParser configured for main PyMaSC analysis
+    """
     parser = argparse.ArgumentParser(
         description="Estimation and visualization tool for library length, "
                     "NSC and RSC metrics with\nmappability sensitive cross-correlation calculation.",
@@ -203,6 +304,14 @@ def get_pymasc_parser():
 
 
 def get_precalc_parser():
+    """Create pre-calculation argument parser.
+    
+    Constructs the argument parser for the pymasc-precalc command,
+    which pre-calculates mappability statistics from BigWig files.
+    
+    Returns:
+        ArgumentParser configured for mappability pre-calculation
+    """
     parser = argparse.ArgumentParser(
         description="Pre-calculate mappability region statistics for "
                     "PyMaSC successive algorithm.",
@@ -229,6 +338,14 @@ def get_precalc_parser():
 
 
 def get_plot_parser():
+    """Create plotting argument parser.
+    
+    Constructs the argument parser for the pymasc-plot command,
+    which generates plots from pre-calculated PyMaSC results.
+    
+    Returns:
+        ArgumentParser configured for plot generation
+    """
     parser = argparse.ArgumentParser(
         description="Plot figures from PyMaSC statistic outputs.",
         epilog=EPILOG,

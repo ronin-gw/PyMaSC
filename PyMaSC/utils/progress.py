@@ -1,3 +1,19 @@
+"""Terminal progress bar and multiline progress display utilities.
+
+This module provides comprehensive progress reporting functionality for PyMaSC
+analysis operations. It supports both single-line progress bars and multiline
+progress displays for parallel processing scenarios.
+
+Key components:
+- ProgressBase: Base class with global enable/disable control
+- ProgressBar: Single-line terminal progress bar implementation
+- ProgressHook: Progress reporting for multiprocessing environments
+- MultiLineProgressManager: Concurrent progress display for multiple operations
+- ReadCountProgressBar: Specialized progress bar for read counting operations
+
+The progress system automatically detects terminal capabilities and can be
+globally disabled for non-interactive environments or when output is redirected.
+"""
 import sys
 import array
 import fcntl
@@ -5,6 +21,14 @@ from termios import TIOCGWINSZ
 
 
 class ProgressBase(object):
+    """Base class for progress indicators.
+    
+    Provides global enable/disable control for all progress indicators
+    and defines the interface for progress reporting classes.
+    
+    Attributes:
+        global_switch: Class-level flag to enable/disable all progress indicators
+    """
     global_switch = False
 
     @classmethod
@@ -13,7 +37,26 @@ class ProgressBase(object):
 
 
 class ProgressBar(ProgressBase):
+    """Single-line progress bar implementation.
+    
+    Displays a visual progress bar in the terminal with customizable appearance.
+    The bar automatically updates as progress is made and can be cleanly
+    removed when operations complete.
+    
+    Attributes:
+        body: String defining the progress bar appearance
+        fmt: Format string for displaying the progress bar
+        output: Output stream for progress display (default: stderr)
+    """
     def __init__(self, body="<1II1>" * 12, prefix='>', suffix='<', output=sys.stderr):
+        """Initialize progress bar with customizable appearance.
+        
+        Args:
+            body: String defining the progress bar body pattern
+            prefix: Character to display before the progress bar
+            suffix: Character to display after the progress bar
+            output: Output stream for displaying progress (default: stderr)
+        """
         self.body = body
         self.fmt = "\r" + prefix + "{:<" + str(len(body)) + "}" + suffix
         self.output = output
@@ -54,6 +97,15 @@ class ProgressBar(ProgressBase):
 
 
 class ProgressHook(ProgressBar):
+    """Progress reporting for multiprocessing.
+    
+    Extends ProgressBar to support progress reporting from worker processes
+    back to the main process through inter-process communication queues.
+    
+    Attributes:
+        report_queue: Queue for sending progress updates to main process
+        name: Identifier for this progress reporter
+    """
     def __init__(self, queue, body="<1II1>" * 12, prefix='>', suffix='<'):
         super(ProgressHook, self).__init__(body, prefix, suffix, queue)
         self.name = None
@@ -72,6 +124,20 @@ class ProgressHook(ProgressBar):
 
 
 class MultiLineProgressManager(ProgressBase):
+    """Multi-line progress display manager.
+    
+    Manages concurrent progress displays for multiple operations, allowing
+    each operation to have its own progress line that can be independently
+    updated without interfering with others.
+    
+    This class is essential for multiprocessing scenarios where multiple
+    chromosomes are being processed simultaneously and each needs its own
+    progress indicator.
+    
+    Attributes:
+        _terminal_width: Detected terminal width for proper formatting
+        _status: Dictionary tracking status of each progress line
+    """
     def __init__(self, output=sys.stderr):
         #
         self.output = output
@@ -174,6 +240,15 @@ class MultiLineProgressManager(ProgressBase):
 
 
 class ReadCountProgressBar(ProgressBar, MultiLineProgressManager):
+    """Specialized progress bar for read counting operations.
+    
+    Combines single-line progress bar functionality with multiline management
+    for read counting operations that may involve multiple chromosomes or
+    processing stages.
+    
+    This class provides read-specific progress formatting and handles the
+    coordination between read counting stages and chromosome processing.
+    """
     def __init__(self, g_body="^@@@@@@@@@" * 10, g_prefix='', g_suffix='^',
                  c_body="<1II1>" * 12, c_prefix='>', c_suffix='< {}', output=sys.stderr):
         MultiLineProgressManager.__init__(self, output)

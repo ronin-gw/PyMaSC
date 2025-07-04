@@ -1,3 +1,19 @@
+"""Multiprocessing worker classes for parallel cross-correlation calculation.
+
+This module provides worker process implementations for parallel processing
+of cross-correlation calculations across multiple chromosomes. Each worker
+handles one chromosome independently, enabling efficient parallel computation
+for large genomic datasets.
+
+Key components:
+- CalcWorkerBase: Base class for all calculation workers
+- NaiveCCCalcWorker: Worker for naive cross-correlation calculation
+- MSCCCalcWorker: Worker for mappability-sensitive cross-correlation
+- NCCandMSCCCalcWorker: Worker for both NCC and MSCC calculations
+
+The workers use inter-process communication to coordinate with the main
+process and report progress and results efficiently.
+"""
 import logging
 import os
 from multiprocessing import Process
@@ -14,6 +30,23 @@ logger = logging.getLogger(__name__)
 
 
 class CalcWorkerBase(Process):
+    """Base class for multiprocessing calculation workers.
+    
+    Provides common functionality for all PyMaSC calculation workers,
+    including inter-process communication, BAM file handling, and
+    basic workflow coordination.
+    
+    This class extends multiprocessing.Process to enable parallel
+    processing of different chromosomes simultaneously.
+    
+    Attributes:
+        order_queue: Queue for receiving work orders from main process
+        report_queue: Queue for sending results back to main process
+        logger_lock: Lock for thread-safe logging operations
+        path: Path to BAM file being processed
+        mapq_criteria: Minimum mapping quality threshold
+        calculator: Calculation engine instance
+    """
     def __init__(self, order_queue, report_queue, logger_lock, path,
                  mapq_criteria, max_shift, references, lengths):
         super(CalcWorkerBase, self).__init__()
@@ -89,6 +122,15 @@ class CalcWorkerBase(Process):
 
 
 class NaiveCCCalcWorker(CalcWorkerBase):
+    """Worker process for naive cross-correlation calculation.
+    
+    Specializes CalcWorkerBase to perform naive cross-correlation (NCC)
+    calculations for assigned chromosomes. Uses NaiveCCCalculator to
+    compute cross-correlation without mappability correction.
+    
+    This worker is used when only basic cross-correlation analysis
+    is required, without the complexity of mappability adjustment.
+    """
     def __init__(self, order_queue, report_queue, logger_lock, path,
                  mapq_criteria, max_shift, references, lengths):
         super(NaiveCCCalcWorker, self).__init__(
@@ -117,6 +159,16 @@ class NaiveCCCalcWorker(CalcWorkerBase):
 
 
 class MSCCCalcWorker(NaiveCCCalcWorker):
+    """Worker process for mappability-sensitive cross-correlation.
+    
+    Extends NaiveCCCalcWorker to perform MSCC calculations that
+    incorporate mappability correction from BigWig files. This worker
+    handles the additional complexity of mappability data integration.
+    
+    Used when mappability correction is required to address genomic
+    regions with variable mappability that can confound standard
+    cross-correlation analysis.
+    """
     def __init__(self, order_queue, report_queue, logger_lock, path,
                  mapq_criteria, max_shift, references, lengths,
                  mappable_path, read_len, chrom2mappable_len):
@@ -155,6 +207,17 @@ class MSCCCalcWorker(NaiveCCCalcWorker):
 
 
 class NCCandMSCCCalcWorker(MSCCCalcWorker):
+    """Worker process for both NCC and MSCC calculations.
+    
+    Performs both naive cross-correlation and mappability-sensitive
+    cross-correlation calculations in a single worker process.
+    This provides comprehensive analysis including both standard
+    and mappability-corrected results.
+    
+    Used when complete cross-correlation analysis is required,
+    enabling comparison between standard and mappability-corrected
+    approaches within the same workflow.
+    """
     def __init__(self, order_queue, report_queue, logger_lock, path,
                  mapq_criteria, max_shift, references, lengths,
                  mappable_path, read_len, chrom2mappable_len):

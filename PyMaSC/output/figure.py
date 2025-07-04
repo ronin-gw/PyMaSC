@@ -1,3 +1,19 @@
+"""Matplotlib-based plotting functions for PyMaSC visualization.
+
+This module provides comprehensive plotting functionality for PyMaSC analysis results,
+including cross-correlation plots, MSCC plots, and comparison visualizations.
+All plots are generated as multi-page PDF files for easy viewing and publication.
+
+Key plot types:
+- Naive cross-correlation plots with quality metrics
+- Mappability-sensitive cross-correlation (MSCC) plots
+- Fragment length estimation visualization
+- Comparison plots between NCC and MSCC
+- Statistical annotations and quality indicators
+
+The module handles matplotlib import failures gracefully and provides detailed
+error logging for troubleshooting visualization issues.
+"""
 import logging
 import os.path
 
@@ -20,12 +36,27 @@ except:
 
 
 def _feed_pdf_page(pp):
+    """Save current plot to PDF and close the figure.
+    
+    Args:
+        pp: PdfPages object for multi-page PDF output
+    """
     pp.savefig()
     plt.close()
 
 
 @catch_IOError(logger)
 def plot_figures(outfile, ccr):
+    """Generate all PyMaSC plots and save to PDF file.
+    
+    Creates a multi-page PDF containing all relevant plots based on the
+    analysis results. Includes naive cross-correlation, MSCC, and comparison
+    plots depending on what calculations were performed.
+    
+    Args:
+        outfile: Output PDF file path
+        ccr: CCResult object containing analysis results
+    """
     logger.info("Output '{}'".format(outfile))
     name = os.path.basename(os.path.splitext(outfile)[0])
 
@@ -45,6 +76,17 @@ def plot_figures(outfile, ccr):
 
 
 def _annotate_point(x, color, axis_y, axis_text, point_y=None, point_text=None, yoffset=0):
+    """Add vertical line and annotations to plot at specified x position.
+    
+    Args:
+        x: X-coordinate for vertical line and annotations
+        color: Color for the vertical line
+        axis_y: Y-coordinate for axis annotation
+        axis_text: Text for axis annotation
+        point_y: Y-coordinate for point annotation (optional)
+        point_text: Text for point annotation (optional)
+        yoffset: Vertical offset for point annotation
+    """
     plt.axvline(x, color=color, linestyle="dashed", linewidth=0.5)
     plt.annotate(axis_text, (x, axis_y))
     if point_y:
@@ -53,6 +95,11 @@ def _annotate_point(x, color, axis_y, axis_text, point_y=None, point_text=None, 
 
 
 def _annotate_bottom_right_box(text):
+    """Add text box annotation to bottom right corner of plot.
+    
+    Args:
+        text: Text content for the annotation box
+    """
     plt.annotate(
         text,
         textcoords="axes fraction", xy=(1, plt.gca().get_ylim()[0]), xytext=(0.95, 0.05),
@@ -61,6 +108,15 @@ def _annotate_bottom_right_box(text):
 
 
 def _annotate_params(nsc=None, rsc=None, est_nsc=None, est_rsc=None, loc="lower right"):
+    """Add parameter annotations to plot showing quality metrics.
+    
+    Args:
+        nsc: Normalized Strand Coefficient value
+        rsc: Relative Strand Coefficient value  
+        est_nsc: Estimated NSC value
+        est_rsc: Estimated RSC value
+        loc: Location for the annotation box
+    """
     anno = []
     for stat, label in zip((nsc, rsc, est_nsc, est_rsc),
                            ("NSC", "RSC", "Est NSC", "Est RSC")):
@@ -72,6 +128,11 @@ def _annotate_params(nsc=None, rsc=None, est_nsc=None, est_rsc=None, loc="lower 
 
 
 def _set_ylim():
+    """Adjust Y-axis limits with appropriate padding.
+    
+    Sets Y-axis limits to provide better visualization by adding
+    padding around the data range.
+    """
     axes = plt.gca()
     lower, upper = axes.get_ylim()
     if upper > 0:
@@ -83,6 +144,19 @@ def _set_ylim():
 
 
 def plot_naive_cc(ccr, name=None, xlim=None):
+    """Plot naive cross-correlation results.
+    
+    Creates a comprehensive plot of naive cross-correlation showing:
+    - Cross-correlation curve across all shift distances
+    - Read length and fragment length markers
+    - Quality metrics (NSC, RSC) annotations
+    - Statistical significance indicators
+    
+    Args:
+        ccr: CCResult object containing analysis results
+        name: Sample name for plot title
+        xlim: X-axis limits (optional)
+    """
     title = "Cross-Correlation"
     if name:
         title += " for " + name
@@ -128,6 +202,18 @@ def plot_naive_cc(ccr, name=None, xlim=None):
 
 
 def plot_naive_cc_just(ccr, name=None):
+    """Plot zoomed naive cross-correlation around fragment length peak.
+    
+    Creates a focused plot showing the cross-correlation peak region
+    with detailed annotations for fragment length estimation.
+    
+    Args:
+        ccr: CCResult object containing analysis results
+        name: Sample name for plot title
+        
+    Returns:
+        True if plot was created, False if insufficient data
+    """
     stats = ccr.whole
     if stats.calc_ncc and stats.cc.est_lib_len * 2 < stats.max_shift + 1:
         plot_naive_cc(ccr, name, (0, stats.cc.est_lib_len * 2))
@@ -136,6 +222,18 @@ def plot_naive_cc_just(ccr, name=None):
 
 
 def plot_masc(ccr, name=None):
+    """Plot mappability-sensitive cross-correlation (MSCC) results.
+    
+    Creates comprehensive MSCC plots showing:
+    - MSCC curve with mappability correction
+    - Library length estimation with confidence intervals
+    - Comparison with naive cross-correlation
+    - Quality metrics specific to MSCC analysis
+    
+    Args:
+        ccr: CCResult object containing analysis results
+        name: Sample name for plot title
+    """
     title = "MSCC and Library Length Estimation"
     if name:
         title += " for " + name
@@ -176,6 +274,16 @@ def plot_masc(ccr, name=None):
 
 
 def plot_ncc_vs_masc(pp, ccr, name):
+    """Generate comparison plots between NCC and MSCC.
+    
+    Creates side-by-side comparison plots for each chromosome showing
+    differences between naive cross-correlation and MSCC results.
+    
+    Args:
+        pp: PdfPages object for multi-page PDF output
+        ccr: CCResult object containing analysis results
+        name: Sample name for plot titles
+    """
     title = "{} Cross-Correlation"
     if name:
         title += " for " + name
@@ -193,6 +301,18 @@ def plot_ncc_vs_masc(pp, ccr, name):
 
 
 def _plot_ncc_vs_masc(stats, title):
+    """Create individual NCC vs MSCC comparison plot.
+    
+    Generates a single comparison plot showing both NCC and MSCC
+    curves for a specific chromosome or genome-wide data.
+    
+    Args:
+        stats: PyMaSCStats object containing correlation data
+        title: Plot title
+        
+    Returns:
+        True if plot was created, False if insufficient data
+    """
     assert (
         (stats.calc_ncc and not np.all(np.isnan(stats.cc.cc))) or
         (stats.calc_masc and not np.all(np.isnan(stats.masc.cc)))

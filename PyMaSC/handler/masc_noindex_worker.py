@@ -1,3 +1,18 @@
+"""Single-process calculator for non-indexed BAM files.
+
+This module provides a single-process implementation for cross-correlation
+calculation when BAM files are not indexed or when multiprocessing is not
+desired. It handles the complete workflow sequentially across all chromosomes.
+
+Key functionality:
+- Sequential processing of all chromosomes
+- Support for both NCC and MSCC calculations
+- Progress reporting for long-running operations
+- Efficient memory usage for single-process execution
+
+This implementation is used as a fallback when parallel processing
+is not available or when working with streaming/unseekable inputs.
+"""
 import logging
 
 from PyMaSC.core.mappability import BWFeederWithMappableRegionSum
@@ -9,6 +24,29 @@ logger = logging.getLogger(__name__)
 
 
 class SingleProcessCalculator(object):
+    """Single-process cross-correlation calculator.
+    
+    Implements cross-correlation calculation in a single process,
+    processing all chromosomes sequentially. This class is used when
+    BAM files are not indexed or when multiprocessing is disabled.
+    
+    The calculator handles both naive cross-correlation and MSCC
+    calculations depending on the availability of mappability data.
+    It provides progress reporting and efficient memory management
+    for single-threaded execution.
+    
+    Attributes:
+        align_file: Opened BAM file object
+        mapq_criteria: Minimum mapping quality threshold
+        max_shift: Maximum shift distance for correlation
+        references: List of chromosome names to process
+        lengths: List of chromosome lengths
+        read_len: Read length for calculations
+        mappability_handler: Optional mappability correction handler
+        skip_ncc: Whether to skip naive cross-correlation
+        nccc: NaiveCCCalculator instance (if not skipped)
+        mscc: MSCCCalculator instance (if mappability available)
+    """
     def __init__(self, align_file, mapq_criteria, max_shift, references, lengths,
                  read_len, mappability_handler=None, skip_ncc=False):
         self.align_file = align_file

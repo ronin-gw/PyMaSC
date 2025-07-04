@@ -1,3 +1,7 @@
+"""Main PyMaSC CLI application for cross-correlation analysis.
+
+This module provides the main entry point for PyMaSC.
+"""
 import logging
 import os
 import sys
@@ -25,10 +29,30 @@ EXPECT_OUTFILE_SUFFIXES = (PLOTFILE_SUFFIX, CCOUTPUT_SUFFIX, MSCCOUTPUT_SUFFIX, 
 
 
 def _get_output_basename(dirpath, filepath):
+    """Generate output basename from directory and file paths.
+
+    Args:
+        dirpath: Output directory path
+        filepath: Input file path
+
+    Returns:
+        Complete output basename path without extension
+    """
     return os.path.join(dirpath, os.path.splitext(os.path.basename(filepath))[0])
 
 
 def _parse_args():
+    """Parse and validate command-line arguments.
+
+    Handles argument parsing, validation, and setup of logging configuration.
+    Performs consistency checks between arguments and applies default values.
+
+    Returns:
+        Parsed and validated argument namespace
+
+    Raises:
+        SystemExit: If argument validation fails
+    """
     parser = get_pymasc_parser()
     args = parser.parse_args()
 
@@ -51,6 +75,19 @@ def _parse_args():
 
 @entrypoint(logger)
 def main():
+    """Main PyMaSC application entry point.
+
+    Orchestrates the complete PyMaSC workflow:
+    1. Parse command-line arguments
+    2. Prepare output directories and file validation
+    3. Initialize calculation handlers
+    4. Set up mappability correction if requested
+    5. Execute cross-correlation calculations
+    6. Generate output files and plots
+
+    Returns:
+        None on successful completion
+    """
     args = _parse_args()
 
     #
@@ -104,6 +141,23 @@ def main():
 
 
 def prepare_output(reads, names, outdir, suffixes=EXPECT_OUTFILE_SUFFIXES):
+    """Prepare output directory and generate output basenames.
+
+    Creates output directory if needed and generates output basenames for each
+    input file. Warns about existing files that will be overwritten.
+
+    Args:
+        reads: List of input BAM file paths
+        names: List of custom output names (can contain None values)
+        outdir: Output directory path
+        suffixes: Expected output file suffixes to check for conflicts
+
+    Returns:
+        List of output basenames (without extensions)
+
+    Raises:
+        SystemExit: If output directory cannot be created
+    """
     #
     if not prepare_outdir(outdir, logger):
         sys.exit(1)
@@ -126,6 +180,20 @@ def prepare_output(reads, names, outdir, suffixes=EXPECT_OUTFILE_SUFFIXES):
 
 
 def make_handlers(args):
+    """Create calculation handlers for input files.
+
+    Instantiates appropriate calculation handlers (CCCalcHandler or BACalcHandler)
+    based on algorithm selection and input file specifications.
+
+    Args:
+        args: Parsed command-line arguments
+
+    Returns:
+        List of successfully created calculation handlers
+
+    Note:
+        Failed handlers are logged but not included in returned list
+    """
     handler_class = CCCalcHandler if args.successive else BACalcHandler
     calc_handlers = []
     for f in args.reads:
@@ -145,6 +213,21 @@ def make_handlers(args):
 
 
 def set_readlen(args, calc_handlers):
+    """Set or estimate read length for all calculation handlers.
+
+    Either uses user-specified read length or estimates it from the data.
+    Handles multiple files with different read lengths by using the maximum.
+
+    Args:
+        args: Parsed command-line arguments
+        calc_handlers: List of calculation handlers to configure
+
+    Returns:
+        Maximum read length across all handlers
+
+    Note:
+        Handlers that fail read length setting are removed from the list
+    """
     #
     if args.read_length is None:
         logger.info("Check read length: Get {} from read length distribution".format(args.readlen_estimator.lower()))
@@ -168,6 +251,19 @@ def set_readlen(args, calc_handlers):
 
 
 def run_calculation(args, handler, output_basename):
+    """Execute cross-correlation calculation for a single file.
+
+    Runs the main calculation workflow and creates a result handler
+    with the computed cross-correlation data.
+
+    Args:
+        args: Parsed command-line arguments
+        handler: Calculation handler for the input file
+        output_basename: Base path for output files
+
+    Returns:
+        CCResult object containing calculation results, or None if failed
+    """
     logger.info("Process {}".format(handler.path))
 
     try:
@@ -185,6 +281,19 @@ def run_calculation(args, handler, output_basename):
 
 
 def output_results(args, output_basename, result_handler):
+    """Generate all output files and plots from calculation results.
+
+    Creates statistics files, data tables, and plots based on the
+    calculation results and user-specified options.
+
+    Args:
+        args: Parsed command-line arguments
+        output_basename: Base path for output files
+        result_handler: CCResult object containing calculation results
+
+    Note:
+        Plot generation may be skipped if matplotlib is not available
+    """
     output_stats(output_basename, result_handler)
     output_nreads_table(output_basename, result_handler)
     if not result_handler.skip_ncc:

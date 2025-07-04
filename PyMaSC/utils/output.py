@@ -1,8 +1,41 @@
+"""File output utilities with error handling.
+
+This module provides utility functions for file and directory operations
+with comprehensive error handling and logging. It includes decorators for
+I/O error handling and directory preparation utilities.
+
+Key functionality:
+- catch_IOError(): Decorator for consistent I/O error handling
+- prepare_outdir(): Output directory creation and validation
+- Comprehensive logging of file operation errors
+- Permission checking and directory creation
+
+These utilities ensure robust file operations across all PyMaSC output
+functionality with consistent error reporting and recovery.
+"""
 import os
 from functools import wraps
 
 
 def catch_IOError(logger):
+    """Decorator for I/O error handling.
+    
+    Creates a decorator that wraps functions to provide consistent
+    error handling for I/O operations. Logs detailed error information
+    and re-raises exceptions for proper error propagation.
+    
+    Args:
+        logger: Logger instance for error reporting
+        
+    Returns:
+        Decorator function that wraps I/O operations
+        
+    Example:
+        @catch_IOError(logger)
+        def write_file(path, data):
+            with open(path, 'w') as f:
+                f.write(data)
+    """
     def _inner(func):
         @wraps(func)
         def _io_func(*args, **kwargs):
@@ -21,6 +54,22 @@ def catch_IOError(logger):
 
 
 def prepare_outdir(outdir, logger):
+    """Create and validate output directory.
+    
+    Ensures the output directory exists, is writable, and is actually
+    a directory. Creates the directory if it doesn't exist and validates
+    permissions for file operations.
+    
+    Args:
+        outdir: Path to output directory
+        logger: Logger instance for status messages
+        
+    Returns:
+        True if directory is ready for use, False if preparation failed
+        
+    Note:
+        Logs detailed error messages for all failure scenarios
+    """
     if os.path.exists(outdir):
         if not os.path.isdir(outdir):
             logger.critical("Specified path as a output directory is not directory.")

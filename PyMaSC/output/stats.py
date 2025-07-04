@@ -1,3 +1,16 @@
+"""Statistics file output and loading functions.
+
+This module handles the generation and loading of PyMaSC statistics files,
+which contain comprehensive numerical summaries of cross-correlation analysis
+results. Statistics files use tab-delimited format for easy parsing and
+integration with downstream analysis tools.
+
+The module supports:
+- Output of complete analysis statistics to tab-delimited files
+- Loading of statistics for plot regeneration and analysis continuation
+- Both naive cross-correlation and MSCC statistics
+- Quality metrics (NSC, RSC, FWHM, VSN) and fragment length estimates
+"""
 from __future__ import print_function
 
 import os.path
@@ -31,6 +44,17 @@ STAT_CC_ATTR = (
 
 
 def get_rl_item_from(attr):
+    """Create accessor function for read-length-indexed arrays.
+    
+    Generates a function that extracts values from arrays at the read length
+    position, handling None values gracefully.
+    
+    Args:
+        attr: Attribute name to access from CCStats objects
+        
+    Returns:
+        Function that extracts read-length-indexed values
+    """
     def _func(ccstats):
         array = getattr(ccstats, attr, None)
         return "nan" if array is None else array[ccstats.read_len - 1]
@@ -60,6 +84,16 @@ logger = logging.getLogger(__name__)
 
 @catch_IOError(logger)
 def output_stats(outfile, ccr):
+    """Output comprehensive statistics to tab-delimited file.
+    
+    Generates a complete statistics file containing all analysis metrics
+    including read counts, cross-correlation values, quality metrics,
+    and fragment length estimates for both NCC and MSCC.
+    
+    Args:
+        outfile: Base output file path (suffix will be added)
+        ccr: CCResult object containing analysis results
+    """
     basename = os.path.basename(outfile)
     outfile += STATSFILE_SUFFIX
     logger.info("Output '{}'".format(outfile))
@@ -79,6 +113,18 @@ def output_stats(outfile, ccr):
 
 @catch_IOError(logger)
 def load_stats(path, names):
+    """Load statistics from tab-delimited file.
+    
+    Reads statistics file and extracts requested attributes for use in
+    plot regeneration or analysis continuation.
+    
+    Args:
+        path: Path to statistics file
+        names: List of attribute names to extract
+        
+    Returns:
+        Dictionary mapping attribute names to values
+    """
     logger.info("Load statistics from '{}'.".format(path))
     stat2attr = {k: v for k, v in STAT_ATTR if v in names}
     attrs = {}

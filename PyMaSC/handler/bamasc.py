@@ -1,3 +1,18 @@
+"""BitArray-based cross-correlation calculation handler.
+
+This module provides BitArray-based implementations of cross-correlation
+calculation handlers for memory-efficient processing. The BitArray approach
+uses binary arrays to represent genomic positions, offering faster processing
+and lower memory usage compared to the successive algorithm approach.
+
+Key components:
+- BACalcHandler: Main handler extending CCCalcHandler for BitArray algorithm
+- BASingleProcessCalculator: Single-process BitArray calculator
+- BACalcWorker: Multiprocess BitArray worker for parallel processing
+
+The BitArray implementation is the default algorithm for PyMaSC due to its
+performance advantages, though it requires more memory (~250MB per worker).
+"""
 import logging
 from multiprocessing import Queue, Lock
 
@@ -12,6 +27,17 @@ logger = logging.getLogger(__name__)
 
 
 class BACalcHandler(CCCalcHandler):
+    """BitArray calculation handler extending base handler.
+    
+    This class extends CCCalcHandler to use the BitArray-based cross-correlation
+    algorithm. It provides both single-process and multiprocess execution modes
+    using the CCBitArrayCalculator for efficient computation.
+    
+    The BitArray approach represents genomic positions as binary arrays,
+    enabling fast bitwise operations for cross-correlation calculation.
+    Inherits all functionality from CCCalcHandler while providing BitArray-specific
+    implementations of the calculation methods.
+    """
     def _run_singleprocess_calculation(self):
         worker = BASingleProcessCalculator(
             self.align_file, self.mapq_criteria, self.max_shift, self.references,
@@ -53,6 +79,21 @@ class BACalcHandler(CCCalcHandler):
 
 
 class BASingleProcessCalculator(SingleProcessCalculator):
+    """Single-process BitArray calculator.
+    
+    This class implements single-process cross-correlation calculation
+    using the BitArray algorithm. It extends SingleProcessCalculator
+    to use CCBitArrayCalculator for the core computation.
+    
+    The calculator processes reads sequentially across all chromosomes,
+    feeding them to the BitArray calculator which maintains binary
+    arrays for efficient position tracking and correlation computation.
+    
+    Attributes:
+        calculator: CCBitArrayCalculator instance for core computation
+        _bwfeeder: BigWigReader for mappability data (if available)
+        _progress: Progress bar for user feedback
+    """
     def __init__(self, align_file, mapq_criteria, max_shift, references, lengths,
                  read_len, mappability_handler=None, skip_ncc=False):
         self.align_file = align_file
@@ -94,6 +135,20 @@ class BASingleProcessCalculator(SingleProcessCalculator):
 
 
 class BACalcWorker(CalcWorkerBase):
+    """Multiprocess BitArray worker.
+    
+    This class implements a worker process for parallel cross-correlation
+    calculation using the BitArray algorithm. Each worker processes one
+    chromosome independently and reports results back to the main process.
+    
+    The worker uses inter-process communication queues for coordination
+    and result reporting, enabling efficient parallel processing of
+    multiple chromosomes simultaneously.
+    
+    Attributes:
+        calculator: CCBitArrayCalculator instance for this worker
+        _bwfeeder: BigWigReader for mappability data (if available)
+    """
     def __init__(self, order_queue, report_queue, logger_lock,
                  path, mapq_criteria, max_shift, read_len, references, lengths,
                  mappability_handler=None, skip_ncc=False):

@@ -13,8 +13,6 @@ The formatter automatically adjusts output based on whether output is
 directed to a terminal or redirected to a file, ensuring compatibility
 across different output scenarios.
 """
-from __future__ import print_function
-
 import logging
 import sys
 

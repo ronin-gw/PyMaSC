@@ -129,8 +129,8 @@ class BitArrayStrategy(CalculationStrategy):
         return AlgorithmType.BITARRAY
 
     def requires_mappability(self) -> bool:
-        """BitArray requires mappability data."""
-        return True
+        """BitArray supports mappability data (optional)."""
+        return False  # Optional, not required
 
     def supports_skip_ncc(self) -> bool:
         """BitArray supports skipping NCC."""
@@ -138,11 +138,12 @@ class BitArrayStrategy(CalculationStrategy):
 
 
 class SuccessiveStrategy(CalculationStrategy):
-    """Strategy for Successive/NCC algorithm.
+    """Strategy for Successive algorithm.
 
     Implements the creation and configuration logic specific to the
     Successive algorithm, which is memory-efficient and suitable for
-    smaller datasets or when mappability is not required.
+    smaller datasets. Can use NCC when no mappability is provided,
+    or MSCC when mappability data is available.
     """
 
     def create_calculator(self,
@@ -164,8 +165,8 @@ class SuccessiveStrategy(CalculationStrategy):
         return AlgorithmType.SUCCESSIVE
 
     def requires_mappability(self) -> bool:
-        """Successive does not require mappability data."""
-        return False
+        """Successive supports mappability data (optional)."""
+        return False  # Optional, not required
 
     def supports_skip_ncc(self) -> bool:
         """Successive is NCC-only, cannot skip."""

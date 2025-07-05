@@ -15,7 +15,8 @@ import tempfile
 # BigWigFile import removed - using pyBigWig implementation
 import pysam
 from PyMaSC.core.ncc import NaiveCCCalculator
-from PyMaSC.handler.masc import CCCalcHandler
+from PyMaSC.handler.unified import UnifiedCalcHandler
+from PyMaSC.core.models import CalculationConfig, ExecutionConfig, AlgorithmType, ExecutionMode
 
 
 class TestENCODEDataValidation:
@@ -302,14 +303,24 @@ class TestIntegrationWorkflow:
 
         # Test that handler can be initialized with real data paths
         try:
-            # Use correct CCCalcHandler parameters based on actual API
-            handler = CCCalcHandler(
-                path=bam_path,
-                esttype='mscc',  # or 'ncc'
+            # Create configuration objects for UnifiedCalcHandler
+            calc_config = CalculationConfig(
+                algorithm=AlgorithmType.SUCCESSIVE,  # Using successive algorithm
                 max_shift=200,
                 mapq_criteria=10,
-                nworker=1,  # Single worker for testing
                 skip_ncc=False
+            )
+            calc_config.esttype = 'mscc'  # Set estimation type
+            
+            exec_config = ExecutionConfig(
+                mode=ExecutionMode.SINGLE_PROCESS,
+                worker_count=1
+            )
+            
+            handler = UnifiedCalcHandler(
+                path=bam_path,
+                config=calc_config,
+                execution_config=exec_config
             )
 
             # Handler should initialize successfully

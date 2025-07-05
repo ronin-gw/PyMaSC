@@ -6,6 +6,29 @@ import os
 from unittest.mock import Mock, patch, MagicMock
 
 from tests.utils.test_data_generator import MockBAMData, create_mock_reference_data
+from PyMaSC.handler.unified import UnifiedCalcHandler
+from PyMaSC.core.models import CalculationConfig, ExecutionConfig, AlgorithmType, ExecutionMode
+from PyMaSC.handler.base import NothingToCalc
+
+
+def create_test_handler(path="test.bam", esttype="ncc", max_shift=200, mapq_criteria=20, 
+                       nworker=1, skip_ncc=False, chromfilter=None, algorithm=AlgorithmType.SUCCESSIVE):
+    """Helper function to create UnifiedCalcHandler for testing."""
+    calc_config = CalculationConfig(
+        algorithm=algorithm,
+        max_shift=max_shift,
+        mapq_criteria=mapq_criteria,
+        skip_ncc=skip_ncc
+    )
+    calc_config.esttype = esttype
+    calc_config.chromfilter = chromfilter
+    
+    exec_config = ExecutionConfig(
+        mode=ExecutionMode.MULTI_PROCESS if nworker > 1 else ExecutionMode.SINGLE_PROCESS,
+        worker_count=nworker
+    )
+    
+    return UnifiedCalcHandler(path, calc_config, exec_config)
 
 
 class TestCCCalcHandlerBasics:
@@ -13,26 +36,24 @@ class TestCCCalcHandlerBasics:
 
     def test_handler_module_import(self):
         """Test that handler modules import correctly."""
-        from PyMaSC.handler import masc
-        assert masc is not None
+        from PyMaSC.handler import unified
+        assert unified is not None
 
     def test_cchandler_class_exists(self):
-        """Test that CCCalcHandler class is available."""
-        from PyMaSC.handler.masc import CCCalcHandler
-        assert CCCalcHandler is not None
+        """Test that UnifiedCalcHandler class is available."""
+        from PyMaSC.handler.unified import UnifiedCalcHandler
+        assert UnifiedCalcHandler is not None
 
     def test_exceptions_defined(self):
         """Test that custom exceptions are defined."""
-        from PyMaSC.handler.masc import InputUnseekable, NothingToCalc
+        from PyMaSC.handler.unified import InputUnseekable
 
         assert issubclass(InputUnseekable, Exception)
         assert issubclass(NothingToCalc, Exception)
 
-    @patch('PyMaSC.handler.base.AlignmentFile')
+    @patch('pysam.AlignmentFile')
     def test_handler_initialization_basic(self, mock_alignment_file):
         """Test basic handler initialization."""
-        from PyMaSC.handler.masc import CCCalcHandler
-
         # Mock AlignmentFile
         mock_bam = Mock()
         references, lengths = create_mock_reference_data()
@@ -42,7 +63,7 @@ class TestCCCalcHandlerBasics:
 
         # Test initialization with minimal parameters
         try:
-            handler = CCCalcHandler(
+            handler = create_test_handler(
                 path="mock_path.bam",
                 esttype="ncc",
                 max_shift=200,
@@ -59,10 +80,9 @@ class TestCCCalcHandlerBasics:
             # May fail due to file validation or other requirements
             pytest.skip(f"Handler initialization requires specific setup: {e}")
 
-    @patch('PyMaSC.handler.base.AlignmentFile')
+    @patch('pysam.AlignmentFile')
     def test_handler_initialization_with_workers(self, mock_alignment_file):
         """Test handler initialization with multiple workers."""
-        from PyMaSC.handler.masc import CCCalcHandler
 
         # Mock AlignmentFile
         mock_bam = Mock()
@@ -72,7 +92,7 @@ class TestCCCalcHandlerBasics:
         mock_alignment_file.return_value = mock_bam
 
         try:
-            handler = CCCalcHandler(
+            handler = create_test_handler(
                 path="mock_path.bam",
                 esttype="mscc",
                 max_shift=300,
@@ -87,11 +107,10 @@ class TestCCCalcHandlerBasics:
 
     def test_handler_parameter_validation(self):
         """Test parameter validation for handler."""
-        from PyMaSC.handler.masc import CCCalcHandler
 
         # Test with invalid parameters
         with pytest.raises((ValueError, TypeError, FileNotFoundError)):
-            CCCalcHandler(
+            create_test_handler(
                 path="nonexistent_file.bam",
                 esttype="invalid_type",
                 max_shift=-1,
@@ -102,10 +121,9 @@ class TestCCCalcHandlerBasics:
 class TestCCCalcHandlerConfiguration:
     """Test CCCalcHandler configuration options."""
 
-    @patch('PyMaSC.handler.base.AlignmentFile')
+    @patch('pysam.AlignmentFile')
     def test_handler_estimation_types(self, mock_alignment_file):
         """Test different estimation types."""
-        from PyMaSC.handler.masc import CCCalcHandler
 
         # Mock AlignmentFile
         mock_bam = Mock()
@@ -118,7 +136,7 @@ class TestCCCalcHandlerConfiguration:
 
         for esttype in estimation_types:
             try:
-                handler = CCCalcHandler(
+                handler = create_test_handler(
                     path="mock_path.bam",
                     esttype=esttype,
                     max_shift=200,
@@ -129,10 +147,9 @@ class TestCCCalcHandlerConfiguration:
             except Exception:
                 pytest.skip(f"EstType {esttype} not supported or requires setup")
 
-    @patch('PyMaSC.handler.base.AlignmentFile')
+    @patch('pysam.AlignmentFile')
     def test_handler_mapq_criteria(self, mock_alignment_file):
         """Test different MAPQ filtering criteria."""
-        from PyMaSC.handler.masc import CCCalcHandler
 
         # Mock AlignmentFile
         mock_bam = Mock()
@@ -145,7 +162,7 @@ class TestCCCalcHandlerConfiguration:
 
         for mapq in mapq_values:
             try:
-                handler = CCCalcHandler(
+                handler = create_test_handler(
                     path="mock_path.bam",
                     esttype="ncc",
                     max_shift=200,
@@ -156,10 +173,9 @@ class TestCCCalcHandlerConfiguration:
             except Exception:
                 pytest.skip("Handler requires specific setup")
 
-    @patch('PyMaSC.handler.base.AlignmentFile')
+    @patch('pysam.AlignmentFile')
     def test_handler_skip_ncc_option(self, mock_alignment_file):
         """Test skip_ncc option."""
-        from PyMaSC.handler.masc import CCCalcHandler
 
         # Mock AlignmentFile
         mock_bam = Mock()
@@ -169,7 +185,7 @@ class TestCCCalcHandlerConfiguration:
         mock_alignment_file.return_value = mock_bam
 
         try:
-            handler = CCCalcHandler(
+            handler = create_test_handler(
                 path="mock_path.bam",
                 esttype="mscc",
                 max_shift=200,
@@ -185,10 +201,9 @@ class TestCCCalcHandlerConfiguration:
 class TestCCCalcHandlerReferenceHandling:
     """Test how handler processes reference sequences."""
 
-    @patch('PyMaSC.handler.base.AlignmentFile')
+    @patch('pysam.AlignmentFile')
     def test_reference_processing(self, mock_alignment_file):
         """Test reference sequence processing."""
-        from PyMaSC.handler.masc import CCCalcHandler
 
         # Mock AlignmentFile with specific references
         mock_bam = Mock()
@@ -199,7 +214,7 @@ class TestCCCalcHandlerReferenceHandling:
         mock_alignment_file.return_value = mock_bam
 
         try:
-            handler = CCCalcHandler(
+            handler = create_test_handler(
                 path="mock_path.bam",
                 esttype="ncc",
                 max_shift=200,
@@ -216,10 +231,9 @@ class TestCCCalcHandlerReferenceHandling:
         except Exception:
             pytest.skip("Handler requires specific setup")
 
-    @patch('PyMaSC.handler.base.AlignmentFile')
+    @patch('pysam.AlignmentFile')
     def test_chromosome_filtering(self, mock_alignment_file):
         """Test chromosome filtering functionality."""
-        from PyMaSC.handler.masc import CCCalcHandler
 
         # Mock AlignmentFile
         mock_bam = Mock()
@@ -232,7 +246,7 @@ class TestCCCalcHandlerReferenceHandling:
         try:
             # Test with chromosome filter
             # chromfilter expects (include_flag, patterns) tuples
-            handler = CCCalcHandler(
+            handler = create_test_handler(
                 path="mock_path.bam",
                 esttype="ncc",
                 max_shift=200,
@@ -251,10 +265,10 @@ class TestCCCalcHandlerReferenceHandling:
         except Exception as e:
             pytest.fail(f"Unexpected error in chromosome filtering: {type(e).__name__}: {e}")
 
-    @patch('PyMaSC.handler.base.AlignmentFile')
+    @patch('pysam.AlignmentFile')
     def test_empty_references_handling(self, mock_alignment_file):
         """Test handling of empty reference list."""
-        from PyMaSC.handler.masc import CCCalcHandler, NothingToCalc
+        from PyMaSC.handler.unified import UnifiedCalcHandler
 
         # Mock AlignmentFile with no valid references
         mock_bam = Mock()
@@ -262,9 +276,9 @@ class TestCCCalcHandlerReferenceHandling:
         mock_bam.lengths = []
         mock_alignment_file.return_value = mock_bam
 
-        # Should raise RuntimeError for empty references (raised by BaseCalcHandler)
-        with pytest.raises(RuntimeError, match="BAM file has no sequences defined"):
-            CCCalcHandler(
+        # Should raise NothingToCalc for empty references (raised by UnifiedCalcHandler)
+        with pytest.raises(NothingToCalc):
+            create_test_handler(
                 path="mock_path.bam",
                 esttype="ncc",
                 max_shift=200,
@@ -277,26 +291,24 @@ class TestCCCalcHandlerFileHandling:
 
     def test_nonexistent_file_handling(self):
         """Test handling of nonexistent BAM files."""
-        from PyMaSC.handler.masc import CCCalcHandler
 
         with pytest.raises((FileNotFoundError, ValueError, OSError)):
-            CCCalcHandler(
+            create_test_handler(
                 path="definitely_nonexistent_file.bam",
                 esttype="ncc",
                 max_shift=200,
                 mapq_criteria=20
             )
 
-    @patch('PyMaSC.handler.base.AlignmentFile')
+    @patch('pysam.AlignmentFile')
     def test_invalid_bam_file_handling(self, mock_alignment_file):
         """Test handling of invalid BAM files."""
-        from PyMaSC.handler.masc import CCCalcHandler
 
         # Mock pysam to raise ValueError for invalid file
         mock_alignment_file.side_effect = ValueError("File has no sequences defined.")
 
         with pytest.raises(ValueError):
-            CCCalcHandler(
+            create_test_handler(
                 path="invalid.bam",
                 esttype="ncc",
                 max_shift=200,
@@ -305,7 +317,7 @@ class TestCCCalcHandlerFileHandling:
 
     def test_seekable_file_requirement(self):
         """Test that handler checks for seekable files when needed."""
-        from PyMaSC.handler.masc import InputUnseekable
+        from PyMaSC.handler.unified import InputUnseekable
 
         # This tests the seekability requirement for parallel processing
         # Implementation details may vary
@@ -315,10 +327,9 @@ class TestCCCalcHandlerFileHandling:
 class TestCCCalcHandlerWorkerManagement:
     """Test worker process management."""
 
-    @patch('PyMaSC.handler.base.AlignmentFile')
+    @patch('pysam.AlignmentFile')
     def test_single_worker_mode(self, mock_alignment_file):
         """Test single worker mode."""
-        from PyMaSC.handler.masc import CCCalcHandler
 
         # Mock AlignmentFile
         mock_bam = Mock()
@@ -328,7 +339,7 @@ class TestCCCalcHandlerWorkerManagement:
         mock_alignment_file.return_value = mock_bam
 
         try:
-            handler = CCCalcHandler(
+            handler = create_test_handler(
                 path="mock_path.bam",
                 esttype="ncc",
                 max_shift=200,
@@ -341,10 +352,9 @@ class TestCCCalcHandlerWorkerManagement:
         except Exception:
             pytest.skip("Handler requires specific setup")
 
-    @patch('PyMaSC.handler.base.AlignmentFile')
+    @patch('pysam.AlignmentFile')
     def test_multiworker_mode(self, mock_alignment_file):
         """Test multi-worker mode."""
-        from PyMaSC.handler.masc import CCCalcHandler
 
         # Mock AlignmentFile
         mock_bam = Mock()
@@ -354,7 +364,7 @@ class TestCCCalcHandlerWorkerManagement:
         mock_alignment_file.return_value = mock_bam
 
         try:
-            handler = CCCalcHandler(
+            handler = create_test_handler(
                 path="mock_path.bam",
                 esttype="ncc",
                 max_shift=200,
@@ -369,7 +379,6 @@ class TestCCCalcHandlerWorkerManagement:
 
     def test_worker_validation(self):
         """Test worker count validation."""
-        from PyMaSC.handler.masc import CCCalcHandler
 
         # Test invalid worker counts
         invalid_workers = [-1, 0]
@@ -377,7 +386,7 @@ class TestCCCalcHandlerWorkerManagement:
         for nworker in invalid_workers:
             try:
                 # Should either raise an error or correct the value
-                handler = CCCalcHandler(
+                handler = create_test_handler(
                     path="mock.bam",
                     esttype="ncc",
                     max_shift=200,

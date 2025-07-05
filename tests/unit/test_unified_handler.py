@@ -1,4 +1,4 @@
-"""Test unified handler and compatibility layer."""
+"""Test unified handler functionality."""
 
 import pytest
 from unittest.mock import Mock, patch, MagicMock
@@ -229,102 +229,6 @@ class TestUnifiedHandler:
         assert handler.nworker == 2
         assert handler.esttype == 'mean'
 
-
-class TestCompatibilityWrappers:
-    """Test compatibility wrapper classes."""
-
-    def test_compat_module_import(self):
-        """Test that compatibility module imports correctly."""
-        from PyMaSC.handler.compat import CCCalcHandler, BACalcHandler
-        assert CCCalcHandler is not None
-        assert BACalcHandler is not None
-
-    @patch('pysam.AlignmentFile')
-    def test_cc_compat_wrapper(self, mock_alignment_file):
-        """Test CCCalcHandler compatibility wrapper."""
-        from PyMaSC.handler.compat import CCCalcHandler
-
-        # Mock AlignmentFile
-        mock_bam = Mock()
-        references, lengths = create_mock_reference_data()
-        mock_bam.references = references
-        mock_bam.lengths = lengths
-        mock_bam.has_index.return_value = False
-        mock_alignment_file.return_value = mock_bam
-
-        # Initialize with legacy parameters
-        handler = CCCalcHandler(
-            path="test.bam",
-            esttype="mean",
-            max_shift=200,
-            mapq_criteria=20,
-            nworker=1,
-            skip_ncc=False
-        )
-
-        # Should create proper configuration internally
-        assert handler.config.algorithm == AlgorithmType.SUCCESSIVE
-        assert handler.config.max_shift == 200
-        assert handler.config.mapq_criteria == 20
-        assert handler.esttype == "mean"
-
-    @patch('pysam.AlignmentFile')
-    def test_ba_compat_wrapper(self, mock_alignment_file):
-        """Test BACalcHandler compatibility wrapper."""
-        from PyMaSC.handler.compat import BACalcHandler
-
-        # Mock AlignmentFile
-        mock_bam = Mock()
-        references, lengths = create_mock_reference_data()
-        mock_bam.references = references
-        mock_bam.lengths = lengths
-        mock_bam.has_index.return_value = False
-        mock_alignment_file.return_value = mock_bam
-
-        # Initialize with legacy parameters
-        handler = BACalcHandler(
-            path="test.bam",
-            esttype="median",
-            max_shift=300,
-            mapq_criteria=30,
-            nworker=4,
-            skip_ncc=True
-        )
-
-        # Should create proper configuration internally
-        assert handler.config.algorithm == AlgorithmType.BITARRAY
-        assert handler.config.max_shift == 300
-        assert handler.config.mapq_criteria == 30
-        assert handler.config.skip_ncc == True
-        assert handler.esttype == "median"
-
-    @patch('pysam.AlignmentFile')
-    def test_compat_wrapper_chromfilter(self, mock_alignment_file):
-        """Test compatibility wrapper with chromfilter."""
-        from PyMaSC.handler.compat import CCCalcHandler
-
-        # Mock AlignmentFile
-        mock_bam = Mock()
-        references = ['chr1', 'chr2', 'chr3']
-        lengths = [100000, 90000, 80000]
-        mock_bam.references = references
-        mock_bam.lengths = lengths
-        mock_bam.has_index.return_value = False
-        mock_alignment_file.return_value = mock_bam
-
-        chromfilter = [(True, ['chr1', 'chr2'])]
-
-        handler = CCCalcHandler(
-            path="test.bam",
-            esttype="mean",
-            max_shift=200,
-            mapq_criteria=20,
-            chromfilter=chromfilter
-        )
-
-        # Should have chromfilter in config
-        assert hasattr(handler.config, 'chromfilter')
-        assert handler.config.chromfilter == chromfilter
 
 
 class TestHandlerIntegration:

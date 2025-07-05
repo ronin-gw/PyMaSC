@@ -74,7 +74,7 @@ class ConfigurationBuilder:
             except ValueError:
                 valid_algorithms = [alg.value for alg in AlgorithmType]
                 raise ValueError(f"Unsupported algorithm '{algorithm}'. "
-                               f"Valid options: {valid_algorithms}")
+                                 f"Valid options: {valid_algorithms}")
 
         self._calculation_config = replace(self._calculation_config, algorithm=algorithm)
         return self
@@ -140,13 +140,13 @@ class ConfigurationBuilder:
             raise ValueError("all chromosome lengths must be positive")
 
         self._calculation_config = replace(
-            self._calculation_config, 
-            references=references.copy(), 
+            self._calculation_config,
+            references=references.copy(),
             lengths=lengths.copy()
         )
         return self
 
-    def with_mappability(self, 
+    def with_mappability(self,
                          bigwig_path: Union[str, Path],
                          stats_path: Optional[Union[str, Path]] = None) -> 'ConfigurationBuilder':
         """Configure mappability correction.
@@ -191,7 +191,7 @@ class ConfigurationBuilder:
         )
         return self
 
-    def with_input_output(self, 
+    def with_input_output(self,
                           input_paths: List[Union[str, Path]],
                           output_dir: Union[str, Path],
                           output_names: Optional[List[str]] = None) -> 'ConfigurationBuilder':
@@ -261,8 +261,8 @@ class ConfigurationBuilder:
         all_errors = self._errors + validation_errors
 
         if all_errors:
-            raise ValueError("Configuration validation failed:\n" + 
-                           "\n".join(f"  - {error}" for error in all_errors))
+            raise ValueError("Configuration validation failed:\n" +
+                             "\n".join(f"  - {error}" for error in all_errors))
 
         # Log warnings if any
         for warning in self._warnings:
@@ -378,8 +378,8 @@ class ConfigurationService:
         )
 
     @staticmethod
-    def create_worker_config(request: CalculationRequest, 
-                           logger_lock: Optional[Any] = None) -> WorkerConfig:
+    def create_worker_config(request: CalculationRequest,
+                             logger_lock: Optional[Any] = None) -> WorkerConfig:
         """Create worker configuration from calculation request.
 
         Args:

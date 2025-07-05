@@ -330,7 +330,10 @@ def output_nreads_table(outfile, ccr):
         if not add_target:
             return None
         d = copy(add_target)
-        d["whole"] = getattr(getattr(ccr.whole, target1), target2)
+        target_obj = getattr(ccr.whole, target1)
+        if target_obj is None:
+            return None
+        d["whole"] = getattr(target_obj, target2)
         return d
 
     with NReadsIO(outfile, 'w') as tab:

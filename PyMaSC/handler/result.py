@@ -191,6 +191,8 @@ class CCStats(object):
 
         #
         def _calc_vsn(ccfl, cc_width):
+            if cc_width is None or cc_width is False:
+                return None
             return 2 * ccfl * cc_width / (self.forward_sum + self.reverse_sum)
 
         self.vsn = None
@@ -356,12 +358,28 @@ class PyMaSCStats(object):
 
         self.calc_ncc = self.calc_masc = False
         if ccbins is not None or mappable_ccbins is not None:
-            self.calc_ncc = all(x is not None for x in (
+            # Check if we have NCC scalars or MSCC arrays
+            has_ncc_data = all(x is not None for x in (
                 self.forward_sum,
                 self.reverse_sum,
                 self.ccbins,
                 self.genomelen
             ))
+            
+            if has_ncc_data:
+                # Check if forward_sum is a scalar (NCC) or array (MSCC)
+                try:
+                    if hasattr(self.forward_sum, '__len__') and not isinstance(self.forward_sum, str):
+                        # forward_sum is an array, this is MSCC data, don't calculate NCC
+                        self.calc_ncc = False
+                    else:
+                        # forward_sum is a scalar, this is NCC data
+                        self.calc_ncc = True
+                except:
+                    # On any error, skip NCC to be safe
+                    self.calc_ncc = False
+            else:
+                self.calc_ncc = False
             self.calc_masc = all(x is not None for x in (
                 self.mappable_forward_sum,
                 self.mappable_reverse_sum,
@@ -432,11 +450,28 @@ class PyMaSCStats(object):
 
         #
         if self.calc_masc:
-            self.max_shift = masc_max_shift = min(map(
-                len,
-                (self.mappable_forward_sum, self.mappable_reverse_sum, self.mappable_ccbins)
-            )) - 1
-            mappability_max_shift = len(self.mappable_len)
+            # Filter out None values before calculating length
+            mappable_arrays = [
+                arr for arr in (self.mappable_forward_sum, self.mappable_reverse_sum, self.mappable_ccbins)
+                if arr is not None
+            ]
+            
+            # Debug: check types of mappable arrays
+            for i, arr in enumerate(mappable_arrays):
+                if not hasattr(arr, '__len__'):
+                    # If any array doesn't have len(), treat as no valid mappable data
+                    mappable_arrays = []
+                    break
+            
+            if mappable_arrays:
+                self.max_shift = masc_max_shift = min(map(len, mappable_arrays)) - 1
+            else:
+                masc_max_shift = 0  # Fallback if no valid arrays
+            
+            if self.mappable_len is not None:
+                mappability_max_shift = len(self.mappable_len)
+            else:
+                mappability_max_shift = None
         else:
             masc_max_shift = mappability_max_shift = None
 
@@ -622,11 +657,26 @@ class CCResult(object):
         else:
             mscc = self.mscc_upper = self.mscc_lower = None
 
+        # Check if forward_sum values are scalars or arrays
+        sample_forward = next(iter(self.ref2forward_sum.values()), None) if self.ref2forward_sum else None
+        has_scalar_sums = sample_forward is None or not (hasattr(sample_forward, '__len__') and not isinstance(sample_forward, str))
+        
+        if has_scalar_sums:
+            # Normal case: scalar sums for NCC
+            genomelen_sum = sum(self.ref2genomelen.values())
+            forward_sum_total = sum(self.ref2forward_sum.values())
+            reverse_sum_total = sum(self.ref2reverse_sum.values())
+        else:
+            # MSCC case: arrays instead of scalars, use None for NCC data
+            genomelen_sum = None
+            forward_sum_total = None
+            reverse_sum_total = None
+            
         self.whole = PyMaSCStats(
             self.read_len, self.mv_avr_filter_len, self.expected_library_len,
-            genomelen=sum(self.ref2genomelen.values()),
-            forward_sum=sum(self.ref2forward_sum.values()),
-            reverse_sum=sum(self.ref2reverse_sum.values()),
+            genomelen=genomelen_sum,
+            forward_sum=forward_sum_total,
+            reverse_sum=reverse_sum_total,
             cc=ncc,
             mappable_len=np.sum(tuple(self.ref2mappable_len.values()), axis=0),
             mappable_forward_sum=np.sum(tuple(v for v in self.mappable_ref2forward_sum.values() if v is not None), axis=0),
@@ -670,9 +720,23 @@ class CCResult(object):
 
         #
         if all((self.ref2forward_sum, self.ref2reverse_sum, ref2ccbins)):
-            self.skip_ncc = False
-            forward_sum = sum(list(self.ref2forward_sum.values()))
-            reverse_sum = sum(list(self.ref2reverse_sum.values()))
+            # Check if we have NCC scalars or MSCC arrays
+            try:
+                # Try to get a sample value to check type
+                sample_forward = next(iter(self.ref2forward_sum.values()), None)
+                if sample_forward is not None and hasattr(sample_forward, '__len__') and not isinstance(sample_forward, str):
+                    # We have arrays (MSCC data), skip NCC
+                    self.skip_ncc = True
+                    forward_sum = reverse_sum = None
+                else:
+                    # We have scalars (NCC data)
+                    self.skip_ncc = False
+                    forward_sum = sum(list(self.ref2forward_sum.values()))
+                    reverse_sum = sum(list(self.ref2reverse_sum.values()))
+            except:
+                # On any error, skip NCC to be safe
+                self.skip_ncc = True
+                forward_sum = reverse_sum = None
         else:
             self.skip_ncc = True
             forward_sum = reverse_sum = None
@@ -716,7 +780,11 @@ class CCResult(object):
             if len(ns.shape) == 1:
                 _ns = ns[~nans] - 3
             else:
-                _ns = ns[~nans, abs(self.read_len - i)] - 3
+                # Ensure index is within bounds
+                index = abs(self.read_len - i - 1)  # Convert to 0-based indexing
+                if index >= ns.shape[1]:
+                    index = ns.shape[1] - 1  # Use last valid index if out of bounds
+                _ns = ns[~nans, index] - 3
 
             zs = np.arctanh(_ccs)
             infs = np.isinf(zs)

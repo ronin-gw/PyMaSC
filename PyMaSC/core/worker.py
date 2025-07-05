@@ -414,11 +414,18 @@ class UnifiedWorker(BaseWorker):
         
         # Collect MSCC results
         if hasattr(self._calculator, 'ref2mappable_forward_sum'):
-            result.mscc_forward_sum = self._calculator.ref2mappable_forward_sum.get(chrom)
-            result.mscc_reverse_sum = self._calculator.ref2mappable_reverse_sum.get(chrom)
-            result.mscc_bins = self._calculator.ref2mascbins.get(chrom)
-        elif self.config.calculation_config.algorithm == AlgorithmType.MSCC:
-            # For pure MSCC mode
+            mappable_forward = self._calculator.ref2mappable_forward_sum
+            mappable_reverse = self._calculator.ref2mappable_reverse_sum
+            mappable_bins = self._calculator.ref2mascbins
+
+            if mappable_forward is not None:
+                result.mscc_forward_sum = mappable_forward.get(chrom)
+                result.mscc_reverse_sum = mappable_reverse.get(chrom)
+                result.mscc_bins = mappable_bins.get(chrom)
+
+        if (result.mscc_forward_sum is None and
+            self.config.calculation_config.algorithm == AlgorithmType.MSCC):
+            # For pure MSCC mode using standard ref2* attributes
             result.mscc_forward_sum = self._calculator.ref2forward_sum.get(chrom)
             result.mscc_reverse_sum = self._calculator.ref2reverse_sum.get(chrom)
             result.mscc_bins = self._calculator.ref2ccbins.get(chrom)

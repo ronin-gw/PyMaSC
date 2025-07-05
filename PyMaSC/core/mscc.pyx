@@ -451,6 +451,15 @@ cdef class MSCCCalculator(object):
         """
         self.flush()
 
+        # Initialize any unprocessed chromosomes with zero-filled results
+        cdef int64 zero_bins_size = self._forward_buff_size
+        cdef tuple zero_bins = tuple(np.zeros(zero_bins_size, dtype=np.int64))
+        for ref in self.ref2ccbins:
+            if self.ref2ccbins[ref] is None:
+                self.ref2ccbins[ref] = zero_bins
+                self.ref2forward_sum[ref] = zero_bins
+                self.ref2reverse_sum[ref] = zero_bins
+
         if not self._bwiter_stopped and self._feeder is not None:
             try:
                 self._feeder.throw(ContinueCalculation)

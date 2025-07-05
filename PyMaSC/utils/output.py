@@ -19,17 +19,17 @@ from functools import wraps
 
 def catch_IOError(logger):
     """Decorator for I/O error handling.
-    
+
     Creates a decorator that wraps functions to provide consistent
     error handling for I/O operations. Logs detailed error information
     and re-raises exceptions for proper error propagation.
-    
+
     Args:
         logger: Logger instance for error reporting
-        
+
     Returns:
         Decorator function that wraps I/O operations
-        
+
     Example:
         @catch_IOError(logger)
         def write_file(path, data):
@@ -55,18 +55,18 @@ def catch_IOError(logger):
 
 def prepare_outdir(outdir, logger):
     """Create and validate output directory.
-    
+
     Ensures the output directory exists, is writable, and is actually
     a directory. Creates the directory if it doesn't exist and validates
     permissions for file operations.
-    
+
     Args:
         outdir: Path to output directory
         logger: Logger instance for status messages
-        
+
     Returns:
         True if directory is ready for use, False if preparation failed
-        
+
     Note:
         Logs detailed error messages for all failure scenarios
     """

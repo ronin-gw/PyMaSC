@@ -34,14 +34,14 @@ logger = logging.getLogger(__name__)
 
 class CalcWorkerBase(Process):
     """Base class for multiprocessing calculation workers.
-    
+
     Provides common functionality for all PyMaSC calculation workers,
     including inter-process communication, BAM file handling, and
     basic workflow coordination.
-    
+
     This class extends multiprocessing.Process to enable parallel
     processing of different chromosomes simultaneously.
-    
+
     Attributes:
         order_queue: Queue for receiving work orders from main process
         report_queue: Queue for sending results back to main process
@@ -126,11 +126,11 @@ class CalcWorkerBase(Process):
 
 class NaiveCCCalcWorker(CalcWorkerBase):
     """Worker process for naive cross-correlation calculation.
-    
+
     Specializes CalcWorkerBase to perform naive cross-correlation (NCC)
     calculations for assigned chromosomes. Uses NaiveCCCalculator to
     compute cross-correlation without mappability correction.
-    
+
     This worker is used when only basic cross-correlation analysis
     is required, without the complexity of mappability adjustment.
     """
@@ -163,11 +163,11 @@ class NaiveCCCalcWorker(CalcWorkerBase):
 
 class MSCCCalcWorker(NaiveCCCalcWorker):
     """Worker process for mappability-sensitive cross-correlation.
-    
+
     Extends NaiveCCCalcWorker to perform MSCC calculations that
     incorporate mappability correction from BigWig files. This worker
     handles the additional complexity of mappability data integration.
-    
+
     Used when mappability correction is required to address genomic
     regions with variable mappability that can confound standard
     cross-correlation analysis.
@@ -211,12 +211,12 @@ class MSCCCalcWorker(NaiveCCCalcWorker):
 
 class NCCandMSCCCalcWorker(MSCCCalcWorker):
     """Worker process for both NCC and MSCC calculations.
-    
+
     Performs both naive cross-correlation and mappability-sensitive
     cross-correlation calculations in a single worker process.
     This provides comprehensive analysis including both standard
     and mappability-corrected results.
-    
+
     Used when complete cross-correlation analysis is required,
     enabling comparison between standard and mappability-corrected
     approaches within the same workflow.

@@ -128,21 +128,21 @@ class CCCalcHandler(BaseCalcHandler):
         # Complex initialization
         super().__init__(path, mapq_criteria, max_shift, nworker)
         self.esttype = esttype
-        
+
         # Direct file validation
         if not os.path.exists(path):
             raise ValueError("BAM file not found")
-            
+
         # Create internal dependencies
         if mappability_path:
             self.mappability_handler = MappabilityHandler(
                 mappability_path, max_shift, self.read_len, nworker
             )
-        
+
         # Complex setup logic
         self._setup_calculators()
         self._validate_chromosomes()
-        
+
     def run_calculation(self):
         # Complex workflow mixed with business logic
         if self.nworker > 1:
@@ -159,22 +159,22 @@ class SimplifiedCalcHandler:
         self.config = config
         self.deps = dependencies or HandlerDependencies()
         self.deps.ensure_services()
-        
+
     def run_calculation(self):
         # Validate
         if not self.validate():
             raise ValueError("Validation failed")
-            
+
         # Execute via service
         request = WorkflowRequest(
             bam_path=self.bam_path,
             calculation_config=self.config
         )
         result = self.deps.workflow_service.execute(request)
-        
+
         if not result.is_successful:
             raise RuntimeError(f"Calculation failed: {result.error}")
-            
+
         return result.calculation_result
 ```
 
@@ -199,7 +199,7 @@ def test_handler():
         validation_service=Mock(),
         workflow_service=Mock()
     )
-    
+
     # Easy to test
     handler = SimplifiedCalcHandler("/fake/path", config, deps)
     result = handler.run_calculation()

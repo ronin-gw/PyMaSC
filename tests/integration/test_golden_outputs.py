@@ -299,7 +299,7 @@ class TestGoldenOutputs:
 
     def test_parallel_vs_single_process_golden_consistency(self, test_data_paths):
         """Test that parallel processing produces identical results to single-process mode.
-        
+
         This critical test ensures that the MSCC parallel processing bug doesn't regress.
         It validates that parallel mode (-p option) produces exactly the same golden
         results as single-process mode.
@@ -320,7 +320,7 @@ class TestGoldenOutputs:
 
             # Single-process command
             cmd_single = cmd_base + ['-o', single_dir]
-            
+
             # Parallel-process command
             cmd_parallel = cmd_base + ['-o', parallel_dir, '-p', '2']
 
@@ -389,7 +389,7 @@ class TestGoldenOutputs:
                 try:
                     float1 = float(val1)
                     float2 = float(val2)
-                    
+
                     # Use high precision comparison
                     np.testing.assert_almost_equal(
                         float1, float2, 

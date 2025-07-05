@@ -19,16 +19,16 @@ from PyMaSC.core.models import (
 
 class LegacyWorkerBase:
     """Base class for legacy worker compatibility wrappers.
-    
+
     Provides common functionality for creating UnifiedWorker instances
     with the same interface as the original worker classes.
     """
-    
+
     def __init__(self, order_queue: Queue, report_queue: Queue, logger_lock: Lock,
                  bam_path: str, mapq_criteria: int, max_shift: int,
                  references: list, lengths: list, **kwargs):
         """Initialize legacy worker wrapper.
-        
+
         Args:
             order_queue: Queue for receiving work orders
             report_queue: Queue for sending results
@@ -49,22 +49,22 @@ class LegacyWorkerBase:
         self._references = references
         self._lengths = lengths
         self._kwargs = kwargs
-        
+
         # Create unified worker
         self._unified_worker = self._create_unified_worker()
-    
+
     def _create_unified_worker(self) -> UnifiedWorker:
         """Create UnifiedWorker instance with appropriate configuration."""
         raise NotImplementedError("Subclasses must implement _create_unified_worker")
-    
+
     def __getattr__(self, name: str) -> Any:
         """Delegate attribute access to unified worker."""
         return getattr(self._unified_worker, name)
-    
+
     def run(self) -> None:
         """Run the worker process."""
         self._unified_worker.run()
-    
+
     @property
     def name(self) -> str:
         """Get worker name."""
@@ -73,11 +73,11 @@ class LegacyWorkerBase:
 
 class NaiveCCCalcWorker(LegacyWorkerBase):
     """Compatibility wrapper for NaiveCCCalcWorker.
-    
+
     Provides the same interface as the original NaiveCCCalcWorker
     while delegating to UnifiedWorker internally.
     """
-    
+
     def __init__(self, order_queue: Queue, report_queue: Queue, logger_lock: Lock,
                  bam_path: str, mapq_criteria: int, max_shift: int,
                  references: list, lengths: list):
@@ -89,7 +89,7 @@ class NaiveCCCalcWorker(LegacyWorkerBase):
         )
         super().__init__(order_queue, report_queue, logger_lock, bam_path,
                         mapq_criteria, max_shift, references, lengths)
-    
+
     def _create_unified_worker(self) -> UnifiedWorker:
         """Create UnifiedWorker configured for NCC calculation."""
         calc_config = CalculationConfig(
@@ -100,14 +100,14 @@ class NaiveCCCalcWorker(LegacyWorkerBase):
             lengths=self._lengths,
             skip_ncc=False
         )
-        
+
         worker_config = WorkerConfig(
             calculation_config=calc_config,
             mappability_config=None,
             progress_enabled=True,
             logger_lock=self._logger_lock
         )
-        
+
         return UnifiedWorker(
             worker_config,
             self._order_queue,
@@ -119,11 +119,11 @@ class NaiveCCCalcWorker(LegacyWorkerBase):
 
 class MSCCCalcWorker(LegacyWorkerBase):
     """Compatibility wrapper for MSCCCalcWorker.
-    
+
     Provides the same interface as the original MSCCCalcWorker
     while delegating to UnifiedWorker internally.
     """
-    
+
     def __init__(self, order_queue: Queue, report_queue: Queue, logger_lock: Lock,
                  bam_path: str, mapq_criteria: int, max_shift: int,
                  references: list, lengths: list, mappable_path: str,
@@ -138,7 +138,7 @@ class MSCCCalcWorker(LegacyWorkerBase):
                         mapq_criteria, max_shift, references, lengths,
                         mappable_path=mappable_path, read_len=read_len,
                         chrom2mappable_len=chrom2mappable_len)
-    
+
     def _create_unified_worker(self) -> UnifiedWorker:
         """Create UnifiedWorker configured for MSCC calculation."""
         calc_config = CalculationConfig(
@@ -150,19 +150,19 @@ class MSCCCalcWorker(LegacyWorkerBase):
             read_length=self._kwargs['read_len'],
             skip_ncc=True  # MSCC only
         )
-        
+
         map_config = MappabilityConfig(
             mappability_path=self._kwargs['mappable_path'],
             read_len=self._kwargs['read_len']
         )
-        
+
         worker_config = WorkerConfig(
             calculation_config=calc_config,
             mappability_config=map_config,
             progress_enabled=True,
             logger_lock=self._logger_lock
         )
-        
+
         return UnifiedWorker(
             worker_config,
             self._order_queue,
@@ -174,11 +174,11 @@ class MSCCCalcWorker(LegacyWorkerBase):
 
 class NCCandMSCCCalcWorker(LegacyWorkerBase):
     """Compatibility wrapper for NCCandMSCCCalcWorker.
-    
+
     Provides the same interface as the original NCCandMSCCCalcWorker
     while delegating to UnifiedWorker internally.
     """
-    
+
     def __init__(self, order_queue: Queue, report_queue: Queue, logger_lock: Lock,
                  bam_path: str, mapq_criteria: int, max_shift: int,
                  references: list, lengths: list, mappable_path: str,
@@ -193,7 +193,7 @@ class NCCandMSCCCalcWorker(LegacyWorkerBase):
                         mapq_criteria, max_shift, references, lengths,
                         mappable_path=mappable_path, read_len=read_len,
                         chrom2mappable_len=chrom2mappable_len)
-    
+
     def _create_unified_worker(self) -> UnifiedWorker:
         """Create UnifiedWorker configured for both NCC and MSCC calculation."""
         calc_config = CalculationConfig(
@@ -205,19 +205,19 @@ class NCCandMSCCCalcWorker(LegacyWorkerBase):
             read_length=self._kwargs['read_len'],
             skip_ncc=False  # Include both NCC and MSCC
         )
-        
+
         map_config = MappabilityConfig(
             mappability_path=self._kwargs['mappable_path'],
             read_len=self._kwargs['read_len']
         )
-        
+
         worker_config = WorkerConfig(
             calculation_config=calc_config,
             mappability_config=map_config,
             progress_enabled=True,
             logger_lock=self._logger_lock
         )
-        
+
         return UnifiedWorker(
             worker_config,
             self._order_queue,
@@ -229,11 +229,11 @@ class NCCandMSCCCalcWorker(LegacyWorkerBase):
 
 class BACalcWorker(LegacyWorkerBase):
     """Compatibility wrapper for BACalcWorker.
-    
+
     Provides the same interface as the original BACalcWorker
     while delegating to UnifiedWorker internally.
     """
-    
+
     def __init__(self, order_queue: Queue, report_queue: Queue, logger_lock: Lock,
                  bam_path: str, mapq_criteria: int, max_shift: int, read_len: int,
                  references: list, lengths: list, mappability_handler: Optional[Any] = None,
@@ -248,7 +248,7 @@ class BACalcWorker(LegacyWorkerBase):
                         mapq_criteria, max_shift, references, lengths,
                         read_len=read_len, mappability_handler=mappability_handler,
                         skip_ncc=skip_ncc)
-    
+
     def _create_unified_worker(self) -> UnifiedWorker:
         """Create UnifiedWorker configured for BitArray calculation."""
         calc_config = CalculationConfig(
@@ -260,7 +260,7 @@ class BACalcWorker(LegacyWorkerBase):
             read_length=self._kwargs['read_len'],
             skip_ncc=self._kwargs['skip_ncc']
         )
-        
+
         map_config = None
         mappability_handler = self._kwargs.get('mappability_handler')
         if mappability_handler:
@@ -268,14 +268,14 @@ class BACalcWorker(LegacyWorkerBase):
                 mappability_path=mappability_handler.path,
                 read_len=self._kwargs['read_len']
             )
-        
+
         worker_config = WorkerConfig(
             calculation_config=calc_config,
             mappability_config=map_config,
             progress_enabled=True,
             logger_lock=self._logger_lock
         )
-        
+
         return UnifiedWorker(
             worker_config,
             self._order_queue,
@@ -288,14 +288,14 @@ class BACalcWorker(LegacyWorkerBase):
 # Convenience function for backward compatibility
 def create_legacy_worker(worker_type: str, *args, **kwargs) -> Any:
     """Create a legacy worker using the old interface.
-    
+
     This function provides backward compatibility for code that
     creates workers using string identifiers.
-    
+
     Args:
         worker_type: Type of worker ('ncc', 'mscc', 'ncc_mscc', 'bitarray')
         *args, **kwargs: Arguments for worker creation
-        
+
     Returns:
         Compatible worker instance
     """

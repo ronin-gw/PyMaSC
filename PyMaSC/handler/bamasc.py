@@ -31,11 +31,11 @@ logger = logging.getLogger(__name__)
 
 class BACalcHandler(CCCalcHandler):
     """BitArray calculation handler extending base handler.
-    
+
     This class extends CCCalcHandler to use the BitArray-based cross-correlation
     algorithm. It provides both single-process and multiprocess execution modes
     using the CCBitArrayCalculator for efficient computation.
-    
+
     The BitArray approach represents genomic positions as binary arrays,
     enabling fast bitwise operations for cross-correlation calculation.
     Inherits all functionality from CCCalcHandler while providing BitArray-specific
@@ -66,7 +66,7 @@ class BACalcHandler(CCCalcHandler):
 
     def _run_multiprocess_calculation(self):
         """Execute calculation using multiprocess mode with BitArray workers.
-        
+
         Overrides parent method to use BitArray-specific workers while
         leveraging the parent's queue creation and workflow coordination.
         """
@@ -88,15 +88,15 @@ class BACalcHandler(CCCalcHandler):
 
 class BASingleProcessCalculator(SingleProcessCalculator):
     """Single-process BitArray calculator.
-    
+
     This class implements single-process cross-correlation calculation
     using the BitArray algorithm. It extends SingleProcessCalculator
     to use CCBitArrayCalculator for the core computation.
-    
+
     The calculator processes reads sequentially across all chromosomes,
     feeding them to the BitArray calculator which maintains binary
     arrays for efficient position tracking and correlation computation.
-    
+
     Attributes:
         calculator: CCBitArrayCalculator instance for core computation
         _bwfeeder: BigWigReader for mappability data (if available)
@@ -144,15 +144,15 @@ class BASingleProcessCalculator(SingleProcessCalculator):
 
 class BACalcWorker(CalcWorkerBase):
     """Multiprocess BitArray worker.
-    
+
     This class implements a worker process for parallel cross-correlation
     calculation using the BitArray algorithm. Each worker processes one
     chromosome independently and reports results back to the main process.
-    
+
     The worker uses inter-process communication queues for coordination
     and result reporting, enabling efficient parallel processing of
     multiple chromosomes simultaneously.
-    
+
     Attributes:
         calculator: CCBitArrayCalculator instance for this worker
         _bwfeeder: BigWigReader for mappability data (if available)

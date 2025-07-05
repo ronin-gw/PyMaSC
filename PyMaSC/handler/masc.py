@@ -292,7 +292,7 @@ class CCCalcHandler(BaseCalcHandler):
         if mappable_len is not None and self.mappability_handler:
             self.mappability_handler.chrom2mappable_len[chrom] = mappable_len
             self.mappability_handler.chrom2is_called[chrom] = True
-            
+
         # Store mappable length
         if mappable_len is not None:
             self.ref2mappable_len[chrom] = mappable_len

@@ -25,16 +25,16 @@ logger = logging.getLogger(__name__)
 
 class SingleProcessCalculator(object):
     """Single-process cross-correlation calculator.
-    
+
     Implements cross-correlation calculation in a single process,
     processing all chromosomes sequentially. This class is used when
     BAM files are not indexed or when multiprocessing is disabled.
-    
+
     The calculator handles both naive cross-correlation and MSCC
     calculations depending on the availability of mappability data.
     It provides progress reporting and efficient memory management
     for single-threaded execution.
-    
+
     Attributes:
         align_file: Opened BAM file object
         mapq_criteria: Minimum mapping quality threshold

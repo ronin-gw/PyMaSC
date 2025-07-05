@@ -44,7 +44,7 @@ class TestParallelProcessingConsistency:
 
             # Single-process command
             cmd_single = cmd_base + ['-o', single_dir]
-            
+
             # Parallel-process command (2 workers)
             cmd_parallel = cmd_base + ['-o', parallel_dir, '-p', '2']
 
@@ -66,7 +66,7 @@ class TestParallelProcessingConsistency:
             # Read and compare stats line by line
             with open(single_stats, 'r') as f_single, \
                  open(parallel_stats, 'r') as f_parallel:
-                
+
                 single_lines = f_single.readlines()
                 parallel_lines = f_parallel.readlines()
 
@@ -79,7 +79,7 @@ class TestParallelProcessingConsistency:
 
     def test_mscc_parallel_processing_critical(self, test_data_paths):
         """Critical test: Ensure MSCC results are generated in parallel mode.
-        
+
         This test specifically addresses the bug where MSCC metrics were 'nan'
         in parallel mode, preventing proper mappability-sensitive analysis.
         """
@@ -124,10 +124,10 @@ class TestParallelProcessingConsistency:
             for metric in critical_mscc_metrics:
                 assert metric in stats_data, f"Missing MSCC metric: {metric}"
                 value = stats_data[metric]
-                
+
                 # The critical test: MSCC values must NOT be 'nan'
                 assert value != 'nan', f"CRITICAL BUG DETECTED: {metric} is 'nan' in parallel mode"
-                
+
                 # For numeric metrics, verify they are valid numbers
                 if metric in ['Minimum MSCC', 'MSCC at read length', 'Estimated MSCC NSC', 'Estimated MSCC RSC']:
                     try:
@@ -188,7 +188,7 @@ class TestParallelProcessingConsistency:
                     try:
                         single_float = float(single_val)
                         parallel_float = float(parallel_val)
-                        
+
                         np.testing.assert_almost_equal(
                             single_float, parallel_float,
                             decimal=15,
@@ -201,7 +201,7 @@ class TestParallelProcessingConsistency:
 
     def test_single_vs_parallel_mscc_tables_identical(self, test_data_paths):
         """Test that MSCC tables are identical between single and parallel modes.
-        
+
         This is the most critical test for the bug that was fixed.
         """
         with tempfile.TemporaryDirectory() as single_dir, \
@@ -254,7 +254,7 @@ class TestParallelProcessingConsistency:
                     try:
                         single_float = float(single_val)
                         parallel_float = float(parallel_val)
-                        
+
                         np.testing.assert_almost_equal(
                             single_float, parallel_float,
                             decimal=15,
@@ -268,7 +268,7 @@ class TestParallelProcessingConsistency:
     def test_parallel_worker_counts(self, test_data_paths):
         """Test different parallel worker counts produce identical results."""
         results = {}
-        
+
         for nworkers in [1, 2, 4]:
             with tempfile.TemporaryDirectory() as temp_dir:
                 cmd = [
@@ -281,7 +281,7 @@ class TestParallelProcessingConsistency:
                     '-r', '36',
                     '--skip-plots'
                 ]
-                
+
                 if nworkers > 1:
                     cmd.extend(['-p', str(nworkers)])
 
@@ -304,7 +304,7 @@ class TestParallelProcessingConsistency:
 
     def test_mscc_regression_test(self, test_data_paths):
         """Regression test for the specific MSCC parallel processing bug.
-        
+
         This test validates the exact fix that was applied and ensures
         the bug doesn't reoccur.
         """
@@ -327,14 +327,14 @@ class TestParallelProcessingConsistency:
 
             # Validate specific metrics that were failing
             stats_file = Path(temp_dir) / 'ENCFF000RMB-test_stats.tab'
-            
+
             with open(stats_file, 'r') as f:
                 content = f.read()
-                
+
                 # Check that 'nan' doesn't appear in MSCC-related lines that should have values
                 # Note: Some MSCC values are legitimately 'nan' when expected library length is unknown
                 lines = content.split('\n')
-                
+
                 # Metrics that should NOT be nan in parallel mode (these were the actual bug)
                 critical_non_nan_metrics = [
                     'Minimum MSCC',
@@ -344,7 +344,7 @@ class TestParallelProcessingConsistency:
                     'Estimated MSCC FWHM',
                     'Estimated MSCC VSN'
                 ]
-                
+
                 for line in lines:
                     if '\t' in line:
                         key, value = line.split('\t', 1)
@@ -354,7 +354,7 @@ class TestParallelProcessingConsistency:
             # Check MSCC table exists and has data
             mscc_file = Path(temp_dir) / 'ENCFF000RMB-test_mscc.tab'
             assert mscc_file.exists(), "REGRESSION: MSCC table not generated in parallel mode"
-            
+
             with open(mscc_file, 'r') as f:
                 lines = f.readlines()
                 assert len(lines) > 300, "REGRESSION: MSCC table has insufficient data"
@@ -366,7 +366,7 @@ class TestParallelProcessingConsistency:
     @pytest.mark.critical
     def test_successive_algorithm_single_vs_parallel_consistency(self, test_data_paths):
         """Test successive algorithm consistency between single and parallel modes.
-        
+
         This test specifically addresses the successive algorithm parallel processing
         bug where MSCCCalculator receives wrong BigWig reader type in parallel mode.
         """
@@ -387,7 +387,7 @@ class TestParallelProcessingConsistency:
 
             # Single-process command
             cmd_single = cmd_base + ['-o', single_dir]
-            
+
             # Parallel-process command
             cmd_parallel = cmd_base + ['-o', parallel_dir, '-p', '2']
 
@@ -409,7 +409,7 @@ class TestParallelProcessingConsistency:
             # Read and compare stats line by line
             with open(single_stats, 'r') as f_single, \
                  open(parallel_stats, 'r') as f_parallel:
-                
+
                 single_lines = f_single.readlines()
                 parallel_lines = f_parallel.readlines()
 
@@ -427,7 +427,7 @@ class TestParallelProcessingConsistency:
     @pytest.mark.critical
     def test_successive_algorithm_parallel_feed_method_fix(self, test_data_paths):
         """Critical regression test for successive algorithm parallel processing.
-        
+
         This test ensures that the BWFeederWithMappableRegionSum fix prevents
         the AttributeError: 'BigWigReader' object has no attribute 'feed' error
         that occurred when using successive algorithm in parallel mode.
@@ -447,24 +447,24 @@ class TestParallelProcessingConsistency:
             ]
 
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
-            
+
             # The critical test: this should NOT fail with 'feed' method error
             assert result.returncode == 0, f"Successive parallel processing failed: {result.stderr}"
-            
+
             # Should not contain the specific error message
             error_output = result.stderr
             assert "'BigWigReader' object has no attribute 'feed'" not in error_output, \
                 "REGRESSION: BWFeederWithMappableRegionSum fix not working"
-            
+
             # Verify output files were generated
             stats_file = Path(temp_dir) / 'ENCFF000RMB-test_stats.tab'
             cc_file = Path(temp_dir) / 'ENCFF000RMB-test_cc.tab'
             mscc_file = Path(temp_dir) / 'ENCFF000RMB-test_mscc.tab'
-            
+
             assert stats_file.exists(), "Successive parallel processing failed to generate stats"
             assert cc_file.exists(), "Successive parallel processing failed to generate CC table"
             assert mscc_file.exists(), "Successive parallel processing failed to generate MSCC table"
-            
+
             # Verify MSCC data contains actual calculations (not just headers)
             with open(mscc_file, 'r') as f:
                 lines = f.readlines()

@@ -31,10 +31,10 @@ NEAR_ZERO_MIN_CALC_LEN = 10
 
 def _skip_none(i):
     """Filter None values from iterable.
-    
+
     Args:
         i: Iterable containing values and None entries
-        
+
     Returns:
         List with None values removed
     """
@@ -43,13 +43,13 @@ def _skip_none(i):
 
 def npcalc_with_logging_warn(func):
     """Decorator for numpy calculation error handling.
-    
+
     Wraps numpy calculations to catch floating point errors and warnings,
     logging them for debugging while allowing calculations to continue.
-    
+
     Args:
         func: Function to wrap for error handling
-        
+
     Returns:
         Wrapped function with error handling
     """
@@ -68,16 +68,16 @@ def npcalc_with_logging_warn(func):
 
 def chi2_test(a, b, chi2_p_thresh, label):
     """Chi-squared test for strand bias detection.
-    
+
     Performs a chi-squared test to detect significant imbalance between
     forward and reverse read counts, which may indicate strand bias.
-    
+
     Args:
         a: Forward read count
         b: Reverse read count
         chi2_p_thresh: P-value threshold for significance
         label: Label for logging output
-        
+
     Note:
         Logs warnings if significant strand bias is detected
     """
@@ -97,14 +97,14 @@ def chi2_test(a, b, chi2_p_thresh, label):
 
 class CCStats(object):
     """Cross-correlation statistics calculator.
-    
+
     Computes comprehensive statistical metrics from cross-correlation data,
     including NSC (Normalized Strand Coefficient), RSC (Relative Strand Coefficient),
     fragment length estimation, and peak width calculations.
-    
+
     This class handles the core statistical analysis of cross-correlation results,
     providing quality metrics commonly used in ChIP-seq analysis.
-    
+
     Attributes:
         cc: Cross-correlation values array
         genomelen: Total mappable genome length
@@ -124,7 +124,7 @@ class CCStats(object):
                  min_calc_width, mv_avr_filter_len, filter_mask_len, output_warnings,
                  do_llestimation=False, estimated_library_len=None, expected_library_len=None):
         """Initialize cross-correlation statistics calculator.
-        
+
         Args:
             cc: Cross-correlation values array
             genomelen: Total mappable genome length
@@ -295,16 +295,16 @@ class CCStats(object):
 
 class PyMaSCStats(object):
     """Main PyMaSC statistics container and calculator.
-    
+
     This class serves as the primary container for PyMaSC analysis results,
     handling both naive cross-correlation (NCC) and mappability-sensitive
     cross-correlation (MSCC) statistics. It can initialize from either
     raw calculation data or pre-computed correlation arrays.
-    
+
     The class automatically determines which analyses are possible based
     on the provided data and creates appropriate CCStats objects for
     detailed statistical calculations.
-    
+
     Attributes:
         read_len: Read length in base pairs
         calc_ncc: Whether naive cross-correlation was calculated
@@ -501,7 +501,7 @@ class PyMaSCStats(object):
 
 class ReadsTooFew(IndexError):
     """Exception raised when insufficient reads are available for analysis.
-    
+
     This exception is raised when the number of reads is too low to perform
     reliable cross-correlation analysis or statistical calculations.
     """
@@ -510,19 +510,19 @@ class ReadsTooFew(IndexError):
 
 class CCResult(object):
     """Complete result container and processor for PyMaSC analysis.
-    
+
     This class serves as the main result container for PyMaSC cross-correlation
     analysis, aggregating results across all chromosomes and providing
     high-level statistical summaries. It can be initialized either from
     a calculation handler or from pre-loaded data tables.
-    
+
     The class handles:
     - Aggregation of per-chromosome statistics
     - Genome-wide statistical summaries
     - Strand bias testing
     - Quality metric calculation
     - Result validation and error checking
-    
+
     Attributes:
         read_len: Read length in base pairs
         references: List of analyzed chromosome names
@@ -542,7 +542,7 @@ class CCResult(object):
         ref2mappable_len=None, ref2masc=None  # source 2 (pymasc-plot)
     ):
         """Initialize CCResult from handler or pre-loaded data.
-        
+
         Args:
             mv_avr_filter_len: Moving average filter length for smoothing
             chi2_pval: P-value threshold for chi-squared strand bias test
@@ -560,7 +560,7 @@ class CCResult(object):
             mappable_ref2reverse_sum: Mappable reverse read counts
             ref2mappable_len: Mappable lengths by chromosome
             ref2masc: MSCC data by chromosome
-            
+
         Raises:
             ReadsTooFew: If insufficient reads for reliable analysis
         """

@@ -36,11 +36,11 @@ logger = logging.getLogger(__name__)
 
 class TableIO(object):
     """Generic tab-delimited table I/O handler.
-    
+
     Provides basic functionality for reading and writing tab-delimited tables
     with standardized format and error handling. Used as base class for
     specialized table handlers.
-    
+
     Attributes:
         DIALECT: CSV dialect for tab-delimited format
         path: File path for I/O operations
@@ -51,11 +51,11 @@ class TableIO(object):
 
     def __init__(self, path, mode='r'):
         """Initialize table I/O handler.
-        
+
         Args:
             path: File path for table operations
             mode: File access mode ('r' for read, 'w' for write)
-            
+
         Raises:
             NotImplemented: If mode is not 'r' or 'w'
         """
@@ -72,7 +72,7 @@ class TableIO(object):
 
     def __enter__(self):
         """Context manager entry.
-        
+
         Returns:
             Self for use in with statements
         """
@@ -81,7 +81,7 @@ class TableIO(object):
 
     def __exit__(self, ex_type, ex_value, trace):
         """Context manager exit with file cleanup.
-        
+
         Args:
             ex_type: Exception type
             ex_value: Exception value
@@ -93,10 +93,10 @@ class TableIO(object):
 
     def read(self, typefunc):
         """Read table data with type conversion.
-        
+
         Args:
             typefunc: Function to convert string values to desired type
-            
+
         Returns:
             Tuple of (header, table_dict) where table_dict maps column names to data
         """
@@ -107,7 +107,7 @@ class TableIO(object):
 
     def write(self, header, body):
         """Write table data to file.
-        
+
         Args:
             header: Column headers (excluding 'shift' column)
             body: Iterable of data rows
@@ -120,14 +120,14 @@ class TableIO(object):
 @catch_IOError(logger)
 def _load_table(path, logfmt):
     """Generic table loading with logging.
-    
+
     Args:
         path: File path to load
         logfmt: Format string for logging message
-        
+
     Returns:
         Dictionary mapping column names to data arrays
-        
+
     Note:
         Removes 'whole' column from results and warns if missing
     """
@@ -151,7 +151,7 @@ load_masc = partial(_load_table, logfmt="Load MSCC table from '{}'")
 @catch_IOError(logger)
 def _output_cctable(outfile, ccr, suffix, target_attr):
     """Output cross-correlation tables.
-    
+
     Args:
         outfile: Base output file path
         ccr: CCResult object containing data
@@ -176,11 +176,11 @@ output_mscc = partial(_output_cctable, suffix=MSCCOUTPUT_SUFFIX, target_attr="ma
 
 class NReadsIO(TableIO):
     """Specialized I/O for read count tables.
-    
+
     Handles reading and writing of read count tables that contain
     forward-reverse read pair counts in 'forward-reverse' format.
     Supports both raw read counts and mappable read counts.
-    
+
     The class processes tables with the following structure:
     - Optional 'raw' row with total read counts
     - Multiple rows with mappable read counts by shift distance
@@ -189,11 +189,11 @@ class NReadsIO(TableIO):
     @staticmethod
     def make_forward_reverse_tables(header, body):
         """Parse forward-reverse read count pairs from table rows.
-        
+
         Args:
             header: Column names
             body: Table rows containing 'forward-reverse' formatted data
-            
+
         Returns:
             Tuple of (forward_dict, reverse_dict) with counts by column
         """
@@ -210,7 +210,7 @@ class NReadsIO(TableIO):
 
     def read(self):
         """Read read count table with forward/reverse separation.
-        
+
         Returns:
             Tuple of (forward_sum, reverse_sum, mappable_forward_sum, mappable_reverse_sum)
             Each is a dictionary mapping chromosome names to read counts
@@ -238,12 +238,12 @@ class NReadsIO(TableIO):
     @staticmethod
     def _make_table(rowname, forward, reverse):
         """Create table row with forward-reverse formatted data.
-        
+
         Args:
             rowname: Name for the first column
             forward: Forward read counts iterable
             reverse: Reverse read counts iterable
-            
+
         Returns:
             Iterable of row data with 'forward-reverse' formatted pairs
         """
@@ -251,7 +251,7 @@ class NReadsIO(TableIO):
 
     def write(self, header, forward_sum, reverse_sum, mappable_forward_sum, mappable_reverse_sum):
         """Write read count table with forward/reverse data.
-        
+
         Args:
             header: Column names
             forward_sum: Total forward read counts by chromosome
@@ -287,13 +287,13 @@ class NReadsIO(TableIO):
 @catch_IOError(logger)
 def load_nreads_table(path):
     """Load read count table from file.
-    
+
     Args:
         path: File path to read count table
-        
+
     Returns:
         Tuple of read count dictionaries (forward, reverse, mappable_forward, mappable_reverse)
-        
+
     Raises:
         KeyError: If no valid data could be loaded
     """
@@ -318,7 +318,7 @@ def load_nreads_table(path):
 @catch_IOError(logger)
 def output_nreads_table(outfile, ccr):
     """Output read count table from analysis results.
-    
+
     Args:
         outfile: Base output file path
         ccr: CCResult object containing read count data

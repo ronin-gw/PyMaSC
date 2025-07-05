@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 class BWIOError(IOError):
     """Exception raised for BigWig file I/O errors.
-    
+
     Indicates problems accessing or reading BigWig mappability files,
     including file not found, permission denied, or file corruption.
     """
@@ -41,7 +41,7 @@ class BWIOError(IOError):
 
 class JSONIOError(IOError):
     """Exception raised for JSON statistics file I/O errors.
-    
+
     Indicates problems with mappability statistics file operations,
     including read/write failures or directory access issues.
     """
@@ -50,7 +50,7 @@ class JSONIOError(IOError):
 
 class NeedUpdate(Exception):
     """Exception indicating mappability statistics need updating.
-    
+
     Raised when existing statistics are incompatible with current
     analysis parameters and must be recalculated.
     """
@@ -59,22 +59,22 @@ class NeedUpdate(Exception):
 
 class NumpyEncoder(json.JSONEncoder):
     """JSON encoder for numpy data types.
-    
+
     Extends the standard JSON encoder to handle numpy numeric types
     that are commonly used in mappability calculations. Converts
     numpy integers and floats to standard Python types for JSON
     serialization.
     """
-    
+
     def default(self, obj):
         """Convert numpy types to JSON-serializable Python types.
-        
+
         Args:
             obj: Object to serialize
-            
+
         Returns:
             JSON-serializable representation of the object
-            
+
         Raises:
             TypeError: If object type is not supported
         """
@@ -88,16 +88,16 @@ class NumpyEncoder(json.JSONEncoder):
 
 class MappabilityHandler(MappableLengthCalculator):
     """High-level mappability calculation and management.
-    
+
     Provides a complete interface for mappability analysis including
     parallel calculation, statistics caching, and file management.
     Extends MappableLengthCalculator with persistence and workflow
     management capabilities.
-    
+
     The handler automatically manages BigWig file access, calculates
     mappability statistics across chromosomes using multiple workers,
     and persists results to JSON files for future reuse.
-    
+
     Attributes:
         path: Path to BigWig mappability file
         max_shift: Maximum shift distance for analysis
@@ -107,19 +107,19 @@ class MappabilityHandler(MappableLengthCalculator):
         mappable_len: Genome-wide mappability array
         need_save_stats: Whether statistics need to be saved
     """
-    
+
     @staticmethod
     def calc_mappable_len_required_shift_size(readlen, max_shift):
         """Calculate required shift size for mappability analysis.
-        
+
         Determines the appropriate shift size based on read length
         and maximum shift parameters to ensure complete coverage
         of the analysis window.
-        
+
         Args:
             readlen: Read length in base pairs
             max_shift: Maximum shift distance requested
-            
+
         Returns:
             Required shift size for mappability calculation
         """
@@ -127,18 +127,18 @@ class MappabilityHandler(MappableLengthCalculator):
 
     def __init__(self, path, max_shift=0, readlen=0, map_path=None, nworker=1):
         """Initialize mappability handler.
-        
+
         Sets up mappability analysis with specified parameters,
         validates file access, and determines whether calculation
         or cached statistics loading is required.
-        
+
         Args:
             path: Path to BigWig mappability file
             max_shift: Maximum shift distance for cross-correlation
             readlen: Read length in base pairs
             map_path: Path for statistics cache file (optional)
             nworker: Number of parallel worker processes
-            
+
         Raises:
             BWIOError: If BigWig file is not accessible
             JSONIOError: If statistics file operations fail
@@ -240,14 +240,14 @@ class MappabilityHandler(MappableLengthCalculator):
 
     def save_mappability_stats(self):
         """Save mappability statistics to JSON cache file.
-        
+
         Persists calculated mappability statistics to a JSON file
         for future reuse, avoiding redundant calculations. Uses
         NumpyEncoder to handle numpy data types.
-        
+
         The statistics include per-chromosome and genome-wide
         mappability arrays for all shift distances up to max_shift.
-        
+
         Note:
             Only saves if need_save_stats flag is True
         """
@@ -270,15 +270,15 @@ class MappabilityHandler(MappableLengthCalculator):
 
     def calc_mappability(self):
         """Calculate mappability statistics using parallel workers.
-        
+
         Orchestrates parallel calculation of mappability statistics
         across chromosomes using multiple worker processes. Manages
         progress reporting and result collection from workers.
-        
+
         The method only processes chromosomes that haven't been
         calculated yet, enabling incremental updates and resumption
         of interrupted calculations.
-        
+
         Note:
             Uses multiprocessing for efficient parallel computation
             across available CPU cores
@@ -322,26 +322,26 @@ class MappabilityHandler(MappableLengthCalculator):
 
 class MappabilityCalcWorker(Process):
     """Worker process for parallel mappability calculation.
-    
+
     Implements a multiprocessing worker that calculates mappability
     statistics for assigned chromosomes. Each worker operates
     independently on different chromosomes to enable parallel
     computation across the genome.
-    
+
     The worker receives chromosome assignments through a queue,
     processes each chromosome using MappableLengthCalculator,
     and reports results back to the main process.
-    
+
     Attributes:
         calculator: MappableLengthCalculator instance
         order_queue: Queue for receiving chromosome assignments
         report_queue: Queue for sending results and progress updates
         logger_lock: Lock for thread-safe logging
     """
-    
+
     def __init__(self, path, max_shift, order_queue, report_queue, logger_lock):
         """Initialize mappability calculation worker.
-        
+
         Args:
             path: Path to BigWig mappability file
             max_shift: Maximum shift distance for calculation
@@ -360,12 +360,12 @@ class MappabilityCalcWorker(Process):
 
     def run(self):
         """Execute worker process main loop.
-        
+
         Continuously processes chromosome assignments from the order
         queue until a termination signal (None) is received. For each
         chromosome, calculates mappability statistics and reports
         results back through the report queue.
-        
+
         The worker maintains thread-safe logging and handles proper
         cleanup of resources upon completion.
         """

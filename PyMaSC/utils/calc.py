@@ -24,17 +24,17 @@ logger = logging.getLogger(__name__)
 
 def moving_avr_filter(arr, window):
     """Apply moving average filter to array.
-    
+
     Computes a moving average filter over the input array using a specified
     window size. Handles edge effects by using partial windows at array boundaries.
-    
+
     Args:
         arr: Input array to filter
         window: Window size for moving average (must be positive)
-        
+
     Returns:
         Filtered array of same length as input with smoothed values
-        
+
     Note:
         Edge values use progressively larger windows to avoid boundary artifacts
     """
@@ -49,18 +49,18 @@ def moving_avr_filter(arr, window):
 
 def filter_chroms(chroms, filters):
     """Filter chromosome list using Unix-style patterns.
-    
+
     Applies include/exclude patterns to filter a list of chromosome names.
     Supports Unix shell-style wildcards (*, ?, []) for flexible pattern matching.
-    
+
     Args:
         chroms: List of chromosome names to filter
         filters: List of (include_flag, patterns) tuples where include_flag
                 is True for include patterns and False for exclude patterns
-                
+
     Returns:
         Set of chromosome names that match the filtering criteria
-        
+
     Note:
         Filters are applied in order, with exclude patterns removing chromosomes
         from the current set and include patterns adding them back
@@ -95,11 +95,11 @@ def filter_chroms(chroms, filters):
 
 class exec_worker_pool(object):
     """Context manager for multiprocessing worker pool execution.
-    
+
     Manages the lifecycle of worker processes including startup, task distribution,
     and cleanup. Provides a clean context manager interface for coordinating
     parallel processing across multiple chromosomes.
-    
+
     Attributes:
         workers: List of worker process instances
         tasks: List of tasks to distribute to workers
@@ -107,7 +107,7 @@ class exec_worker_pool(object):
     """
     def __init__(self, workers, tasks, task_queue):
         """Initialize worker pool manager.
-        
+
         Args:
             workers: List of worker process instances
             tasks: List of tasks to distribute to workers
@@ -119,7 +119,7 @@ class exec_worker_pool(object):
 
     def __enter__(self):
         """Start all workers and distribute tasks.
-        
+
         Starts all worker processes, distributes tasks to the queue,
         and sends termination signals for clean shutdown.
         """
@@ -132,9 +132,9 @@ class exec_worker_pool(object):
 
     def __exit__(self, type, value, traceback):
         """Clean up worker processes.
-        
+
         Terminates any remaining worker processes to ensure clean shutdown.
-        
+
         Args:
             type: Exception type (if any)
             value: Exception value (if any) 

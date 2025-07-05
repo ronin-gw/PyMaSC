@@ -26,10 +26,10 @@ logger = logging.getLogger(__name__)
 
 def _mean(c):
     """Calculate mean read length from frequency distribution.
-    
+
     Args:
         c: Dictionary mapping read lengths to their frequencies
-        
+
     Returns:
         Mean read length rounded to nearest integer
     """
@@ -40,13 +40,13 @@ def _mean(c):
 
 def _median(c):
     """Calculate median read length from frequency distribution.
-    
+
     Args:
         c: Dictionary mapping read lengths to their frequencies
-        
+
     Returns:
         Median read length
-        
+
     Note:
         Handles both odd and even total counts appropriately
     """
@@ -71,10 +71,10 @@ def _median(c):
 
 def _mode(c):
     """Calculate mode (most frequent) read length.
-    
+
     Args:
         c: Dictionary mapping read lengths to their frequencies
-        
+
     Returns:
         Most frequently occurring read length
     """
@@ -88,22 +88,22 @@ ESTFUNCTIONS = dict(
 
 def estimate_readlen(path, esttype, unsigned int mapq_criteria):
     """Estimate read length from BAM file using specified method.
-    
+
     Analyzes reads in a BAM file to estimate the characteristic read length
     using the specified statistical method. Applies quality filtering and
     handles various sequencing artifacts.
-    
+
     Args:
         path: Path to BAM file
         esttype: Estimation method ('MEAN', 'MEDIAN', 'MODE', 'MIN', 'MAX')
         mapq_criteria: Minimum mapping quality threshold
-        
+
     Returns:
         Estimated read length in base pairs
-        
+
     Raises:
         ValueError: If estimation method is invalid or insufficient data
-        
+
     Note:
         Processes only primary alignments and applies quality filtering
         to ensure accurate length estimation

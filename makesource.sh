@@ -15,9 +15,9 @@ echo "Target Python versions: ${PYTHON_VERSIONS[*]}"
 rename_sources_for_version() {
     local py_version=$1
     local py_major_minor=${py_version%.*}${py_version#*.}  # 3.8 -> 38, 3.10 -> 310
-    
+
     echo "📝 Renaming C files for Python ${py_version}..."
-    
+
     # Find and rename all generated C files
     for f in PyMaSC/*/*[a-z].c PyMaSC/*/*/*[a-z].c; do
         if [[ -f "$f" ]]; then
@@ -36,27 +36,27 @@ for py_version in "${PYTHON_VERSIONS[@]}"; do
     echo ""
     echo "=================================="
     echo "🐍 Processing Python ${py_version}..."
-    
+
     # Clean only non-versioned C sources (preserve *_XX.c files)
     echo "🧹 Cleaning non-versioned C sources..."
     find PyMaSC -name "*.c" ! -name "*_[0-9][0-9].c" ! -name "*_[0-9][0-9][0-9].c" -delete
-    
+
     # Run specific service
     service_name="build-py${py_version//./}"  # 3.8 -> build-py38
-    
+
     echo "🔨 Building C sources for Python ${py_version}..."
     if docker-compose -f docker-compose.build.yml up --build "$service_name"; then
         echo "✅ Build successful for Python ${py_version}"
-        
+
         # Rename generated C files with version suffix
         rename_sources_for_version "$py_version"
-        
+
         ((success_count++))
     else
         echo "❌ Failed to generate C sources for Python ${py_version}"
         echo "⚠️  Warning: Failed for Python ${py_version}, continuing with others..."
     fi
-    
+
     # Clean up after each version
     echo "🧹 Cleaning up Docker containers..."
     docker-compose -f docker-compose.build.yml down -v

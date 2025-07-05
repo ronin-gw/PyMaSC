@@ -36,7 +36,7 @@ except:
 
 def _feed_pdf_page(pp):
     """Save current plot to PDF and close the figure.
-    
+
     Args:
         pp: PdfPages object for multi-page PDF output
     """
@@ -47,11 +47,11 @@ def _feed_pdf_page(pp):
 @catch_IOError(logger)
 def plot_figures(outfile, ccr):
     """Generate all PyMaSC plots and save to PDF file.
-    
+
     Creates a multi-page PDF containing all relevant plots based on the
     analysis results. Includes naive cross-correlation, MSCC, and comparison
     plots depending on what calculations were performed.
-    
+
     Args:
         outfile: Output PDF file path
         ccr: CCResult object containing analysis results
@@ -76,7 +76,7 @@ def plot_figures(outfile, ccr):
 
 def _annotate_point(x, color, axis_y, axis_text, point_y=None, point_text=None, yoffset=0):
     """Add vertical line and annotations to plot at specified x position.
-    
+
     Args:
         x: X-coordinate for vertical line and annotations
         color: Color for the vertical line
@@ -95,7 +95,7 @@ def _annotate_point(x, color, axis_y, axis_text, point_y=None, point_text=None, 
 
 def _annotate_bottom_right_box(text):
     """Add text box annotation to bottom right corner of plot.
-    
+
     Args:
         text: Text content for the annotation box
     """
@@ -108,7 +108,7 @@ def _annotate_bottom_right_box(text):
 
 def _annotate_params(nsc=None, rsc=None, est_nsc=None, est_rsc=None, loc="lower right"):
     """Add parameter annotations to plot showing quality metrics.
-    
+
     Args:
         nsc: Normalized Strand Coefficient value
         rsc: Relative Strand Coefficient value  
@@ -128,7 +128,7 @@ def _annotate_params(nsc=None, rsc=None, est_nsc=None, est_rsc=None, loc="lower 
 
 def _set_ylim():
     """Adjust Y-axis limits with appropriate padding.
-    
+
     Sets Y-axis limits to provide better visualization by adding
     padding around the data range.
     """
@@ -144,13 +144,13 @@ def _set_ylim():
 
 def plot_naive_cc(ccr, name=None, xlim=None):
     """Plot naive cross-correlation results.
-    
+
     Creates a comprehensive plot of naive cross-correlation showing:
     - Cross-correlation curve across all shift distances
     - Read length and fragment length markers
     - Quality metrics (NSC, RSC) annotations
     - Statistical significance indicators
-    
+
     Args:
         ccr: CCResult object containing analysis results
         name: Sample name for plot title
@@ -202,14 +202,14 @@ def plot_naive_cc(ccr, name=None, xlim=None):
 
 def plot_naive_cc_just(ccr, name=None):
     """Plot zoomed naive cross-correlation around fragment length peak.
-    
+
     Creates a focused plot showing the cross-correlation peak region
     with detailed annotations for fragment length estimation.
-    
+
     Args:
         ccr: CCResult object containing analysis results
         name: Sample name for plot title
-        
+
     Returns:
         True if plot was created, False if insufficient data
     """
@@ -222,13 +222,13 @@ def plot_naive_cc_just(ccr, name=None):
 
 def plot_masc(ccr, name=None):
     """Plot mappability-sensitive cross-correlation (MSCC) results.
-    
+
     Creates comprehensive MSCC plots showing:
     - MSCC curve with mappability correction
     - Library length estimation with confidence intervals
     - Comparison with naive cross-correlation
     - Quality metrics specific to MSCC analysis
-    
+
     Args:
         ccr: CCResult object containing analysis results
         name: Sample name for plot title
@@ -274,10 +274,10 @@ def plot_masc(ccr, name=None):
 
 def plot_ncc_vs_masc(pp, ccr, name):
     """Generate comparison plots between NCC and MSCC.
-    
+
     Creates side-by-side comparison plots for each chromosome showing
     differences between naive cross-correlation and MSCC results.
-    
+
     Args:
         pp: PdfPages object for multi-page PDF output
         ccr: CCResult object containing analysis results
@@ -301,14 +301,14 @@ def plot_ncc_vs_masc(pp, ccr, name):
 
 def _plot_ncc_vs_masc(stats, title):
     """Create individual NCC vs MSCC comparison plot.
-    
+
     Generates a single comparison plot showing both NCC and MSCC
     curves for a specific chromosome or genome-wide data.
-    
+
     Args:
         stats: PyMaSCStats object containing correlation data
         title: Plot title
-        
+
     Returns:
         True if plot was created, False if insufficient data
     """

@@ -34,10 +34,10 @@ logger = logging.getLogger(__name__)
 
 def _complete_path_arg(args, attr, val):
     """Auto-complete file path arguments based on base filename.
-    
+
     Sets an argument attribute to the provided value if the attribute
     is not already set and the file exists.
-    
+
     Args:
         args: Argument namespace to modify
         attr: Attribute name to set
@@ -49,16 +49,16 @@ def _complete_path_arg(args, attr, val):
 
 def _parse_args():
     """Parse and validate plot-specific command-line arguments.
-    
+
     Handles argument parsing for the plotting utility, including:
     - Auto-completion of file paths from base names
     - Validation of required input files
     - File existence checks
     - Logging configuration
-    
+
     Returns:
         Parsed and validated argument namespace
-        
+
     Raises:
         SystemExit: If argument validation fails or required files are missing
     """
@@ -124,14 +124,14 @@ def _parse_args():
 @entrypoint(logger)
 def main():
     """Main plotting workflow coordinator.
-    
+
     Orchestrates the complete plotting workflow:
     1. Parse and validate command-line arguments
     2. Load statistics and data tables
     3. Filter chromosomes based on user criteria
     4. Create CCResult object from loaded data
     5. Generate output files and plots
-    
+
     The workflow recreates PyMaSC analysis results from pre-calculated
     data files without re-running the cross-correlation calculations.
     """
@@ -170,17 +170,17 @@ def main():
 
 def _prepare_stats(args):
     """Load and validate statistics from stats file.
-    
+
     Loads essential statistics including read length, library length,
     and sample name from the statistics file. Updates argument namespace
     with loaded values.
-    
+
     Args:
         args: Argument namespace to update with loaded statistics
-        
+
     Returns:
         Read length value from statistics file
-        
+
     Raises:
         SystemExit: If statistics file cannot be loaded or required values are missing
     """
@@ -212,17 +212,17 @@ def _prepare_stats(args):
 
 def _load_table(path, load_fun):
     """Generic table loading with error handling.
-    
+
     Loads a data table using the specified loading function with
     comprehensive error handling and logging.
-    
+
     Args:
         path: File path to load
         load_fun: Function to use for loading the table
-        
+
     Returns:
         Loaded table data
-        
+
     Raises:
         SystemExit: If table loading fails
     """
@@ -235,14 +235,14 @@ def _load_table(path, load_fun):
 
 def _load_tables(args):
     """Load all required data tables for plotting.
-    
+
     Loads cross-correlation tables, MSCC tables, read count tables,
     and associated metadata files. Performs consistency checks between
     tables to ensure compatible chromosome sets.
-    
+
     Args:
         args: Parsed command-line arguments specifying input files
-        
+
     Returns:
         Tuple containing:
         - cc_table: Cross-correlation data by chromosome
@@ -251,7 +251,7 @@ def _load_tables(args):
         - ref2mappable_len: Mappable lengths dictionary
         - references: Common chromosome names across all tables
         - read_count_dicts: Tuple of forward/reverse read count dictionaries
-        
+
     Raises:
         SystemExit: If table loading fails or chromosome names are incompatible
     """
@@ -306,13 +306,13 @@ def _load_tables(args):
 
 def _prepare_outputs(args):
     """Prepare output files and handle overwrite protection.
-    
+
     Determines which output files will be generated and checks for
     potential overwrites of input files. Handles force overwrite options.
-    
+
     Args:
         args: Parsed command-line arguments
-        
+
     Returns:
         List of output file suffixes that will be generated
     """
@@ -333,15 +333,15 @@ def _prepare_outputs(args):
 
 def _check_overwrite(source, output, force_overwrite):
     """Validate file overwrite permissions.
-    
+
     Checks if an output file would overwrite an input file and
     handles the overwrite logic based on user preferences.
-    
+
     Args:
         source: Source input file path
         output: Target output file path
         force_overwrite: Whether to force overwrite
-        
+
     Returns:
         True if the output file should be written, False otherwise
     """
@@ -358,16 +358,16 @@ def _check_overwrite(source, output, force_overwrite):
 
 def _load_chrom_sizes(path):
     """Load chromosome sizes from BAM index or text file.
-    
+
     Attempts to load chromosome sizes from either a BAM file (using
     pysam) or a tab-delimited text file format.
-    
+
     Args:
         path: Path to BAM file or chromosome sizes text file
-        
+
     Returns:
         Dictionary mapping chromosome names to their lengths
-        
+
     Raises:
         IOError: If file cannot be read
         ValueError: If file format is invalid
@@ -386,16 +386,16 @@ def _load_chrom_sizes(path):
 
 def _load_mappable_lengths(path):
     """Load mappable lengths from JSON statistics file.
-    
+
     Loads pre-calculated mappable length statistics from a JSON file
     generated by PyMaSC's mappability analysis.
-    
+
     Args:
         path: Path to JSON file containing mappability statistics
-        
+
     Returns:
         Dictionary mapping chromosome names to mappable lengths
-        
+
     Raises:
         json.JSONDecodeError: If JSON file is malformed
         IOError: If file cannot be read

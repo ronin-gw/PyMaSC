@@ -173,6 +173,15 @@ cdef class BigWigReader(object):
 
         return BigWigFileIterator(intervals)
 
+    def disable_progress_bar(self):
+        """Disable progress bar for compatibility with MSCC calculations.
+
+        This method provides compatibility with the original bx-python API
+        but has no actual effect since pyBigWig doesn't have progress bars.
+        """
+        # No-op for pyBigWig compatibility
+        pass
+
     def close(self):
         """Close the BigWig file and release resources.
         

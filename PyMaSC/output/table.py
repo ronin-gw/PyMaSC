@@ -259,8 +259,16 @@ class NReadsIO(TableIO):
             mappable_forward_sum: Mappable forward read counts by shift and chromosome
             mappable_reverse_sum: Mappable reverse read counts by shift and chromosome
         """
-        mappable_forward_sum = {k: v for k, v in mappable_forward_sum.items() if v is not None}
-        mappable_reverse_sum = {k: v for k, v in mappable_reverse_sum.items() if v is not None}
+        # Handle None or empty mappable dictionaries gracefully
+        if mappable_forward_sum:
+            mappable_forward_sum = {k: v for k, v in mappable_forward_sum.items() if v is not None}
+        else:
+            mappable_forward_sum = {}
+
+        if mappable_reverse_sum:
+            mappable_reverse_sum = {k: v for k, v in mappable_reverse_sum.items() if v is not None}
+        else:
+            mappable_reverse_sum = {}
 
         tab = csv.writer(self.fp, dialect=TableIO.DIALECT)
         tab.writerow(("shift", ) + tuple(header))

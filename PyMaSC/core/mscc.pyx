@@ -34,16 +34,16 @@ logger = logging.getLogger(__name__)
 
 cdef class MSCCCalculator(object):
     """Cython implementation of Mappability-Sensitive Cross-Correlation.
-    
+
     This class implements the MSCC algorithm using Cython for performance.
     It extends naive cross-correlation by incorporating mappability weights
     from BigWig files to correct for genomic regions with variable mappability.
-    
+
     The algorithm processes reads using a sliding window approach while
     consulting mappability tracks to weight cross-correlation contributions
     appropriately. This helps eliminate phantom peaks caused by mappability
     biases in repetitive or low-mappability regions.
-    
+
     Attributes:
         max_shift: Maximum shift distance for correlation calculation
         read_len: Read length for mappability window calculation
@@ -78,7 +78,7 @@ cdef class MSCCCalculator(object):
 
     def __init__(self, max_shift, read_len, references, lengths, bwfeeder, logger_lock=None):
         """Initialize MSCC calculator with mappability support.
-        
+
         Args:
             max_shift: Maximum shift distance for correlation calculation
             read_len: Read length for mappability window calculation
@@ -140,7 +140,7 @@ cdef class MSCCCalculator(object):
 
     def _init_pos_buff(self):
         """Initialize position buffers for a new chromosome.
-        
+
         Resets all internal buffers, counters, and mappability state
         for processing a new chromosome in the MSCC calculation.
         """
@@ -160,11 +160,11 @@ cdef class MSCCCalculator(object):
 
     def _init_bw(self):
         """Initialize BigWig mappability reader for current chromosome.
-        
+
         Sets up the BigWig iterator and buffers for reading mappability
         values for the current chromosome. Handles cases where mappability
         data is not available for certain chromosomes.
-        
+
         Raises:
             ContinueCalculation: If mappability data is unavailable
         """
@@ -184,7 +184,7 @@ cdef class MSCCCalculator(object):
 
     def flush(self):
         """Finalize MSCC calculation for current chromosome.
-        
+
         Completes the mappability-weighted cross-correlation calculation
         for the current chromosome and stores results in the appropriate
         bins. Handles final mappability corrections before storing.
@@ -208,14 +208,14 @@ cdef class MSCCCalculator(object):
 
     cdef inline _check_pos(self, str chrom, int64 pos):
         """Validate read position and handle chromosome transitions.
-        
+
         Ensures reads are sorted by position and handles switching between
         chromosomes. Initializes mappability data for new chromosomes.
-        
+
         Args:
             chrom: Chromosome name
             pos: Read position
-            
+
         Raises:
             ReadUnsortedError: If reads are not sorted by position
         """
@@ -244,16 +244,16 @@ cdef class MSCCCalculator(object):
     @boundscheck(False)
     def feed_forward_read(self, str chrom, int64 pos, int64 readlen):
         """Process a forward strand read with mappability weighting.
-        
+
         Incorporates a forward strand read into the MSCC calculation,
         applying mappability weights from BigWig data to correct for
         regional mappability biases.
-        
+
         Args:
             chrom: Chromosome name
             pos: Read start position (1-based)
             readlen: Read length in base pairs
-            
+
         Note:
             Duplicate reads at the same position are ignored
         """
@@ -285,16 +285,16 @@ cdef class MSCCCalculator(object):
     @boundscheck(False)
     def feed_reverse_read(self, str chrom, int64 pos, int64 readlen):
         """Process a reverse strand read with mappability weighting.
-        
+
         Incorporates a reverse strand read into the MSCC calculation,
         applying appropriate mappability weights and position adjustments
         for reverse strand processing.
-        
+
         Args:
             chrom: Chromosome name
             pos: Read start position (1-based)
             readlen: Read length in base pairs
-            
+
         Note:
             Reverse read positions are adjusted for 3' end calculation
         """
@@ -444,14 +444,14 @@ cdef class MSCCCalculator(object):
 
     def finishup_calculation(self):
         """Complete MSCC calculation for all chromosomes.
-        
+
         Finalizes the mappability-sensitive cross-correlation calculation
         by flushing any remaining data and ensuring all results are
         properly stored with mappability corrections applied.
         """
         self.flush()
 
-        if not self._bwiter_stopped:
+        if not self._bwiter_stopped and self._feeder is not None:
             try:
                 self._feeder.throw(ContinueCalculation)
             except StopIteration:

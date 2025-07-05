@@ -126,6 +126,7 @@ markers = [
     "numerical_validation: marks tests that perform detailed numerical validation",
     "parallel: marks tests that validate parallel processing functionality",
     "critical: marks tests that prevent critical bugs from regressing",
+    "successive: marks tests that validate successive algorithm functionality",
 ]
 filterwarnings = [
     "ignore::DeprecationWarning",

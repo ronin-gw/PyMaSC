@@ -361,6 +361,117 @@ class TestParallelProcessingConsistency:
 
             print("✅ MSCC regression test passed - bug fix is working")
 
+    @pytest.mark.successive
+    @pytest.mark.parallel 
+    @pytest.mark.critical
+    def test_successive_algorithm_single_vs_parallel_consistency(self, test_data_paths):
+        """Test successive algorithm consistency between single and parallel modes.
+        
+        This test specifically addresses the successive algorithm parallel processing
+        bug where MSCCCalculator receives wrong BigWig reader type in parallel mode.
+        """
+        with tempfile.TemporaryDirectory() as single_dir, \
+             tempfile.TemporaryDirectory() as parallel_dir:
+
+            # Base command for successive algorithm
+            cmd_base = [
+                'pymasc',
+                str(test_data_paths['bam']),
+                '-m', str(test_data_paths['bigwig']),
+                '-d', '300',
+                '-q', '10',
+                '-r', '36',
+                '--skip-plots',
+                '--successive'  # Critical: use successive algorithm
+            ]
+
+            # Single-process command
+            cmd_single = cmd_base + ['-o', single_dir]
+            
+            # Parallel-process command
+            cmd_parallel = cmd_base + ['-o', parallel_dir, '-p', '2']
+
+            # Run both commands
+            result_single = subprocess.run(cmd_single, capture_output=True, text=True, timeout=120)
+            result_parallel = subprocess.run(cmd_parallel, capture_output=True, text=True, timeout=120)
+
+            # Both should succeed
+            assert result_single.returncode == 0, f"Successive single-process failed: {result_single.stderr}"
+            assert result_parallel.returncode == 0, f"Successive parallel-process failed: {result_parallel.stderr}"
+
+            # Compare stats files for exact consistency
+            single_stats = Path(single_dir) / 'ENCFF000RMB-test_stats.tab'
+            parallel_stats = Path(parallel_dir) / 'ENCFF000RMB-test_stats.tab'
+
+            assert single_stats.exists(), "Successive single-process stats file missing"
+            assert parallel_stats.exists(), "Successive parallel-process stats file missing"
+
+            # Read and compare stats line by line
+            with open(single_stats, 'r') as f_single, \
+                 open(parallel_stats, 'r') as f_parallel:
+                
+                single_lines = f_single.readlines()
+                parallel_lines = f_parallel.readlines()
+
+                assert len(single_lines) == len(parallel_lines), \
+                    f"Successive stats lines differ: single={len(single_lines)}, parallel={len(parallel_lines)}"
+
+                for i, (single_line, parallel_line) in enumerate(zip(single_lines, parallel_lines)):
+                    assert single_line == parallel_line, \
+                        f"Successive stats line {i+1} differs:\nSingle: {single_line.strip()}\nParallel: {parallel_line.strip()}"
+
+            print("✅ Successive algorithm parallel processing working correctly")
+
+    @pytest.mark.successive
+    @pytest.mark.parallel
+    @pytest.mark.critical
+    def test_successive_algorithm_parallel_feed_method_fix(self, test_data_paths):
+        """Critical regression test for successive algorithm parallel processing.
+        
+        This test ensures that the BWFeederWithMappableRegionSum fix prevents
+        the AttributeError: 'BigWigReader' object has no attribute 'feed' error
+        that occurred when using successive algorithm in parallel mode.
+        """
+        with tempfile.TemporaryDirectory() as temp_dir:
+            cmd = [
+                'pymasc',
+                str(test_data_paths['bam']),
+                '-m', str(test_data_paths['bigwig']),
+                '-o', temp_dir,
+                '-d', '300',
+                '-q', '10',
+                '-r', '36',
+                '--skip-plots',
+                '--successive',  # Critical: use successive algorithm
+                '-p', '2'  # Critical: use parallel processing
+            ]
+
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+            
+            # The critical test: this should NOT fail with 'feed' method error
+            assert result.returncode == 0, f"Successive parallel processing failed: {result.stderr}"
+            
+            # Should not contain the specific error message
+            error_output = result.stderr
+            assert "'BigWigReader' object has no attribute 'feed'" not in error_output, \
+                "REGRESSION: BWFeederWithMappableRegionSum fix not working"
+            
+            # Verify output files were generated
+            stats_file = Path(temp_dir) / 'ENCFF000RMB-test_stats.tab'
+            cc_file = Path(temp_dir) / 'ENCFF000RMB-test_cc.tab'
+            mscc_file = Path(temp_dir) / 'ENCFF000RMB-test_mscc.tab'
+            
+            assert stats_file.exists(), "Successive parallel processing failed to generate stats"
+            assert cc_file.exists(), "Successive parallel processing failed to generate CC table"
+            assert mscc_file.exists(), "Successive parallel processing failed to generate MSCC table"
+            
+            # Verify MSCC data contains actual calculations (not just headers)
+            with open(mscc_file, 'r') as f:
+                lines = f.readlines()
+                assert len(lines) > 300, "Successive parallel MSCC table has insufficient data"
+
+            print("✅ Successive algorithm BWFeederWithMappableRegionSum fix verified")
+
 
 # Test markers
 pytestmark = [

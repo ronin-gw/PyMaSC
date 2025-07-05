@@ -28,6 +28,7 @@ from PyMaSC.bacore.mscc import CCBitArrayCalculator as _NativeBitArrayCalculator
 
 # Import BigWig reader for mappability
 from PyMaSC.reader.bigwig import BigWigReader
+from PyMaSC.core.mappability import BWFeederWithMappableRegionSum
 
 logger = logging.getLogger(__name__)
 
@@ -192,8 +193,11 @@ class CalculatorFactory:
         logger_lock: Optional[Lock] = None
     ) -> CrossCorrelationCalculator:
         """Create MSCC calculator instance."""
-        # Create BigWig reader for mappability data
-        bwfeeder = BigWigReader(str(mappability_config.mappability_path))
+        # Create BWFeeder with mappability calculation for MSCC data
+        bwfeeder = BWFeederWithMappableRegionSum(
+            str(mappability_config.mappability_path),
+            config.max_shift
+        )
 
         # Use read_length from config or mappability config
         read_len = config.read_length

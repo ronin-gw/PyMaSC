@@ -33,13 +33,10 @@ from PyMaSC.core.progress_adapter import ProgressBarAdapter, ProgressManager, ge
 logger = logging.getLogger(__name__)
 
 
-class InputUnseekable(Exception):
+from PyMaSC.handler.base import NothingToCalc
+
+class InputUnseekable(Exception):  
     """Exception raised when input stream cannot be rewound."""
-    pass
-
-
-class NothingToCalc(Exception):
-    """Exception raised when no chromosomes match filtering criteria."""
     pass
 
 
@@ -365,7 +362,7 @@ class UnifiedCalcHandler:
             self.ref2reverse_sum[chrom] = r_sum
             self.ref2ccbins[chrom] = ccbins
 
-        if None not in (mappable_len, mf_sum, mr_sum, mccbins):
+        if None not in (mf_sum, mr_sum, mccbins):
             self.mappable_ref2forward_sum[chrom] = mf_sum
             self.mappable_ref2reverse_sum[chrom] = mr_sum
             self.mappable_ref2ccbins[chrom] = mccbins
@@ -394,6 +391,34 @@ class UnifiedCalcHandler:
                 self.ref2mappable_len = mappable_len
                 self.mappability_handler.chrom2mappable_len = mappable_len
                 self.mappability_handler.mappable_len = list(map(sum, zip(*mappable_len.values())))
+                
+        # Aggregate mappable results for result processing compatibility
+        self._aggregate_mappable_results()
+
+    def _aggregate_mappable_results(self):
+        """Aggregate per-reference mappable results into scalar attributes for result processing."""
+        import numpy as np
+        
+        # Initialize all mappable attributes as None by default
+        self.mappable_forward_sum = None
+        self.mappable_reverse_sum = None
+        self.mappable_ccbins = None
+        
+        # Process mappable results if we have them (both SUCCESSIVE and BITARRAY can have mappability)
+        if hasattr(self, 'mappable_ref2forward_sum') and self.mappable_ref2forward_sum:
+            valid_forward = [v for v in self.mappable_ref2forward_sum.values() if v is not None]
+            if valid_forward:
+                self.mappable_forward_sum = np.sum(valid_forward, axis=0)
+                
+        if hasattr(self, 'mappable_ref2reverse_sum') and self.mappable_ref2reverse_sum:
+            valid_reverse = [v for v in self.mappable_ref2reverse_sum.values() if v is not None]
+            if valid_reverse:
+                self.mappable_reverse_sum = np.sum(valid_reverse, axis=0)
+                
+        if hasattr(self, 'mappable_ref2ccbins') and self.mappable_ref2ccbins:
+            valid_ccbins = [v for v in self.mappable_ref2ccbins.values() if v is not None]
+            if valid_ccbins:
+                self.mappable_ccbins = np.sum(valid_ccbins, axis=0)
 
     def _calc_unsolved_mappability(self):
         """Complete any remaining mappability calculations."""

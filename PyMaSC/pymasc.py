@@ -14,8 +14,10 @@ from PyMaSC.utils.parsearg import get_pymasc_parser
 from PyMaSC.utils.progress import ProgressBase
 from PyMaSC.utils.output import prepare_outdir
 from PyMaSC.handler.mappability import MappabilityHandler, BWIOError, JSONIOError
-from PyMaSC.handler.masc import CCCalcHandler, InputUnseekable, NothingToCalc
-from PyMaSC.handler.bamasc import BACalcHandler
+from PyMaSC.handler.unified import InputUnseekable
+from PyMaSC.handler.base import NothingToCalc
+from PyMaSC.handler.unified import UnifiedCalcHandler
+from PyMaSC.core.models import CalculationConfig, ExecutionConfig, AlgorithmType, ExecutionMode, MappabilityConfig
 from PyMaSC.handler.result import CCResult, ReadsTooFew
 from PyMaSC.core.ncc import ReadUnsortedError
 from PyMaSC.output.stats import output_stats, STATSFILE_SUFFIX
@@ -182,7 +184,7 @@ def prepare_output(reads, names, outdir, suffixes=EXPECT_OUTFILE_SUFFIXES):
 def make_handlers(args):
     """Create calculation handlers for input files.
 
-    Instantiates appropriate calculation handlers (CCCalcHandler or BACalcHandler)
+    Instantiates UnifiedCalcHandler with appropriate configuration objects
     based on algorithm selection and input file specifications.
 
     Args:
@@ -194,14 +196,42 @@ def make_handlers(args):
     Note:
         Failed handlers are logged but not included in returned list
     """
-    handler_class = CCCalcHandler if args.successive else BACalcHandler
     calc_handlers = []
+    
+    # Create configuration objects from arguments
     for f in args.reads:
         try:
-            calc_handlers.append(
-                handler_class(f, args.readlen_estimator, args.max_shift, args.mapq,
-                              args.process, args.skip_ncc, args.chromfilter)
+            # Create calculation configuration
+            calc_config = CalculationConfig(
+                algorithm=AlgorithmType.SUCCESSIVE if args.successive else AlgorithmType.BITARRAY,
+                max_shift=args.max_shift,
+                mapq_criteria=args.mapq,
+                skip_ncc=args.skip_ncc
             )
+            # Store additional attributes for backward compatibility
+            calc_config.esttype = args.readlen_estimator
+            calc_config.chromfilter = args.chromfilter
+            
+            # Create execution configuration
+            exec_config = ExecutionConfig(
+                mode=ExecutionMode.MULTI_PROCESS if args.process > 1 else ExecutionMode.SINGLE_PROCESS,
+                worker_count=args.process
+            )
+            
+            # Create mappability configuration if needed
+            # Both SUCCESSIVE and BITARRAY algorithms support mappability
+            mappability_config = None
+            if hasattr(args, 'mappability') and args.mappability:
+                from pathlib import Path
+                mappability_config = MappabilityConfig(
+                    mappability_path=Path(args.mappability),
+                    mappability_stats_path=Path(args.mappability_stats) if getattr(args, 'mappability_stats', None) else None
+                )
+            
+            # Create handler
+            handler = UnifiedCalcHandler(f, calc_config, exec_config, mappability_config)
+            calc_handlers.append(handler)
+            
         except ValueError:
             logger.error("Failed to open file '{}'".format(f))
         except NothingToCalc:

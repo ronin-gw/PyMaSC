@@ -124,6 +124,8 @@ markers = [
     "pyBigWig: marks tests that specifically test pyBigWig functionality",
     "baseline_testing: marks tests that generate baseline data for comparison",
     "numerical_validation: marks tests that perform detailed numerical validation",
+    "parallel: marks tests that validate parallel processing functionality",
+    "critical: marks tests that prevent critical bugs from regressing",
 ]
 filterwarnings = [
     "ignore::DeprecationWarning",

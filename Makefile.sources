@@ -1,5 +1,5 @@
 # Makefile.sources - Advanced C Source Generation for PyMaSC
-# Modern replacement for makesource.sh with parallel builds and dependency tracking
+# Docker-based C source generation with parallel builds and dependency tracking
 
 SHELL := /bin/bash
 .PHONY: all clean check help py38 py39 py310 py311 py312 platform-info docker-cleanup

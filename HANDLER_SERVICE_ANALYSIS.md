@@ -206,21 +206,21 @@ class SimplifiedCalcHandler:
         self.services = services
         self.config = None
         self.result = None
-    
+
     def configure(self, **kwargs):
         # Use configuration service
         self.config = self.services.config.build_calculation_config(**kwargs)
-        
+
     def run(self):
         # Validate
         validation = self.services.validator.validate_all(self.config)
         if not validation.is_valid:
             raise ValueError(validation.errors)
-        
+
         # Execute through workflow service
         request = self.services.workflow.create_request(self.config)
         self.result = self.services.workflow.execute(request)
-        
+
         return self.result
 ```
 

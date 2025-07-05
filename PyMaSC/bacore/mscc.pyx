@@ -32,24 +32,24 @@ logger = logging.getLogger(__name__)
 
 cdef class CCBitArrayCalculator(object):
     """High-performance MSCC calculator using bit array operations.
-    
+
     Implements mappability-sensitive cross-correlation calculation using
     optimized bit array operations for maximum performance. Capable of
     computing both naive cross-correlation (NCC) and MSCC statistics
     simultaneously while efficiently managing memory usage.
-    
+
     The calculator processes sequencing reads and mappability data to
     generate cross-correlation profiles that account for genomic regions
     with variable mappability. This addresses the 'phantom peak' problem
     in ChIP-seq quality assessment.
-    
+
     Key features:
     - Bit array operations for O(1) position marking and correlation
     - Streaming processing to handle large datasets efficiently
     - Simultaneous NCC and MSCC calculation when mappability data available
     - Memory-efficient chromosome-by-chromosome processing
     - Thread-safe operation for multiprocessing environments
-    
+
     Attributes:
         MAPPABILITY_THRESHOLD: Minimum mappability value to consider
         EXTRA_ALLOCATE_SIZE: Extra buffer space for variable read lengths
@@ -92,11 +92,11 @@ cdef class CCBitArrayCalculator(object):
     def __init__(self, int64 max_shift, int64 read_len, references, lengths,
                  bwfeeder=None, skip_ncc=False, logger_lock=None, progress_bar=None):
         """Initialize MSCC calculator with specified parameters.
-        
+
         Sets up the calculator for processing sequencing data with optional
         mappability correction. Initializes bit arrays and statistics
         containers for efficient cross-correlation computation.
-        
+
         Args:
             max_shift: Maximum shift distance for cross-correlation
             read_len: Expected read length for calculations
@@ -307,16 +307,16 @@ cdef class CCBitArrayCalculator(object):
     @boundscheck(False)
     def feed_forward_read(self, str chrom, int64 pos, int64 readlen):
         """Process a forward strand read at specified position.
-        
+
         Marks the read's 5' end position in the forward strand bit array
         for cross-correlation calculation. Handles chromosome switching
         and position validation automatically.
-        
+
         Args:
             chrom: Chromosome name
             pos: 1-based genomic position of read's 5' end
             readlen: Length of the read in base pairs
-            
+
         Note:
             Automatically triggers correlation calculation when switching
             between chromosomes. Ignores duplicate reads at same position.
@@ -334,16 +334,16 @@ cdef class CCBitArrayCalculator(object):
     @boundscheck(False)
     def feed_reverse_read(self, str chrom, int64 pos, int64 readlen):
         """Process a reverse strand read at specified position.
-        
+
         Marks the read's 3' end position (corresponding to 5' end of
         the reverse complement) in the reverse strand bit array for
         cross-correlation calculation.
-        
+
         Args:
             chrom: Chromosome name
             pos: 1-based genomic position of read's 5' end
             readlen: Length of the read in base pairs
-            
+
         Note:
             For reverse reads, marks position at pos + readlen - 1 to
             represent the 5' end of the reverse complement strand.
@@ -357,12 +357,12 @@ cdef class CCBitArrayCalculator(object):
 
     def finishup_calculation(self):
         """Complete cross-correlation calculation for all chromosomes.
-        
+
         Finalizes the calculation by processing any remaining buffered
         data and calculating mappability statistics for chromosomes
         with no aligned reads. This ensures complete genome-wide
         statistics are available.
-        
+
         Note:
             Must be called after all reads have been processed to
             ensure complete and accurate cross-correlation results.

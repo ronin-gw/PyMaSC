@@ -22,11 +22,11 @@ WEBSITE_URL = "https://pymasc.sb.ecei.tohoku.ac.jp/"
 
 def logging_version(logger):
     """Log PyMaSC and Python version information.
-    
+
     Outputs comprehensive version information including PyMaSC version,
     Python version numbers, and full Python version details for debugging
     and support purposes.
-    
+
     Args:
         logger: Logger instance to use for version output
     """
@@ -38,17 +38,17 @@ def logging_version(logger):
 
 def entrypoint(logger):
     """Decorator for main entry point exception handling.
-    
+
     Provides consistent exception handling and cleanup for all PyMaSC
     command-line entry points. Handles KeyboardInterrupt gracefully
     and ensures proper logging of completion status.
-    
+
     Args:
         logger: Logger instance for status messages
-        
+
     Returns:
         Decorator function that wraps main entry point functions
-        
+
     Example:
         @entrypoint(logger)
         def main():

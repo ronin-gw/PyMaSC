@@ -24,25 +24,25 @@ cdef inline word_addr_t min(word_addr_t a, word_addr_t b):
 
 cdef class bitarray(object):
     """Cython wrapper for C BitArray library.
-    
+
     Provides efficient bit manipulation operations for tracking genomic
     positions in PyMaSC cross-correlation calculations. The class wraps
     the external C BitArray library to provide high-performance bitwise
     operations on large arrays.
-    
+
     The BitArray data structure is particularly effective for genomic
     applications where memory efficiency and fast bit operations are
     critical for processing large datasets.
-    
+
     Attributes:
         array: Pointer to underlying C BitArray structure
     """
     def __init__(self, bit_index_t nbits):
         """Initialize BitArray with specified number of bits.
-        
+
         Args:
             nbits: Number of bits to allocate in the array
-            
+
         Note:
             Creates underlying C BitArray structure if nbits > 0
         """
@@ -51,10 +51,10 @@ cdef class bitarray(object):
 
     def __getitem__(self, obj):
         """Get bit value(s) at specified index or slice.
-        
+
         Args:
             obj: Integer index or slice object
-            
+
         Returns:
             Boolean value for single index, list of values for slice
         """
@@ -71,7 +71,7 @@ cdef class bitarray(object):
 
     def __setitem__(self, bit_index_t key, value):
         """Set bit at specified index.
-        
+
         Args:
             key: Bit index to set
             value: Value to set (currently unused - always sets bit)
@@ -80,14 +80,14 @@ cdef class bitarray(object):
 
     def __dealloc__(self):
         """Free underlying C BitArray memory.
-        
+
         Called automatically when BitArray object is garbage collected.
         """
         bit_array_free(self.array)
 
     cdef void set(self, bit_index_t from_, bit_index_t to):
         """Set bits in specified range.
-        
+
         Args:
             from_: Starting bit index (inclusive)
             to: Ending bit index (exclusive)
@@ -100,7 +100,7 @@ cdef class bitarray(object):
 
     cdef bit_index_t count(self):
         """Count number of set bits in the array.
-        
+
         Returns:
             Number of bits set to 1
         """
@@ -108,13 +108,13 @@ cdef class bitarray(object):
 
     cdef bit_index_t acount(self, bitarray other):
         """Count bits set in both arrays (AND operation).
-        
+
         Performs bitwise AND between this array and another array,
         then counts the number of set bits in the result.
-        
+
         Args:
             other: BitArray to AND with
-            
+
         Returns:
             Number of bits set in both arrays
         """
@@ -134,7 +134,7 @@ cdef class bitarray(object):
 
     cdef bitarray clone(self):
         """Create a copy of this BitArray.
-        
+
         Returns:
             New BitArray instance with identical bit pattern
         """
@@ -145,7 +145,7 @@ cdef class bitarray(object):
 
     cdef void rshift(self, bit_index_t shift_dist, char fill):
         """Right shift bits by specified distance.
-        
+
         Args:
             shift_dist: Number of positions to shift right
             fill: Fill value for shifted-in bits
@@ -154,7 +154,7 @@ cdef class bitarray(object):
 
     cdef void lshift(self, bit_index_t shift_dist, char fill):
         """Left shift bits by specified distance.
-        
+
         Args:
             shift_dist: Number of positions to shift left
             fill: Fill value for shifted-in bits
@@ -163,10 +163,10 @@ cdef class bitarray(object):
 
     cdef void alloc_and(bitarray self, bitarray src1, bitarray src2):
         """Allocate and perform AND operation between two BitArrays.
-        
+
         Allocates memory for this array and stores the result of
         bitwise AND operation between src1 and src2.
-        
+
         Args:
             src1: First source BitArray
             src2: Second source BitArray

@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 class ReadUnsortedError(IndexError):
     """Exception raised when input reads are not sorted by position.
-    
+
     This exception is raised when the algorithm detects that input reads
     are not properly sorted by genomic position, which is required for
     the sliding window cross-correlation calculation.
@@ -40,15 +40,15 @@ class ReadUnsortedError(IndexError):
 
 cdef class NaiveCCCalculator(object):
     """Cython implementation of naive cross-correlation calculation.
-    
+
     This class implements the core NCC algorithm using Cython for performance.
     It processes reads from forward and reverse strands using a sliding window
     approach to calculate cross-correlation at different shift distances.
-    
+
     The algorithm maintains buffers for forward and reverse reads and updates
     cross-correlation bins as reads are processed, enabling memory-efficient
     computation for large genomic datasets.
-    
+
     Attributes:
         max_shift: Maximum shift distance for correlation calculation
         ref2genomelen: Dictionary mapping chromosome names to lengths
@@ -109,7 +109,7 @@ cdef class NaiveCCCalculator(object):
 
     def _init_pos_buff(self):
         """Initialize position buffers for a new chromosome.
-        
+
         Resets all internal buffers and counters for processing a new
         chromosome. This includes clearing cross-correlation bins,
         forward/reverse read buffers, and position tracking variables.
@@ -127,7 +127,7 @@ cdef class NaiveCCCalculator(object):
 
     def flush(self):
         """Finalize cross-correlation calculation for current chromosome.
-        
+
         Completes the sliding window calculation for the current chromosome
         and stores the results in the appropriate cross-correlation bins.
         Called when switching to a new chromosome or finishing calculation.
@@ -142,14 +142,14 @@ cdef class NaiveCCCalculator(object):
 
     cdef inline _check_pos(self, str chrom, int64 pos):
         """Validate read position and handle chromosome transitions.
-        
+
         Ensures reads are sorted by position and handles switching between
         chromosomes. Raises ReadUnsortedError if reads are out of order.
-        
+
         Args:
             chrom: Chromosome name
             pos: Read position
-            
+
         Raises:
             ReadUnsortedError: If reads are not sorted by position
         """
@@ -176,16 +176,16 @@ cdef class NaiveCCCalculator(object):
     @boundscheck(False)
     def feed_forward_read(self, str chrom, int64 pos, int64 readlen):
         """Process a forward strand read for cross-correlation calculation.
-        
+
         Incorporates a forward strand read into the sliding window algorithm.
         Updates forward read buffers and triggers cross-correlation updates
         as the window slides along the chromosome.
-        
+
         Args:
             chrom: Chromosome name
             pos: Read start position (1-based)
             readlen: Read length in base pairs
-            
+
         Note:
             Duplicate reads at the same position are ignored
         """
@@ -209,16 +209,16 @@ cdef class NaiveCCCalculator(object):
     @boundscheck(False)
     def feed_reverse_read(self, str chrom, int64 pos, int64 readlen):
         """Process a reverse strand read for cross-correlation calculation.
-        
+
         Incorporates a reverse strand read into the sliding window algorithm.
         The reverse read position is adjusted by read length to represent
         the 3' end position for proper cross-correlation calculation.
-        
+
         Args:
             chrom: Chromosome name
             pos: Read start position (1-based)
             readlen: Read length in base pairs
-            
+
         Note:
             Reverse read positions are converted to 3' end positions
             before processing in the sliding window
@@ -256,15 +256,15 @@ cdef class NaiveCCCalculator(object):
     @boundscheck(False)
     cdef inline _shift_with_update(self, int64 offset, bint update_forward=False):
         """Slide the window and update cross-correlation calculations.
-        
+
         Advances the sliding window by the specified offset and updates
         cross-correlation bins based on overlapping read positions.
         This is the core operation of the sliding window algorithm.
-        
+
         Args:
             offset: Distance to slide the window forward
             update_forward: Whether to update forward buffer during slide
-            
+
         Note:
             This method performs the actual cross-correlation computation
             as the window slides across the chromosome
@@ -288,7 +288,7 @@ cdef class NaiveCCCalculator(object):
 
     def finishup_calculation(self):
         """Complete cross-correlation calculation for all chromosomes.
-        
+
         Finalizes the calculation by flushing any remaining data in buffers
         and ensuring all cross-correlation results are properly stored.
         Called at the end of the analysis workflow.

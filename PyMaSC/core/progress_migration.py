@@ -25,16 +25,16 @@ _original_classes = {}
 
 def enable_progress_migration(enabled: bool = True) -> None:
     """Enable or disable global progress migration.
-    
+
     When enabled, all progress bar instantiations will automatically
     use the observer-aware adapters instead of the original classes.
-    
+
     Args:
         enabled: Whether to enable migration
     """
     global _migration_enabled
     _migration_enabled = enabled
-    
+
     if enabled:
         _apply_migration_patches()
         logger.info("Progress migration enabled - using observer adapters")

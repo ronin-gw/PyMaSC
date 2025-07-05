@@ -25,14 +25,14 @@ logger = logging.getLogger(__name__)
 @entrypoint(logger)
 def main():
     """Main pre-calculation workflow for mappability statistics.
-    
+
     Orchestrates the complete pre-calculation workflow:
     1. Parse and validate command-line arguments
     2. Configure logging and progress display
     3. Initialize mappability handler
     4. Calculate mappability statistics
     5. Save results to JSON file
-    
+
     The pre-calculated statistics can be used in subsequent PyMaSC
     runs to avoid re-computing mappability data.
     """

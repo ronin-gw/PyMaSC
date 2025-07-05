@@ -34,10 +34,10 @@ class ExecutionMode(Enum):
 @dataclass
 class CalculationConfig:
     """Configuration for cross-correlation calculations.
-    
+
     This class encapsulates all parameters needed for cross-correlation
     calculation, providing validation and default values.
-    
+
     Attributes:
         algorithm: Cross-correlation algorithm to use
         max_shift: Maximum shift distance for correlation
@@ -54,7 +54,7 @@ class CalculationConfig:
     read_length: Optional[int] = None
     references: List[str] = field(default_factory=list)
     lengths: List[int] = field(default_factory=list)
-    
+
     def __post_init__(self):
         """Validate configuration after initialization."""
         if self.max_shift <= 0:
@@ -70,7 +70,7 @@ class CalculationConfig:
 @dataclass
 class MappabilityConfig:
     """Configuration for mappability correction.
-    
+
     Attributes:
         mappability_path: Path to BigWig mappability file
         mappability_stats_path: Optional path to pre-computed stats
@@ -81,7 +81,7 @@ class MappabilityConfig:
     mappability_stats_path: Optional[Path] = None
     read_len: Optional[int] = None
     shift_size: Optional[int] = None
-    
+
     def is_enabled(self) -> bool:
         """Check if mappability correction is enabled."""
         return self.mappability_path is not None
@@ -90,7 +90,7 @@ class MappabilityConfig:
 @dataclass
 class ExecutionConfig:
     """Configuration for execution parameters.
-    
+
     Attributes:
         mode: Execution mode (single or multi-process)
         worker_count: Number of worker processes
@@ -101,7 +101,7 @@ class ExecutionConfig:
     worker_count: int = 1
     timeout: Optional[float] = None
     chrom_filter: Optional[Dict[str, Any]] = None
-    
+
     def __post_init__(self):
         """Validate execution configuration."""
         if self.worker_count <= 0:
@@ -111,7 +111,7 @@ class ExecutionConfig:
 @dataclass
 class IOConfig:
     """Configuration for input/output operations.
-    
+
     Attributes:
         input_paths: List of input BAM file paths
         output_dir: Output directory path
@@ -122,7 +122,7 @@ class IOConfig:
     output_dir: Path
     output_names: Optional[List[str]] = None
     expected_suffixes: List[str] = field(default_factory=lambda: ['.pdf', '.tab', '.json'])
-    
+
     def __post_init__(self):
         """Validate I/O configuration."""
         if not self.input_paths:
@@ -135,7 +135,7 @@ class IOConfig:
 @dataclass
 class WorkerConfig:
     """Configuration for individual worker processes.
-    
+
     Attributes:
         calculation_config: Core calculation parameters
         mappability_config: Mappability correction settings
@@ -151,7 +151,7 @@ class WorkerConfig:
 @dataclass
 class ChromosomeResult:
     """Results for a single chromosome calculation.
-    
+
     Attributes:
         chromosome: Chromosome name
         forward_count: Number of forward reads processed
@@ -171,7 +171,7 @@ class ChromosomeResult:
 @dataclass
 class CalculationResult:
     """Aggregated results from cross-correlation calculation.
-    
+
     Attributes:
         chromosome_results: Results for each chromosome
         total_forward_reads: Total forward reads across all chromosomes
@@ -184,12 +184,12 @@ class CalculationResult:
     total_reverse_reads: int
     algorithm_used: AlgorithmType
     execution_metadata: Dict[str, Any] = field(default_factory=dict)
-    
+
     @property
     def processed_chromosomes(self) -> List[str]:
         """Get list of processed chromosome names."""
         return [result.chromosome for result in self.chromosome_results]
-    
+
     @property
     def total_reads(self) -> int:
         """Get total number of reads processed."""
@@ -199,10 +199,10 @@ class CalculationResult:
 @dataclass
 class CalculationRequest:
     """Request object for cross-correlation calculation.
-    
+
     This class encapsulates all configuration and parameters needed
     to execute a complete cross-correlation analysis.
-    
+
     Attributes:
         calculation_config: Core calculation parameters
         mappability_config: Mappability correction settings
@@ -213,38 +213,38 @@ class CalculationRequest:
     mappability_config: MappabilityConfig
     execution_config: ExecutionConfig
     io_config: IOConfig
-    
+
     def validate(self) -> List[str]:
         """Validate the entire request configuration.
-        
+
         Returns:
             List of validation error messages (empty if valid)
         """
         errors = []
-        
+
         # Check algorithm-specific requirements
         if (self.calculation_config.algorithm in [AlgorithmType.MSCC, AlgorithmType.BITARRAY] 
             and not self.mappability_config.is_enabled()):
             errors.append("MSCC/BitArray algorithms require mappability configuration")
-        
+
         # Check execution mode compatibility
         if (self.execution_config.mode == ExecutionMode.MULTI_PROCESS 
             and self.execution_config.worker_count == 1):
             errors.append("Multi-process mode requires worker_count > 1")
-        
+
         # Check I/O compatibility
         if (len(self.io_config.input_paths) > 1 
             and self.io_config.output_names 
             and len(self.io_config.output_names) != len(self.io_config.input_paths)):
             errors.append("output_names length must match input_paths length")
-        
+
         return errors
 
 
 @dataclass
 class ValidationResult:
     """Result of configuration validation.
-    
+
     Attributes:
         is_valid: Whether the configuration is valid
         errors: List of validation error messages

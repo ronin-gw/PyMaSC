@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 class ContinueCalculation(Exception):
     """Exception for flow control in mappability calculation generators.
-    
+
     Used to signal that a generator should stop yielding data points
     but continue internal calculation processes. This allows for
     flexible control flow in mappability data processing.
@@ -39,16 +39,16 @@ class ContinueCalculation(Exception):
 
 cdef class MappableLengthCalculator(BigWigReader):
     """Core mappability calculation engine for BigWig data.
-    
+
     Calculates mappability statistics from BigWig files for use in
     MSCC cross-correlation analysis. Processes mappability data
     efficiently using Cython optimization and maintains statistics
     for different shift distances.
-    
+
     The calculator processes BigWig intervals and computes cumulative
     mappability statistics required for correcting cross-correlation
     analysis in regions with variable mappability.
-    
+
     Attributes:
         MAPPABILITY_THRESHOLD: Minimum mappability value to consider
         max_shift: Maximum shift distance for calculations
@@ -78,7 +78,7 @@ cdef class MappableLengthCalculator(BigWigReader):
 
     def __init__(self, str path, unsigned int max_shift=0, logger_lock=None):
         """Initialize mappability calculator.
-        
+
         Args:
             path: Path to BigWig mappability file
             max_shift: Maximum shift distance for calculations
@@ -136,14 +136,14 @@ cdef class MappableLengthCalculator(BigWigReader):
 
     def calc_mappability(self, chrom=None):
         """Calculate mappability statistics for specified chromosome(s).
-        
+
         Processes BigWig mappability data and computes shift-dependent
         mappability statistics. Can process a single chromosome or
         all unprocessed chromosomes.
-        
+
         Args:
             chrom: Chromosome name to process (None for all unprocessed)
-            
+
         Note:
             Updates chrom2mappable_len and mappable_len attributes
             with calculated statistics
@@ -206,20 +206,20 @@ cdef class MappableLengthCalculator(BigWigReader):
 
     def get_mappable_len(self, chrom=None, shift_from=None, shift_to=None, force=False):
         """Retrieve mappability statistics for specified parameters.
-        
+
         Returns mappability statistics for a chromosome or genome-wide,
         optionally filtered by shift distance range. Can trigger
         calculation if not already computed.
-        
+
         Args:
             chrom: Chromosome name (None for genome-wide)
             shift_from: Start of shift range (None for beginning)
             shift_to: End of shift range (None for end)
             force: Whether to force calculation if not computed
-            
+
         Returns:
             List of mappability values for specified range
-            
+
         Raises:
             KeyError: If chromosome data not calculated and force=False
         """
@@ -243,23 +243,23 @@ cdef class MappableLengthCalculator(BigWigReader):
 
 cdef class BWFeederWithMappableRegionSum(MappableLengthCalculator):
     """Specialized BigWig feeder with on-demand mappability calculation.
-    
+
     Extends MappableLengthCalculator to provide streaming access to
     BigWig data while calculating mappability statistics on-demand.
     This class is used in MSCC calculations where mappability data
     is needed incrementally during cross-correlation computation.
-    
+
     The feeder can operate in two modes:
     1. Using pre-calculated mappability statistics (if available)
     2. Calculating mappability on-demand while streaming data
-    
+
     Attributes:
         Inherits all attributes from MappableLengthCalculator
     """
-    
+
     def __init__(self, path, max_shift, chrom2mappable_len=None):
         """Initialize BigWig feeder with mappability calculation.
-        
+
         Args:
             path: Path to BigWig mappability file
             max_shift: Maximum shift distance for calculations
@@ -280,18 +280,18 @@ cdef class BWFeederWithMappableRegionSum(MappableLengthCalculator):
 
     def feed(self, chrom):
         """Feed BigWig data for specified chromosome.
-        
+
         Returns a generator that yields BigWig intervals for the
         specified chromosome. If mappability statistics haven't
         been calculated for this chromosome, performs on-demand
         calculation while yielding data.
-        
+
         Args:
             chrom: Chromosome name to process
-            
+
         Returns:
             Generator yielding (start, end, value) tuples for BigWig intervals
-            
+
         Note:
             Automatically chooses between pre-calculated and on-demand
             calculation modes based on available data

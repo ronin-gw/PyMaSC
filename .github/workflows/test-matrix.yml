@@ -17,22 +17,22 @@ jobs:
         python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
         # Note: All Python versions now supported on all platforms
         # exclude: # Removed - all combinations now work correctly
-    
+
     steps:
     - uses: actions/checkout@v4
       with:
         submodules: recursive
-    
+
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
-    
+
     - name: Get pip cache dir
       id: pip-cache
       run: |
         echo "dir=$(pip cache dir)" >> $GITHUB_OUTPUT
-    
+
     - name: Cache pip
       uses: actions/cache@v4
       with:
@@ -41,20 +41,20 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-pip-matrix-${{ matrix.python-version }}-
           ${{ runner.os }}-pip-matrix-
-    
+
     - name: Install system dependencies (Ubuntu)
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
         sudo apt-get install -y gcc g++ make
-    
+
     - name: Install system dependencies (macOS)
       if: runner.os == 'macOS'
       run: |
         # macOS has gcc/make by default with Xcode tools
         echo "Using system compiler (Xcode Command Line Tools)"
         xcode-select --print-path
-    
+
     - name: Install Python dependencies with Cython
       run: |
         python -m pip install --upgrade pip
@@ -73,12 +73,12 @@ jobs:
           # Install all dependencies for development
           pip install -e .[dev]
         fi
-    
+
     - name: Build BitArray library
       run: |
         cd external/BitArray
         make clean
-        
+
         if [ "$RUNNER_OS" == "macOS" ]; then
           # Build universal binary for macOS (supports both x86_64 and ARM64)
           make CC="clang -arch x86_64 -arch arm64" libbitarr.a
@@ -86,15 +86,15 @@ jobs:
           # Build for Linux
           make CC="gcc -fPIC" libbitarr.a
         fi
-        
+
         # Verify library was created
         if [ ! -f libbitarr.a ]; then
           echo "❌ BitArray library creation failed"
           exit 1
         fi
-        
+
         cd ../..
-    
+
     - name: Build PyMaSC from .pyx sources (Full Cython Build)
       env:
         # Set explicit architecture flags for macOS ARM64/universal2 compatibility
@@ -102,27 +102,27 @@ jobs:
         CFLAGS: ${{ runner.os == 'macOS' && '-arch x86_64 -arch arm64' || '' }}
       run: |
         echo "🔧 Building PyMaSC from .pyx sources for Python ${{ matrix.python-version }}..."
-        
+
         # Clean any existing build artifacts
         find PyMaSC -name "*.c" -delete 2>/dev/null || true
         find PyMaSC -name "*.so" -delete 2>/dev/null || true
         rm -rf build/ 2>/dev/null || true
-        
+
         # Verify BitArray library exists
         if [ ! -f "external/BitArray/libbitarr.a" ]; then
           echo "❌ BitArray library missing!"
           exit 1
         fi
-        
+
         # Build PyMaSC from .pyx sources
         python setup.py build_ext --inplace
-        
+
         # Verify build results
         if ! find PyMaSC -name "*.so" | head -1 > /dev/null; then
           echo "❌ No .so files generated!"
           exit 1
         fi
-    
+
     - name: Run import tests
       run: |
         echo "🧪 Testing imports for Python ${{ matrix.python-version }}..."
@@ -130,7 +130,7 @@ jobs:
         python -c "from PyMaSC.core.ncc import NaiveCCCalculator; print('✅ NCC imported successfully')"
         python -c "from PyMaSC.bacore.bitarray import bitarray; print('✅ bitarray imported successfully')"
         python -c "from PyMaSC.core.mscc import MSCCCalculator; print('✅ MSCC imported successfully')"
-    
+
     - name: Test build-time compilation compatibility
       run: |
         echo "🔍 Testing Python ${{ matrix.python-version }} compilation compatibility..."
@@ -138,42 +138,42 @@ jobs:
         echo "  Numpy version: $(python -c 'import numpy; print(numpy.__version__)')"
         echo "  Cython version: $(python -c 'import Cython; print(Cython.__version__)')"
         echo "  Compiler used: $(gcc --version | head -1)"
-        
+
         # Test that we can import all Cython modules
         python -c "import sys; from PyMaSC.core import ncc, mscc, mappability, readlen; from PyMaSC.bacore import bitarray, mscc as ba_mscc; from PyMaSC.reader import bigwig; print('✅ All Cython modules imported successfully on Python', sys.version_info[:2])"
-    
+
     - name: Run unit tests
       run: |
         echo "🧪 Running unit tests for Python ${{ matrix.python-version }}..."
         python -m pytest tests/unit/ -v --tb=short
-    
+
     - name: Install PyMaSC for CLI testing
       run: |
         echo "📦 Installing PyMaSC to enable CLI commands..."
         pip install -e .
         echo "✅ PyMaSC installed in development mode"
-    
+
     - name: Run integration tests (quick)
       run: |
         echo "🧪 Running integration tests for Python ${{ matrix.python-version }}..."
         python -m pytest tests/integration/ -k "not slow" -v --tb=short
-    
+
     - name: Test PyMaSC commands
       run: |
         echo "🧪 Testing PyMaSC command-line interfaces..."
-        
+
         # Test direct CLI commands (installed via pip install -e .)
         pymasc --version
         pymasc-precalc --version
         pymasc-plot --version
-        
+
         # Also test module-based execution
         python -m PyMaSC.pymasc --version
         python -m PyMaSC.calcmappablelen --version
         python -m PyMaSC.plot --version
-        
+
         echo "✅ All CLI commands working on Python ${{ matrix.python-version }}"
-    
+
     - name: Upload test results
       if: always()
       uses: actions/upload-artifact@v4

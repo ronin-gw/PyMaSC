@@ -32,14 +32,14 @@ jobs:
       if: github.event_name == 'push'
       with:
         fetch-depth: 2  # Need at least 2 commits to check commit message
-    
+
     - name: Check build condition
       id: check
       run: |
         # Check various conditions that should trigger wheel builds
         SHOULD_BUILD="false"
         BUILD_REASON=""
-        
+
         # Always build on tags and releases
         if [[ "$GITHUB_EVENT_NAME" == "release" ]]; then
           SHOULD_BUILD="true"
@@ -60,7 +60,7 @@ jobs:
             BUILD_REASON="Commit message contains [wheel build]"
           fi
         fi
-        
+
         echo "should_build=$SHOULD_BUILD" >> $GITHUB_OUTPUT
         echo "build_reason=$BUILD_REASON" >> $GITHUB_OUTPUT
         echo "🔍 Build condition check:"
@@ -85,22 +85,22 @@ jobs:
         # Windows users can use WSL2, Docker, or virtual machines to run PyMaSC
         # Windows support may be reconsidered in future phases after core improvements
         os: [ubuntu-latest, macos-13, macos-latest]
-    
+
     steps:
     - uses: actions/checkout@v4
       with:
         submodules: recursive
-    
+
     - name: Download pre-built C sources
       uses: actions/download-artifact@v4
       with:
         name: prebuilt-c-sources
         path: prebuilt-c-sources/
-    
+
     - name: Deploy pre-built C sources for all Python versions
       run: |
         echo "📁 Deploying pre-built C sources for wheel building..."
-        
+
         # Deploy all version-specific C files to their correct locations
         for version in 38 39 310 311 312; do
           echo "Deploying Python ${version} C sources..."
@@ -116,11 +116,11 @@ jobs:
             fi
           done
         done
-        
+
         echo ""
         echo "📊 All deployed C sources:"
         find PyMaSC -name "*_[0-9][0-9].c" -o -name "*_[0-9][0-9][0-9].c" | sort
-    
+
     - name: Build wheels
       uses: pypa/cibuildwheel@v2.21.2
       env:
@@ -128,13 +128,13 @@ jobs:
         CIBW_BUILD: cp38-* cp39-* cp310-* cp311-* cp312-*
         # Skip 32-bit builds and PyPy
         CIBW_SKIP: "*-win32 *-manylinux_i686 pp*"
-        
+
         # Install build dependencies before building (NO Cython - using pre-built C sources)
         CIBW_BEFORE_BUILD: >
           pip install setuptools wheel &&
           pip install numpy &&
           pip install "pysam>=0.22.0" "pyBigWig>=0.3.18"
-        
+
         # Build BitArray library before Python build
         CIBW_BEFORE_BUILD_LINUX: >
           yum install -y gcc-c++ make bzip2-devel xz-devel zlib-devel curl-devel openssl-devel &&
@@ -143,41 +143,41 @@ jobs:
           if python -c "import sys; sys.exit(0 if sys.version_info[:2] == (3, 9) else 1)"; then pip install 'numpy<2.0'; else pip install numpy; fi &&
           pip install "pysam>=0.22.0" "pyBigWig>=0.3.18" &&
           cd external/BitArray && make clean && make CC="gcc -fPIC" libbitarr.a && cd ../..
-        
+
         CIBW_BEFORE_BUILD_MACOS: >
           python -c "import sys; print('Python version:', sys.version)" &&
           pip install setuptools wheel &&
           if python -c "import sys; sys.exit(0 if sys.version_info[:2] == (3, 9) else 1)"; then pip install 'numpy<2.0'; else pip install numpy; fi &&
           pip install "pysam>=0.22.0" "pyBigWig>=0.3.18" &&
           cd external/BitArray && make clean && make CC="gcc -arch x86_64 -arch arm64" libbitarr.a && cd ../..
-        
+
         # Windows build configuration temporarily disabled
         # CIBW_BEFORE_BUILD_WINDOWS: >
         #   python -c "import sys; print('Python version:', sys.version)" &&
         #   if python -c "import sys; sys.exit(0 if sys.version_info[:2] >= (3, 12) else 1)"; then pip install setuptools wheel; fi &&
         #   if python -c "import sys; sys.exit(0 if sys.version_info[:2] == (3, 9) else 1)"; then pip install 'numpy<2.0'; else pip install numpy; fi &&
         #   pip install "pysam>=0.22.0" "bx-python>=0.10.0"
-        
+
         # Test requirements
         CIBW_TEST_REQUIRES: scipy
-        
+
         # Test command
         CIBW_TEST_COMMAND: >
           pymasc --version &&
           python -c "import PyMaSC; print('PyMaSC import successful')"
-        
+
         # Environment variables for build (enable versioned C source mode)
         CIBW_ENVIRONMENT: >
           SETUPTOOLS_USE_DISTUTILS=stdlib
           BUILD_MODE=versioned
-        
+
         # Repair wheel settings for different platforms
         CIBW_REPAIR_WHEEL_COMMAND_LINUX: auditwheel repair -w {dest_dir} {wheel}
         CIBW_REPAIR_WHEEL_COMMAND_MACOS: delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel}
-        
+
         # Build options
         CIBW_BUILD_VERBOSITY: 1
-    
+
     - uses: actions/upload-artifact@v4
       with:
         name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
@@ -190,27 +190,27 @@ jobs:
     - uses: actions/checkout@v4
       with:
         submodules: recursive
-    
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
-    
+
     - name: Install build dependencies
       run: |
         python -m pip install --upgrade pip
         pip install build numpy cython "pysam>=0.22.0" "pyBigWig>=0.3.18"
-    
+
     - name: Build BitArray library
       run: |
         cd external/BitArray
         make clean
         make CC="gcc -fPIC" libbitarr.a
         cd ../..
-    
+
     - name: Build sdist
       run: python -m build --sdist
-    
+
     - uses: actions/upload-artifact@v4
       with:
         name: cibw-sdist

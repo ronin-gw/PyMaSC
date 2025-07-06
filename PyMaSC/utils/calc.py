@@ -16,13 +16,16 @@ computational building blocks for cross-correlation analysis.
 import fnmatch
 from itertools import groupby, chain
 import logging
+from typing import Any, Iterable, List, Optional, Set, Tuple, Union
+from multiprocessing import Process
+from multiprocessing.queues import Queue
 
 import numpy as np
 
 logger = logging.getLogger(__name__)
 
 
-def moving_avr_filter(arr, window):
+def moving_avr_filter(arr: np.ndarray, window: int) -> np.ndarray:
     """Apply moving average filter to array.
 
     Computes a moving average filter over the input array using a specified
@@ -47,7 +50,7 @@ def moving_avr_filter(arr, window):
     return avr
 
 
-def filter_chroms(chroms, filters):
+def filter_chroms(chroms: Union[List[str], Set[str], Iterable[str]], filters: Optional[List[Tuple[bool, List[str]]]]) -> Set[str]:
     """Filter chromosome list using Unix-style patterns.
 
     Applies include/exclude patterns to filter a list of chromosome names.
@@ -67,7 +70,7 @@ def filter_chroms(chroms, filters):
     """
     if filters is None:
         logger.debug("There is no chromosome filters.")
-        return chroms
+        return set(chroms)
 
     logger.debug("Filtering chromosome lists: " + repr(chroms))
     chroms = set(chroms)
@@ -105,7 +108,7 @@ class exec_worker_pool(object):
         tasks: List of tasks to distribute to workers
         task_queue: Queue for distributing tasks to workers
     """
-    def __init__(self, workers, tasks, task_queue):
+    def __init__(self, workers: List[Process], tasks: List[Any], task_queue: Queue) -> None:
         """Initialize worker pool manager.
 
         Args:
@@ -117,7 +120,7 @@ class exec_worker_pool(object):
         self.tasks = tasks
         self.task_queue = task_queue
 
-    def __enter__(self):
+    def __enter__(self) -> None:
         """Start all workers and distribute tasks.
 
         Starts all worker processes, distributes tasks to the queue,
@@ -130,7 +133,7 @@ class exec_worker_pool(object):
         for _ in range(len(self.workers)):
             self.task_queue.put(None)
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(self, type: Optional[type], value: Optional[Exception], traceback: Optional[Any]) -> None:
         """Clean up worker processes.
 
         Terminates any remaining worker processes to ensure clean shutdown.

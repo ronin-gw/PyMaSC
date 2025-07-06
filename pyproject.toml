@@ -60,6 +60,9 @@ dev = [
     "Cython>=0.29.0",
     "build",
     "twine",
+    "mypy>=1.0.0",
+    "types-pysam",
+    "numpy-stubs",
 ]
 
 [project.urls]
@@ -149,3 +152,56 @@ exclude_lines = [
     "raise AssertionError",
     "raise NotImplementedError",
 ]
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+strict_equality = true
+extra_checks = true
+no_implicit_reexport = true
+ignore_missing_imports = true
+allow_untyped_defs = false
+check_untyped_defs = true
+follow_imports = "normal"
+mypy_path = "."
+namespace_packages = true
+explicit_package_bases = true
+exclude = [
+    "setup.py",
+    "build/",
+    "external/",
+    "tests/",
+    "htmlcov/",
+    "^.*\\.c$",
+    "^.*\\.so$",
+]
+
+# Per-module options for gradual typing
+[[tool.mypy.overrides]]
+module = [
+    "PyMaSC.pymasc",
+    "PyMaSC.plot", 
+    "PyMaSC.calcmappablelen",
+    "PyMaSC.handler.result",
+    "PyMaSC.handler.mappability",
+    "PyMaSC.output.*",
+    "PyMaSC.utils.*"
+]
+allow_untyped_defs = true
+check_untyped_defs = false
+
+# Strict typing for already typed modules
+[[tool.mypy.overrides]]
+module = [
+    "PyMaSC.core.*",
+    "PyMaSC.services.*",
+    "PyMaSC.handler.base",
+    "PyMaSC.handler.unified",
+    "PyMaSC.handler.simplified",
+    "PyMaSC.handler.service_adapter"
+]
+disallow_untyped_defs = true
+check_untyped_defs = true

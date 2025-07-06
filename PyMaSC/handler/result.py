@@ -14,6 +14,7 @@ Key functionality includes:
 """
 import logging
 from functools import wraps
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, TypeVar, Union
 
 import numpy as np
 from scipy.stats.distributions import chi2
@@ -29,7 +30,7 @@ MERGED_CC_CONFIDENCE_INTERVAL = 0.99
 NEAR_ZERO_MIN_CALC_LEN = 10
 
 
-def _skip_none(i):
+def _skip_none(i: Iterable[Optional[Any]]) -> List[Any]:
     """Filter None values from iterable.
 
     Args:
@@ -41,7 +42,9 @@ def _skip_none(i):
     return [x for x in i if x is not None]
 
 
-def npcalc_with_logging_warn(func):
+F = TypeVar('F', bound=Callable[..., Any])
+
+def npcalc_with_logging_warn(func: F) -> F:
     """Decorator for numpy calculation error handling.
 
     Wraps numpy calculations to catch floating point errors and warnings,
@@ -63,10 +66,10 @@ def npcalc_with_logging_warn(func):
             logger.debug("continue anyway.")
             with np.errstate(divide="ignore", invalid="ignore"):
                 return func(*args, **kwargs)
-    return _inner
+    return _inner  # type: ignore
 
 
-def chi2_test(a, b, chi2_p_thresh, label):
+def chi2_test(a: Union[int, float], b: Union[int, float], chi2_p_thresh: float, label: str) -> None:
     """Chi-squared test for strand bias detection.
 
     Performs a chi-squared test to detect significant imbalance between
@@ -120,9 +123,9 @@ class CCStats(object):
         cc_width: Full Width at Half Maximum of CC peak
         vsn: Variance Stabilizing Normalization factor
     """
-    def __init__(self, cc, genomelen, forward_sum, reverse_sum, read_len,
-                 min_calc_width, mv_avr_filter_len, filter_mask_len, output_warnings,
-                 do_llestimation=False, estimated_library_len=None, expected_library_len=None):
+    def __init__(self, cc: np.ndarray, genomelen: int, forward_sum: int, reverse_sum: int, read_len: int,
+                 min_calc_width: int, mv_avr_filter_len: int, filter_mask_len: Optional[int], output_warnings: bool,
+                 do_llestimation: bool = False, estimated_library_len: Optional[int] = None, expected_library_len: Optional[int] = None) -> None:
         """Initialize cross-correlation statistics calculator.
 
         Args:
@@ -168,7 +171,7 @@ class CCStats(object):
             self.ccfl, self.nsc, self.rsc = self._calc_lib_metrics(self.library_len)
 
         #
-        self.avr_cc = None
+        self.avr_cc: Optional[np.ndarray] = None
         self.est_ccfl = self.est_nsc = self.est_rsc = None
         if do_llestimation:
             self._estimate_fragment_len()
@@ -202,33 +205,33 @@ class CCStats(object):
         if self.est_lib_len:
             self.est_vsn = _calc_vsn(self.est_ccfl, self.est_cc_width)
 
-    def _calc_cc_min(self):
+    def _calc_cc_min(self) -> None:
         self.cc_min = np.sort(self.cc[-self.min_calc_width:])[min(self.min_calc_width, self.cc.size) // 2]
         if np.median(self.cc[:NEAR_ZERO_MIN_CALC_LEN]) < self.cc_min and self.output_warnings:
             logger.warning("Detected minimum coefficient seems to be larger than bigging part minimum. "
                            "Consider increasing shift size (-d/--max-shift).")
 
-    def _calc_cc_rl(self):
+    def _calc_cc_rl(self) -> None:
         if self.read_len > self.cc.size:
             self.ccrl = 0
         else:
             self.ccrl = self.cc[self.read_len - 1]
 
     @npcalc_with_logging_warn
-    def _calc_lib_metrics(self, library_len):
+    def _calc_lib_metrics(self, library_len: int) -> Tuple[float, float, float]:
         ccfl = self.cc[library_len - 1]
         nsc = ccfl / self.cc_min
         rsc = (ccfl - self.cc_min) / (self.ccrl - self.cc_min)
 
         return ccfl, nsc, rsc
 
-    def _estimate_fragment_len(self):
+    def _estimate_fragment_len(self) -> None:
         self.avr_cc = moving_avr_filter(self.cc, self.mv_avr_filter_len)
-        self.est_lib_len = np.argmax(self.avr_cc) + 1
+        self.est_lib_len = int(np.argmax(self.avr_cc) + 1)
 
         need_warning = False
 
-        if self.filter_mask_len and abs(self.est_lib_len - self.read_len) <= self.filter_mask_len:
+        if self.filter_mask_len and self.est_lib_len is not None and abs(self.est_lib_len - self.read_len) <= self.filter_mask_len:
             self.warning("Estimated library length is close to the read length.")
             self.warning("Trying to masking around the read length +/- {}bp...".format(self.filter_mask_len))
 
@@ -237,21 +240,22 @@ class CCStats(object):
             mask_to = min(len(_avr_cc), self.read_len + self.filter_mask_len)
             for i in range(mask_from, mask_to):
                 _avr_cc[i] = - float("inf")
-            self.est_lib_len = np.argmax(_avr_cc) + 1
+            self.est_lib_len = int(np.argmax(_avr_cc) + 1)
 
-            if self.est_lib_len - 1 in (mask_from - 1, mask_to):
+            if self.est_lib_len is not None and self.est_lib_len - 1 in (mask_from - 1, mask_to):
                 need_warning = True
 
-        elif self.output_warnings and abs(self.est_lib_len - self.read_len) <= NEAR_READLEN_ERR_CRITERION:
+        elif self.output_warnings and self.est_lib_len is not None and abs(self.est_lib_len - self.read_len) <= NEAR_READLEN_ERR_CRITERION:
             need_warning = True
 
         if self.output_warnings and need_warning:
             logger.error("Estimated library length is close to the read length! Please check output plots.")
 
-    def _get_FWHM(self, library_len):
+    def _get_FWHM(self, library_len: int) -> Union[int, bool]:
         if self.avr_cc is None:
             self.avr_cc = moving_avr_filter(self.cc, self.mv_avr_filter_len)
 
+        assert self.avr_cc is not None  # Help mypy understand avr_cc is not None
         max_i = library_len - 1
         assert max_i >= 0
         cc_max = self.avr_cc[max_i - 1]
@@ -317,12 +321,12 @@ class PyMaSCStats(object):
     """
     def __init__(
         self,
-        read_len, mv_avr_filter_len=15, expected_library_len=None,
-        genomelen=None, forward_sum=None, reverse_sum=None, ccbins=None,
-        mappable_len=None, mappable_forward_sum=None, mappable_reverse_sum=None, mappable_ccbins=None,
-        cc=None, masc=None, filter_mask_len=NEAR_READLEN_ERR_CRITERION, warning=False,
-        min_calc_width=None
-    ):
+        read_len: int, mv_avr_filter_len: int = 15, expected_library_len: Optional[int] = None,
+        genomelen: Optional[int] = None, forward_sum: Optional[Union[int, np.ndarray]] = None, reverse_sum: Optional[Union[int, np.ndarray]] = None, ccbins: Optional[np.ndarray] = None,
+        mappable_len: Optional[int] = None, mappable_forward_sum: Optional[Union[int, np.ndarray]] = None, mappable_reverse_sum: Optional[Union[int, np.ndarray]] = None, mappable_ccbins: Optional[np.ndarray] = None,
+        cc: Optional[Union[List[float], np.ndarray]] = None, masc: Optional[Union[List[float], np.ndarray]] = None, filter_mask_len: int = NEAR_READLEN_ERR_CRITERION, warning: bool = False,
+        min_calc_width: Optional[int] = None
+    ) -> None:
         self.read_len = read_len
         self.mv_avr_filter_len = mv_avr_filter_len
         self.genomelen = genomelen
@@ -343,12 +347,13 @@ class PyMaSCStats(object):
         masc = np.array(masc, dtype=np.float_) if masc is not None else None
         # self.masc_min = None
         # self.mascrl = None
-        self.est_lib_len = None
+        self.est_lib_len: Optional[int] = None
         # self.est_ccfl = None
         # self.est_nsc = None
         # self.est_rsc = None
 
-        self.cc = self.masc = None
+        self.cc: Optional[CCStats] = None
+        self.masc: Optional[CCStats] = None
 
         self.filter_mask_len = filter_mask_len
         self.output_warnings = warning
@@ -365,7 +370,7 @@ class PyMaSCStats(object):
                 self.ccbins,
                 self.genomelen
             ))
-            
+
             if has_ncc_data:
                 # Check if forward_sum is a scalar (NCC) or array (MSCC)
                 try:
@@ -408,29 +413,48 @@ class PyMaSCStats(object):
                 return
 
             if self.calc_ncc and self.calc_masc:
+                assert cc is not None and masc is not None, "Corrupt input: NCC and MASC arrays are None"
                 assert len(cc) == len(masc), "Corrupt input: Shift sizes NCC and MASC seem to be differenet."
                 self.max_shift = min(len(cc), len(masc)) - 1
             elif self.calc_ncc:
+                assert cc is not None, "Corrupt input: NCC array is None"
                 self.max_shift = len(cc) - 1
             elif self.calc_masc:
+                assert masc is not None, "Corrupt input: MASC array is None"
                 self.max_shift = len(masc) - 1
 
             self._make_cc_masc_stats(cc, masc)
 
-    def _make_ccstat(self, cc, genomelen, forward_sum, reverse_sum, do_llestimation=False, est_lib_len=None):
-        return CCStats(cc, genomelen, forward_sum, reverse_sum, self.read_len,
-                       self.min_calc_width, self.mv_avr_filter_len,
+    def _make_ccstat(self, cc: np.ndarray, genomelen: int, forward_sum: Union[int, float, np.ndarray], reverse_sum: Union[int, float, np.ndarray], do_llestimation: bool = False, est_lib_len: Optional[int] = None) -> CCStats:
+        # Convert arrays to scalars if needed
+        if isinstance(forward_sum, np.ndarray):
+            forward_sum_val = int(np.sum(forward_sum))
+        else:
+            forward_sum_val = int(forward_sum)
+
+        if isinstance(reverse_sum, np.ndarray):
+            reverse_sum_val = int(np.sum(reverse_sum))
+        else:
+            reverse_sum_val = int(reverse_sum)
+
+        return CCStats(cc, genomelen, forward_sum_val, reverse_sum_val, self.read_len,
+                       self.min_calc_width or 0, self.mv_avr_filter_len,
                        self.filter_mask_len, self.output_warnings, do_llestimation,
                        est_lib_len, self.library_len)
 
-    def _make_cc_masc_stats(self, cc, masc):
+    def _make_cc_masc_stats(self, cc: Optional[np.ndarray], masc: Optional[np.ndarray]) -> None:
         if self.calc_masc:
+            assert masc is not None and self.mappable_len is not None
+            assert self.mappable_forward_sum is not None and self.mappable_reverse_sum is not None
             self.masc = self._make_ccstat(
                 masc, self.mappable_len, self.mappable_forward_sum, self.mappable_reverse_sum,
                 do_llestimation=True
             )
-            self.est_lib_len = self.masc.est_lib_len
+            if self.masc and self.masc.est_lib_len is not None:
+                self.est_lib_len = self.masc.est_lib_len
         if self.calc_ncc:
+            assert cc is not None and self.genomelen is not None
+            assert self.forward_sum is not None and self.reverse_sum is not None
             if self.masc:
                 self.cc = self._make_ccstat(
                     cc, self.genomelen, self.forward_sum, self.reverse_sum,
@@ -441,9 +465,10 @@ class PyMaSCStats(object):
                     cc, self.genomelen, self.forward_sum, self.reverse_sum
                 )
 
-    def _calc_from_bins(self):
+    def _calc_from_bins(self) -> None:
         #
         if self.calc_ncc:
+            assert self.ccbins is not None
             self.max_shift = ncc_max_shift = len(self.ccbins) - 1
         else:
             ncc_max_shift = None
@@ -455,25 +480,37 @@ class PyMaSCStats(object):
                 arr for arr in (self.mappable_forward_sum, self.mappable_reverse_sum, self.mappable_ccbins)
                 if arr is not None
             ]
-            
+
             # Debug: check types of mappable arrays
             for i, arr in enumerate(mappable_arrays):
                 if not hasattr(arr, '__len__'):
                     # If any array doesn't have len(), treat as no valid mappable data
                     mappable_arrays = []
                     break
-            
+
             if mappable_arrays:
-                self.max_shift = masc_max_shift = min(map(len, mappable_arrays)) - 1
+                # Type-safe length calculation
+                lengths = []
+                for arr in mappable_arrays:
+                    if hasattr(arr, '__len__'):
+                        lengths.append(len(arr))
+                if lengths:
+                    self.max_shift = masc_max_shift = min(lengths) - 1
+                else:
+                    masc_max_shift = 0
             else:
                 masc_max_shift = 0  # Fallback if no valid arrays
-            
+
             if self.mappable_len is not None:
-                mappability_max_shift = len(self.mappable_len)
+                if isinstance(self.mappable_len, (list, np.ndarray)):
+                    mappability_max_shift = len(self.mappable_len)
+                else:
+                    mappability_max_shift = None  # Scalar mappable_len
             else:
                 mappability_max_shift = None
         else:
-            masc_max_shift = mappability_max_shift = None
+            masc_max_shift = None
+            mappability_max_shift = None
 
         #
         if ncc_max_shift and masc_max_shift:
@@ -489,9 +526,14 @@ class PyMaSCStats(object):
         #
         self._make_cc_masc_stats(self._calc_naive_cc(), self._calc_masc())
 
-    def _calc_naive_cc(self):
+    def _calc_naive_cc(self) -> Optional[np.ndarray]:
         if not self.calc_ncc:
             return None
+
+        assert self.genomelen is not None
+        assert self.forward_sum is not None
+        assert self.reverse_sum is not None
+        assert self.ccbins is not None
 
         denom = self.genomelen - np.array(range(self.max_shift + 1), dtype=np.float_)
         return self._calc_cc(
@@ -503,9 +545,14 @@ class PyMaSCStats(object):
         )
 
     @npcalc_with_logging_warn
-    def _calc_masc(self):
+    def _calc_masc(self) -> Optional[np.ndarray]:
         if not self.calc_masc:
             return None
+
+        assert self.mappable_len is not None
+        assert self.mappable_forward_sum is not None
+        assert self.mappable_reverse_sum is not None
+        assert self.mappable_ccbins is not None
 
         totlen = np.array(self.mappable_len, dtype=np.float_)
         totlen = np.concatenate((
@@ -522,7 +569,7 @@ class PyMaSCStats(object):
 
     @staticmethod
     @npcalc_with_logging_warn
-    def _calc_cc(forward_sum, reverse_sum, ccbins, totlen, denom):
+    def _calc_cc(forward_sum: Union[float, np.ndarray], reverse_sum: Union[float, np.ndarray], ccbins: np.ndarray, totlen: Union[int, float, np.ndarray], denom: Union[float, np.ndarray]) -> np.ndarray:
         forward_mean = forward_sum / totlen
         reverse_mean = reverse_sum / totlen
 
@@ -531,7 +578,8 @@ class PyMaSCStats(object):
 
         sum_prod = forward_mean * reverse_mean
         var_geomean = (forward_var * reverse_var) ** 0.5
-        return (ccbins / denom - sum_prod) / var_geomean
+        result = (ccbins / denom - sum_prod) / var_geomean
+        return np.asarray(result, dtype=np.float64)
 
 
 class ReadsTooFew(IndexError):
@@ -568,14 +616,14 @@ class CCResult(object):
     """
     def __init__(
         self,
-        mv_avr_filter_len, chi2_pval, filter_mask_len, min_calc_width,  # mandatory params
-        expected_library_len=None,  # optional parameter
-        handler=None,  # source 1 (pymasc)
-        read_len=None, references=None,
-        ref2genomelen=None, ref2forward_sum=None, ref2reverse_sum=None, ref2cc=None,
-        mappable_ref2forward_sum=None, mappable_ref2reverse_sum=None,
-        ref2mappable_len=None, ref2masc=None  # source 2 (pymasc-plot)
-    ):
+        mv_avr_filter_len: int, chi2_pval: float, filter_mask_len: int, min_calc_width: int,  # mandatory params
+        expected_library_len: Optional[int] = None,  # optional parameter
+        handler: Optional[Any] = None,  # source 1 (pymasc)
+        read_len: Optional[int] = None, references: Optional[List[str]] = None,
+        ref2genomelen: Optional[Dict[str, int]] = None, ref2forward_sum: Optional[Dict[str, int]] = None, ref2reverse_sum: Optional[Dict[str, int]] = None, ref2cc: Optional[Dict[str, np.ndarray]] = None,
+        mappable_ref2forward_sum: Optional[Dict[str, int]] = None, mappable_ref2reverse_sum: Optional[Dict[str, int]] = None,
+        ref2mappable_len: Optional[Dict[str, int]] = None, ref2masc: Optional[Dict[str, np.ndarray]] = None  # source 2 (pymasc-plot)
+    ) -> None:
         """Initialize CCResult from handler or pre-loaded data.
 
         Args:
@@ -619,16 +667,21 @@ class CCResult(object):
             self.mappable_ref2forward_sum = mappable_ref2forward_sum
             self.mappable_ref2reverse_sum = mappable_ref2reverse_sum
 
+            # Type check required attributes
+            assert self.read_len is not None
+            assert self.references is not None
+            assert self.ref2genomelen is not None
+
             self.ref2stats = {
                 ref: PyMaSCStats(
                     self.read_len, self.mv_avr_filter_len, self.expected_library_len,
                     genomelen=self.ref2genomelen[ref],
-                    forward_sum=self.ref2forward_sum.get(ref, None),
-                    reverse_sum=self.ref2reverse_sum.get(ref, None),
+                    forward_sum=self.ref2forward_sum.get(ref, None) if self.ref2forward_sum else None,
+                    reverse_sum=self.ref2reverse_sum.get(ref, None) if self.ref2reverse_sum else None,
                     cc=ref2cc.get(ref, None) if ref2cc else None,
-                    mappable_len=self.ref2mappable_len.get(ref, None),
-                    mappable_forward_sum=self.mappable_ref2forward_sum.get(ref, None),
-                    mappable_reverse_sum=self.mappable_ref2reverse_sum.get(ref, None),
+                    mappable_len=self.ref2mappable_len.get(ref, None) if self.ref2mappable_len else None,
+                    mappable_forward_sum=self.mappable_ref2forward_sum.get(ref, None) if self.mappable_ref2forward_sum else None,
+                    mappable_reverse_sum=self.mappable_ref2reverse_sum.get(ref, None) if self.mappable_ref2reverse_sum else None,
                     masc=ref2masc.get(ref, None) if ref2masc else None,
                     filter_mask_len=self.filter_mask_len,
                     min_calc_width=self.min_calc_width
@@ -642,45 +695,63 @@ class CCResult(object):
 
         #
         if not self.skip_ncc:
-            ncc, self.ncc_upper, self.ncc_lower = self._merge_cc(
-                *zip(*((self.ref2genomelen[ref], self.ref2stats[ref].cc.cc)
-                       for ref in self.references if self.ref2stats[ref].cc is not None))
-            )
+            assert self.ref2genomelen is not None
+            assert self.references is not None
+            ncc_data = []
+            for ref in self.references:
+                stats = self.ref2stats[ref]
+                if stats.cc is not None:
+                    ncc_data.append((self.ref2genomelen[ref], stats.cc.cc))
+
+            if ncc_data:
+                ncc, self.ncc_upper, self.ncc_lower = self._merge_cc(*zip(*ncc_data))
+            else:
+                ncc = self.ncc_upper = self.ncc_lower = None
         else:
             ncc = self.ncc_upper = self.ncc_lower = None
 
         if self.calc_masc:
-            mscc, self.mscc_upper, self.mscc_lower = self._merge_cc(
-                *zip(*((self.ref2mappable_len[ref], self.ref2stats[ref].masc.cc)
-                       for ref in self.references if self.ref2stats[ref].masc is not None))
-            )
+            assert self.ref2mappable_len is not None
+            assert self.references is not None
+            mscc_data = []
+            for ref in self.references:
+                stats = self.ref2stats[ref]
+                if stats.masc is not None:
+                    mscc_data.append((self.ref2mappable_len[ref], stats.masc.cc))
+
+            if mscc_data:
+                mscc, self.mscc_upper, self.mscc_lower = self._merge_cc(*zip(*mscc_data))
+            else:
+                mscc = self.mscc_upper = self.mscc_lower = None
         else:
             mscc = self.mscc_upper = self.mscc_lower = None
 
         # Check if forward_sum values are scalars or arrays
         sample_forward = next(iter(self.ref2forward_sum.values()), None) if self.ref2forward_sum else None
         has_scalar_sums = sample_forward is None or not (hasattr(sample_forward, '__len__') and not isinstance(sample_forward, str))
-        
+
         if has_scalar_sums:
             # Normal case: scalar sums for NCC
-            genomelen_sum = sum(self.ref2genomelen.values())
-            forward_sum_total = sum(self.ref2forward_sum.values())
-            reverse_sum_total = sum(self.ref2reverse_sum.values())
+            genomelen_sum = sum(self.ref2genomelen.values()) if self.ref2genomelen else None
+            forward_sum_total = sum(self.ref2forward_sum.values()) if self.ref2forward_sum else None
+            reverse_sum_total = sum(self.ref2reverse_sum.values()) if self.ref2reverse_sum else None
         else:
             # MSCC case: arrays instead of scalars, use None for NCC data
             genomelen_sum = None
             forward_sum_total = None
             reverse_sum_total = None
-            
+
+        assert self.read_len is not None
+
         self.whole = PyMaSCStats(
             self.read_len, self.mv_avr_filter_len, self.expected_library_len,
             genomelen=genomelen_sum,
             forward_sum=forward_sum_total,
             reverse_sum=reverse_sum_total,
             cc=ncc,
-            mappable_len=np.sum(tuple(self.ref2mappable_len.values()), axis=0),
-            mappable_forward_sum=np.sum(tuple(v for v in self.mappable_ref2forward_sum.values() if v is not None), axis=0),
-            mappable_reverse_sum=np.sum(tuple(v for v in self.mappable_ref2reverse_sum.values() if v is not None), axis=0),
+            mappable_len=np.sum(tuple(self.ref2mappable_len.values()), axis=0) if self.ref2mappable_len else None,
+            mappable_forward_sum=np.sum(tuple(v for v in self.mappable_ref2forward_sum.values() if v is not None), axis=0) if self.mappable_ref2forward_sum else None,
+            mappable_reverse_sum=np.sum(tuple(v for v in self.mappable_ref2reverse_sum.values() if v is not None), axis=0) if self.mappable_ref2reverse_sum else None,
             masc=mscc,
             warning=True,
             filter_mask_len=self.filter_mask_len,

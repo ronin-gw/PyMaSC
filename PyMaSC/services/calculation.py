@@ -41,7 +41,7 @@ class ChromosomeData:
     reverse_reads: List[Tuple[int, int]]  # (position, length) pairs
     length: int
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Validate chromosome data."""
         if self.length <= 0:
             raise ValueError(f"Invalid chromosome length: {self.length}")
@@ -202,9 +202,9 @@ class StandardCalculationService(CalculationService):
     calculation logic.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize calculation service."""
-        self._calculator_cache = {}
+        self._calculator_cache: Dict[Tuple[AlgorithmType, int, int, bool], Any] = {}
 
     def calculate_chromosome(self, 
                            data: ChromosomeData,

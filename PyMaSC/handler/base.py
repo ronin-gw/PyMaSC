@@ -14,6 +14,7 @@ Key features:
 import logging
 from abc import ABC, abstractmethod
 from multiprocessing import Queue, Lock
+from multiprocessing.synchronize import Lock as LockType
 from typing import Dict, List, Tuple, Optional, Any
 
 from pysam import AlignmentFile
@@ -58,7 +59,7 @@ class BaseCalcHandler(ABC):
                  nworker: int = 1,
                  mappability_handler: Optional[MappabilityHandler] = None,
                  skip_ncc: bool = False,
-                 **kwargs):
+                 **kwargs: Any) -> None:
         """Initialize base calculation handler.
 
         Args:
@@ -78,9 +79,9 @@ class BaseCalcHandler(ABC):
         self.skip_ncc = skip_ncc
 
         # Initialize common attributes
-        self._order_queue = None
-        self._report_queue = None
-        self._logger_lock = None
+        self._order_queue: Optional[Queue[Any]] = None
+        self._report_queue: Optional[Queue[Any]] = None
+        self._logger_lock: Optional[LockType] = None
 
         # Result storage
         self.ref2forward_sum: Dict[str, int] = {}
@@ -124,7 +125,7 @@ class BaseCalcHandler(ABC):
                 logger.error(f"BAM file must be indexed for multiprocessing: {e}")
                 raise IOError("BAM file must be indexed for multiprocessing") from e
 
-    def _initialize_references(self, **kwargs) -> None:
+    def _initialize_references(self, **kwargs: Any) -> None:
         """Initialize chromosome references and filtering.
 
         Common reference initialization logic extracted from all handlers.
@@ -143,9 +144,12 @@ class BaseCalcHandler(ABC):
         # Apply chromosome filtering if specified
         chroms = kwargs.get('chroms')
         if chroms:
-            filtered_refs, filtered_lengths = filter_chroms(
-                all_references, all_lengths, chroms
-            )
+            filtered_refs = list(filter_chroms(all_references, chroms))
+            # Filter lengths to match filtered references
+            filtered_lengths = [
+                all_lengths[all_references.index(ref)]
+                for ref in filtered_refs
+            ]
         else:
             filtered_refs, filtered_lengths = all_references, all_lengths
 
@@ -195,6 +199,8 @@ class BaseCalcHandler(ABC):
             worker.start()
 
         # Send work orders
+        if self._order_queue is None:
+            raise RuntimeError("Order queue not initialized")
         for chrom in self.references:
             self._order_queue.put(chrom)
 
@@ -218,6 +224,8 @@ class BaseCalcHandler(ABC):
         Args:
             expected_results: Number of results to expect
         """
+        if self._report_queue is None:
+            raise RuntimeError("Report queue not initialized")
         for _ in range(expected_results):
             chrom, (mappable_len, ncc_stats, mscc_stats) = self._report_queue.get()
 
@@ -283,12 +291,12 @@ class BaseCalcHandler(ABC):
 
     # Backward compatibility properties
     @property
-    def align_file(self):
+    def align_file(self) -> Any:
         """Access to alignment file for backward compatibility."""
         return self._align_file
 
     @align_file.setter
-    def align_file(self, value):
+    def align_file(self, value: Any) -> None:
         """Set alignment file."""
         self._align_file = value
 
@@ -298,6 +306,6 @@ class BaseCalcHandler(ABC):
         return getattr(self, '_read_len', None)
 
     @read_len.setter
-    def read_len(self, value: int):
+    def read_len(self, value: int) -> None:
         """Set read length."""
         self._read_len = value

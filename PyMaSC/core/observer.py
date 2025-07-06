@@ -13,7 +13,7 @@ Key components:
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Optional, List, Dict, Any, Union
+from typing import Optional, List, Dict, Any, Union, TextIO
 import logging
 from datetime import datetime
 import threading
@@ -52,10 +52,10 @@ class ProgressEvent:
     total: Optional[int] = None
     percentage: Optional[float] = None
     message: Optional[str] = None
-    timestamp: datetime = None
-    metadata: Dict[str, Any] = None
+    timestamp: Optional[datetime] = None
+    metadata: Optional[Dict[str, Any]] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Initialize timestamp and calculate percentage if needed."""
         if self.timestamp is None:
             self.timestamp = datetime.now()
@@ -115,7 +115,7 @@ class ProgressSubject:
         self._observers: List[ProgressObserver] = []
         self._lock = threading.Lock()
         self._track_history = track_history
-        self._event_history: List[ProgressEvent] = [] if track_history else None
+        self._event_history: Optional[List[ProgressEvent]] = [] if track_history else None
 
     def attach(self, observer: ProgressObserver) -> None:
         """Attach an observer to receive notifications.
@@ -160,7 +160,7 @@ class ProgressSubject:
                            f"failed to handle event: {e}")
 
     def notify_start(self, source: str, total: Optional[int] = None,
-                     message: Optional[str] = None, **metadata) -> None:
+                     message: Optional[str] = None, **metadata: Any) -> None:
         """Convenience method to notify start of operation.
 
         Args:
@@ -180,7 +180,7 @@ class ProgressSubject:
         self.notify(event)
 
     def notify_progress(self, source: str, current: int, total: Optional[int] = None,
-                       message: Optional[str] = None, **metadata) -> None:
+                       message: Optional[str] = None, **metadata: Any) -> None:
         """Convenience method to notify progress update.
 
         Args:
@@ -201,7 +201,7 @@ class ProgressSubject:
         self.notify(event)
 
     def notify_complete(self, source: str, message: Optional[str] = None,
-                       **metadata) -> None:
+                       **metadata: Any) -> None:
         """Convenience method to notify completion.
 
         Args:
@@ -218,7 +218,7 @@ class ProgressSubject:
         self.notify(event)
 
     def notify_failure(self, source: str, message: Optional[str] = None,
-                      **metadata) -> None:
+                      **metadata: Any) -> None:
         """Convenience method to notify failure.
 
         Args:
@@ -240,7 +240,7 @@ class ProgressSubject:
         Returns:
             List of events or None if not tracking
         """
-        if self._track_history:
+        if self._track_history and self._event_history is not None:
             with self._lock:
                 return self._event_history.copy()
         return None
@@ -263,8 +263,9 @@ class TerminalProgressObserver(ProgressObserver):
         self.use_progress_bar = use_progress_bar
         self._active_sources: Dict[str, Any] = {}
 
+        from PyMaSC.utils.progress import ProgressBar
+        self._progress_bar: Optional[ProgressBar]
         if use_progress_bar:
-            from PyMaSC.utils.progress import ProgressBar
             self._progress_bar = ProgressBar()
         else:
             self._progress_bar = None
@@ -339,7 +340,7 @@ class MultiprocessProgressObserver(ProgressObserver):
     progress display.
     """
 
-    def __init__(self, queue=None):
+    def __init__(self, queue: Optional[Any] = None) -> None:
         """Initialize multiprocess progress observer.
 
         Args:
@@ -424,15 +425,15 @@ class FileProgressObserver(ProgressObserver):
         """
         self.log_path = log_path
         self.format_type = format_type
-        self._file = None
+        self._file: Optional[TextIO] = None
         self._lock = threading.Lock()
 
-    def __enter__(self):
+    def __enter__(self) -> 'FileProgressObserver':
         """Context manager entry."""
         self._file = open(self.log_path, 'a')
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Context manager exit."""
         if self._file:
             self._file.close()
@@ -454,7 +455,7 @@ class FileProgressObserver(ProgressObserver):
         import json
 
         data = {
-            'timestamp': event.timestamp.isoformat(),
+            'timestamp': event.timestamp.isoformat() if event.timestamp else None,
             'event_type': event.event_type.name,
             'source': event.source,
             'current': event.current,
@@ -472,7 +473,7 @@ class FileProgressObserver(ProgressObserver):
     def _write_text(self, event: ProgressEvent) -> None:
         """Write event in text format."""
         parts = [
-            event.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+            event.timestamp.strftime('%Y-%m-%d %H:%M:%S') if event.timestamp else 'N/A',
             event.event_type.name,
             event.source
         ]

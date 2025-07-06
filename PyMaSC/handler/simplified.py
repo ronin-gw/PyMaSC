@@ -14,6 +14,7 @@ Key features:
 import logging
 from dataclasses import dataclass
 from typing import Optional, List, Dict, Any
+from pathlib import Path
 
 from PyMaSC.core.models import (
     CalculationConfig, MappabilityConfig, ExecutionConfig,
@@ -89,7 +90,7 @@ class SimplifiedCalcHandler:
         self.deps.ensure_services()
 
         # Handler state (minimal)
-        self._result = None
+        self._result: Optional[GenomeWideResult] = None
         self._validated = False
 
     def validate(self) -> bool:
@@ -98,6 +99,8 @@ class SimplifiedCalcHandler:
         Returns:
             True if validation passed
         """
+        if self.deps.validation_service is None:
+            raise RuntimeError("Validation service not initialized")
         result = self.deps.validation_service.validate_workflow_request(
             bam_path=self.bam_path,
             output_prefix="",  # Not writing files in handler mode
@@ -136,11 +139,15 @@ class SimplifiedCalcHandler:
         )
 
         # Execute workflow
+        if self.deps.workflow_service is None:
+            raise RuntimeError("Workflow service not initialized")
         workflow_result = self.deps.workflow_service.execute(request)
 
         if not workflow_result.is_successful:
             raise RuntimeError(f"Calculation failed: {workflow_result.error}")
 
+        if workflow_result.calculation_result is None:
+            raise RuntimeError("Workflow result has no calculation data")
         self._result = workflow_result.calculation_result
         return self._result
 
@@ -161,7 +168,7 @@ class SimplifiedCalcHandler:
         """
         # Create mappability configuration
         map_config = MappabilityConfig(
-            mappability_path=path,
+            mappability_path=Path(path),
             read_len=read_len
         )
 
@@ -200,7 +207,7 @@ class SimplifiedCalcHandler:
     def _get_mappability_config(self) -> Optional[MappabilityConfig]:
         """Get mappability configuration if available."""
         if self.deps.mappability_service and hasattr(self.deps.mappability_service, 'config'):
-            return self.deps.mappability_service.config
+            return self.deps.mappability_service.config  # type: ignore[no-any-return]
         return None
 
     def _get_execution_config(self) -> ExecutionConfig:
@@ -229,15 +236,15 @@ class HandlerBuilder:
     with all necessary services and configurations.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize builder."""
-        self._bam_path = None
+        self._bam_path: Optional[str] = None
         self._algorithm = AlgorithmType.BITARRAY
         self._max_shift = 500
         self._mapq_criteria = 30
-        self._read_length = None
+        self._read_length: Optional[int] = None
         self._skip_ncc = False
-        self._mappability_path = None
+        self._mappability_path: Optional[str] = None
         self._mappability_read_len = 50
         self._n_workers = 1
         self._dependencies = HandlerDependencies()
@@ -330,7 +337,7 @@ class HandlerBuilder:
         # Create mappability service if needed
         if self._mappability_path:
             map_config = MappabilityConfig(
-                mappability_path=self._mappability_path,
+                mappability_path=Path(self._mappability_path),
                 read_len=self._mappability_read_len
             )
             self._dependencies.mappability_service = create_mappability_service(

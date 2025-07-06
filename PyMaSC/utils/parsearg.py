@@ -17,6 +17,7 @@ with proper validation and helpful error messages.
 """
 import argparse
 import logging
+from typing import Any, List, Optional, Sequence, Type, Union
 
 import PyMaSC
 from PyMaSC.handler.result import NEAR_READLEN_ERR_CRITERION
@@ -26,7 +27,7 @@ EPILOG = (" \nVisit PyMaSC web site for more information and to get human genome
           "mappability tracks\n" + PyMaSC.WEBSITE_URL + '\n ')
 
 
-def _make_upper(s):
+def _make_upper(s: str) -> str:
     """Convert string to uppercase.
 
     Args:
@@ -44,8 +45,8 @@ class StoreLoggingLevel(argparse.Action):
     Converts string logging level names (e.g., 'INFO', 'DEBUG') to their
     corresponding logging module constants for use in log level configuration.
     """
-    def __call__(self, parser, namespace, values, option_string=None):
-        setattr(namespace, self.dest, getattr(logging, values))
+    def __call__(self, parser: argparse.ArgumentParser, namespace: argparse.Namespace, values: Union[str, Sequence[Any], None], option_string: Optional[str] = None) -> None:
+        setattr(namespace, self.dest, getattr(logging, values))  # type: ignore[arg-type]
 
 
 class ForceNaturalNumber(argparse.Action):
@@ -54,13 +55,13 @@ class ForceNaturalNumber(argparse.Action):
     Ensures that integer arguments are positive (> 0) and provides
     clear error messages for invalid values.
     """
-    def __call__(self, parser, namespace, values, option_string=None):
-        if values < 1:
+    def __call__(self, parser: argparse.ArgumentParser, namespace: argparse.Namespace, values: Union[str, Sequence[Any], None], option_string: Optional[str] = None) -> None:
+        if values < 1:  # type: ignore[operator]
             parser.error("argument {} must be > 0.".format('/'.join(self.option_strings)))
         setattr(namespace, self.dest, values)
 
 
-def make_multistate_append_action(key):
+def make_multistate_append_action(key: bool) -> Type[argparse.Action]:
     """Create multi-state argument action factory.
 
     Creates a custom argparse action that appends (key, value) tuples
@@ -73,7 +74,7 @@ def make_multistate_append_action(key):
         Custom argparse Action class for multi-state arguments
     """
     class _MultistateAppendAction(argparse.Action):
-        def __call__(self, parser, namespace, values, option_string=None):
+        def __call__(self, parser: argparse.ArgumentParser, namespace: argparse.Namespace, values: Any, option_string: Optional[str] = None) -> None:
             args = getattr(namespace, self.dest)
             args = [] if args is None else args
             args.append((key, values))
@@ -82,7 +83,7 @@ def make_multistate_append_action(key):
     return _MultistateAppendAction
 
 
-def add_common_args(parser):
+def add_common_args(parser: argparse.ArgumentParser) -> None:
     """Add common arguments shared across all PyMaSC utilities.
 
     Adds logging, progress control, and color output arguments that
@@ -109,7 +110,7 @@ def add_common_args(parser):
     )
 
 
-def add_multiprocess_args(group):
+def add_multiprocess_args(group: argparse._ArgumentGroup) -> None:
     """Add multiprocessing-related arguments.
 
     Args:
@@ -121,7 +122,7 @@ def add_multiprocess_args(group):
     )
 
 
-def add_mappability_args(group):
+def add_mappability_args(group: argparse._ArgumentGroup) -> None:
     """Add mappability file and statistics arguments.
 
     Adds arguments for specifying BigWig mappability files and
@@ -141,7 +142,7 @@ def add_mappability_args(group):
     )
 
 
-def add_shift_arg(group):
+def add_shift_arg(group: argparse._ArgumentGroup) -> None:
     """Add maximum shift distance argument.
 
     Args:
@@ -153,7 +154,7 @@ def add_shift_arg(group):
     )
 
 
-def add_liblen_arg(group):
+def add_liblen_arg(group: argparse._ArgumentGroup) -> None:
     """Add library length argument for expected fragment size.
 
     Args:
@@ -165,7 +166,7 @@ def add_liblen_arg(group):
     )
 
 
-def add_chrom_filter_args(group):
+def add_chrom_filter_args(group: argparse._ArgumentGroup) -> None:
     """Add chromosome filtering arguments.
 
     Adds include and exclude chromosome pattern arguments for
@@ -192,7 +193,7 @@ def add_chrom_filter_args(group):
     )
 
 
-def add_result_proc_args(group):
+def add_result_proc_args(group: argparse._ArgumentGroup) -> None:
     """Add result processing arguments.
 
     Adds arguments for controlling result processing including smoothing,
@@ -224,7 +225,7 @@ def add_result_proc_args(group):
     )
 
 
-def get_pymasc_parser():
+def get_pymasc_parser() -> argparse.ArgumentParser:
     """Create main PyMaSC argument parser.
 
     Constructs the complete argument parser for the main pymasc command,
@@ -303,7 +304,7 @@ def get_pymasc_parser():
     return parser
 
 
-def get_precalc_parser():
+def get_precalc_parser() -> argparse.ArgumentParser:
     """Create pre-calculation argument parser.
 
     Constructs the argument parser for the pymasc-precalc command,
@@ -337,7 +338,7 @@ def get_precalc_parser():
     return parser
 
 
-def get_plot_parser():
+def get_plot_parser() -> argparse.ArgumentParser:
     """Create plotting argument parser.
 
     Constructs the argument parser for the pymasc-plot command,

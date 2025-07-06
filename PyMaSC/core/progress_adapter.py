@@ -5,7 +5,7 @@ progress reporting system with the existing progress bar implementation. It
 ensures backward compatibility while enabling gradual migration.
 """
 import logging
-from typing import Optional, Dict, Any, Union
+from typing import Optional, Dict, Any, Union, List
 from collections import defaultdict
 
 from .observer import (
@@ -26,12 +26,12 @@ class ProgressBarAdapter(ProgressBar):
     about progress events while maintaining the original API.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Initialize progress bar adapter."""
         # Store subject before calling super
         self._subject = ProgressSubject()
-        self._current_source = None
-        self._current_total = None
+        self._current_source: Optional[str] = None
+        self._current_total: Optional[int] = None
         self._current_value = 0
 
         # Initialize parent
@@ -44,9 +44,9 @@ class ProgressBarAdapter(ProgressBar):
 
         # Force restore our methods that may have been overridden
         # Save the class method references
-        self.update = self.__class__.update.__get__(self, self.__class__)
-        self.clean = self.__class__.clean.__get__(self, self.__class__)
-        self.set = self.__class__.set.__get__(self, self.__class__)
+        self.update = self.__class__.update.__get__(self, self.__class__)  # type: ignore[method-assign]
+        self.clean = self.__class__.clean.__get__(self, self.__class__)  # type: ignore[method-assign]
+        self.set = self.__class__.set.__get__(self, self.__class__)  # type: ignore[method-assign]
 
     def attach_observer(self, observer: ProgressObserver) -> None:
         """Attach an observer to this progress bar.
@@ -64,7 +64,7 @@ class ProgressBarAdapter(ProgressBar):
         """
         self._subject.detach(observer)
 
-    def set(self, name: str, maxval: int) -> None:
+    def set(self, name: str, maxval: int) -> None:  # type: ignore[override]
         """Set up progress bar and notify start event.
 
         Args:
@@ -82,7 +82,7 @@ class ProgressBarAdapter(ProgressBar):
             message=f"Starting {name}"
         )
 
-    def update(self, val: int) -> None:
+    def update(self, val: int) -> None:  # type: ignore[override]
         """Update progress and notify observers.
 
         Args:
@@ -109,7 +109,7 @@ class ProgressBarAdapter(ProgressBar):
     def clean(self) -> None:
         """Clean up progress bar and notify completion."""
         # Clean the actual progress bar display if enabled
-        if self.global_switch and self._do_clean:
+        if self.global_switch and self._do_clean:  # type: ignore[truthy-function]
             try:
                 self._do_clean()
             except:
@@ -133,7 +133,7 @@ class ProgressHookAdapter(ProgressHook):
     maintaining compatibility with multiprocessing queue communication.
     """
 
-    def __init__(self, queue, *args, **kwargs):
+    def __init__(self, queue: Any, *args: Any, **kwargs: Any) -> None:
         """Initialize progress hook adapter."""
         super().__init__(queue, *args, **kwargs)
         self._subject = ProgressSubject()
@@ -188,11 +188,11 @@ class LegacyProgressObserver(ProgressObserver):
     def _handle_progress_bar_event(self, event: ProgressEvent) -> None:
         """Handle event for ProgressBar."""
         if event.event_type == ProgressEventType.STARTED and event.total:
-            self.legacy_progress.set(event.source, event.total)
+            self.legacy_progress.set(event.source, event.total)  # type: ignore[union-attr]
             self._source_info[event.source] = {'total': event.total}
 
         elif event.event_type == ProgressEventType.UPDATED and event.current is not None:
-            self.legacy_progress.update(event.current)
+            self.legacy_progress.update(event.current)  # type: ignore[call-arg]
 
         elif event.event_type in (ProgressEventType.COMPLETED, ProgressEventType.FAILED):
             self.legacy_progress.clean()
@@ -214,7 +214,7 @@ class LegacyProgressObserver(ProgressObserver):
                 self._update_multiline_display(event.source)
 
         elif event.event_type in (ProgressEventType.COMPLETED, ProgressEventType.FAILED):
-            self.legacy_progress.erase(event.source)
+            self.legacy_progress.erase(event.source)  # type: ignore[union-attr]
             if event.source in self._source_info:
                 del self._source_info[event.source]
 
@@ -230,7 +230,7 @@ class LegacyProgressObserver(ProgressObserver):
         else:
             display = f"Processing... {current} items"
 
-        self.legacy_progress.update(source, display)
+        self.legacy_progress.update(source, display)  # type: ignore[call-arg,arg-type]
 
 
 class ProgressManager:
@@ -249,8 +249,8 @@ class ProgressManager:
         """
         self.subject = ProgressSubject(track_history=True)
         self.use_legacy = use_legacy
-        self._observers = []
-        self._legacy_components = []
+        self._observers: List[ProgressObserver] = []
+        self._legacy_components: List[Union[ProgressBar, MultiLineProgressManager]] = []
 
     def create_progress_bar(self, observer_aware: bool = True) -> Union[ProgressBar, ProgressBarAdapter]:
         """Create a progress bar with optional observer support.
@@ -264,7 +264,7 @@ class ProgressManager:
         if observer_aware:
             progress_bar = ProgressBarAdapter()
             # Connect to central subject
-            progress_bar.attach_observer(self.subject)
+            progress_bar.attach_observer(self.subject)  # type: ignore[arg-type]
             return progress_bar
         else:
             return ProgressBar()
@@ -280,7 +280,7 @@ class ProgressManager:
         self._observers.append(observer)
         return observer
 
-    def add_multiprocess_observer(self, queue=None) -> MultiprocessProgressObserver:
+    def add_multiprocess_observer(self, queue: Any = None) -> MultiprocessProgressObserver:
         """Add a multiprocess progress observer.
 
         Args:
@@ -304,7 +304,7 @@ class ProgressManager:
         self.subject.attach(observer)
         self._legacy_components.append(legacy_component)
 
-    def notify_start(self, source: str, total: Optional[int] = None, **kwargs) -> None:
+    def notify_start(self, source: str, total: Optional[int] = None, **kwargs: Any) -> None:
         """Notify start of operation.
 
         Args:
@@ -314,7 +314,7 @@ class ProgressManager:
         """
         self.subject.notify_start(source, total, **kwargs)
 
-    def notify_progress(self, source: str, current: int, total: Optional[int] = None, **kwargs) -> None:
+    def notify_progress(self, source: str, current: int, total: Optional[int] = None, **kwargs: Any) -> None:
         """Notify progress update.
 
         Args:
@@ -325,7 +325,7 @@ class ProgressManager:
         """
         self.subject.notify_progress(source, current, total, **kwargs)
 
-    def notify_complete(self, source: str, **kwargs) -> None:
+    def notify_complete(self, source: str, **kwargs: Any) -> None:
         """Notify completion.
 
         Args:
@@ -334,7 +334,7 @@ class ProgressManager:
         """
         self.subject.notify_complete(source, **kwargs)
 
-    def notify_failure(self, source: str, **kwargs) -> None:
+    def notify_failure(self, source: str, **kwargs: Any) -> None:
         """Notify failure.
 
         Args:
@@ -351,9 +351,9 @@ class ProgressManager:
         """
         history = self.subject.get_event_history() or []
 
-        sources = defaultdict(lambda: {'events': 0, 'last_event': None})
+        sources: Dict[str, Dict[str, Any]] = defaultdict(lambda: {'events': 0, 'last_event': None})
         for event in history:
-            sources[event.source]['events'] += 1
+            sources[event.source]['events'] = sources[event.source].get('events', 0) + 1
             sources[event.source]['last_event'] = event.event_type.name
 
         return {
@@ -371,14 +371,14 @@ class ReadCountProgressBarAdapter:
     capabilities while maintaining the original API.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Initialize adapter."""
         from PyMaSC.utils.progress import ReadCountProgressBar
         self._bar = ReadCountProgressBar(*args, **kwargs)
         self._subject = ProgressSubject()
-        self._current_chrom = None
-        self._current_genome_total = None
-        self._current_chrom_total = None
+        self._current_chrom: Optional[str] = None
+        self._current_genome_total: Optional[int] = None
+        self._current_chrom_total: Optional[int] = None
         self._genome_progress = 0
 
     def attach_observer(self, observer: ProgressObserver) -> None:
@@ -463,7 +463,7 @@ class ReadCountProgressBarAdapter:
         """Disable visual progress bar but keep observer notifications."""
         self._bar.disable_bar()
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str) -> Any:
         """Delegate unknown attributes to wrapped bar."""
         return getattr(self._bar, name)
 

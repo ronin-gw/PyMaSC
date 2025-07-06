@@ -18,6 +18,8 @@ import sys
 import array
 import fcntl
 from termios import TIOCGWINSZ
+from typing import Any, Dict, TextIO, Union
+from multiprocessing.queues import Queue
 
 
 class ProgressBase(object):
@@ -32,7 +34,7 @@ class ProgressBase(object):
     global_switch = False
 
     @classmethod
-    def _pass(self, *args, **kwargs):
+    def _pass(self, *args: Any, **kwargs: Any) -> None:
         pass
 
 
@@ -48,7 +50,7 @@ class ProgressBar(ProgressBase):
         fmt: Format string for displaying the progress bar
         output: Output stream for progress display (default: stderr)
     """
-    def __init__(self, body="<1II1>" * 12, prefix='>', suffix='<', output=sys.stderr):
+    def __init__(self, body: str = "<1II1>" * 12, prefix: str = '>', suffix: str = '<', output: TextIO = sys.stderr) -> None:
         """Initialize progress bar with customizable appearance.
 
         Args:
@@ -66,29 +68,29 @@ class ProgressBar(ProgressBase):
         else:
             self.disable_bar()
 
-    def enable_bar(self):
+    def enable_bar(self) -> None:
         if self.global_switch:
             self.format = self._format
             self.clean = self._clean
             self.update = self._update
 
-    def disable_bar(self):
+    def disable_bar(self) -> None:
         self.format = self.clean = self.update = self._pass
 
-    def _format(self, s):
+    def _format(self, s: str) -> None:
         self.output.write(self.fmt.format(s))
 
-    def _clean(self):
+    def _clean(self) -> None:
         self.output.write("\r\033[K")
         self.output.flush()
 
-    def set(self, name, maxval):
+    def set(self, name: str, maxval: Union[int, float]) -> None:
         self._unit = float(maxval) / len(self.body)
         self.pos = 0
         self._next_update = self._unit
         self.format('')
 
-    def _update(self, val):
+    def _update(self, val: Union[int, float]) -> None:
         if val > self._next_update:
             while val > self._next_update:
                 self.pos += 1
@@ -268,6 +270,24 @@ class ReadCountProgressBar(ProgressBar, MultiLineProgressManager):
 
         self.output = output
         self._genome_offset = None
+
+    def update(self, *args: Any, **kwargs: Any) -> None:
+        """Compatible update method that handles both parent class signatures.
+
+        Can be called as:
+        - update(val) for ProgressBar compatibility
+        - update(key, body) for MultiLineProgressManager compatibility
+        """
+        if len(args) == 1:
+            # ProgressBar style: update(val) - call ProgressBar._update directly
+            if hasattr(self, '_update'):
+                self._update(args[0])
+        elif len(args) == 2:
+            # MultiLineProgressManager style: update(key, body)
+            MultiLineProgressManager.update(self, args[0], args[1])
+        else:
+            # Fallback to _pass behavior
+            self._pass(*args, **kwargs)
 
     def enable_bar(self):
         if self.global_switch:

@@ -15,6 +15,7 @@ from __future__ import print_function
 
 import os.path
 import logging
+from typing import Any, Callable, Dict, List, Tuple, Union
 
 from PyMaSC.utils.output import catch_IOError
 
@@ -43,7 +44,7 @@ STAT_CC_ATTR = (
 )
 
 
-def get_rl_item_from(attr):
+def get_rl_item_from(attr: str) -> Callable[[Any], Union[str, Any]]:
     """Create accessor function for read-length-indexed arrays.
 
     Generates a function that extracts values from arrays at the read length
@@ -55,7 +56,7 @@ def get_rl_item_from(attr):
     Returns:
         Function that extracts read-length-indexed values
     """
-    def _func(ccstats):
+    def _func(ccstats: Any) -> Union[str, Any]:
         array = getattr(ccstats, attr, None)
         return "nan" if array is None else array[ccstats.read_len - 1]
     return _func
@@ -83,7 +84,7 @@ logger = logging.getLogger(__name__)
 
 
 @catch_IOError(logger)
-def output_stats(outfile, ccr):
+def output_stats(outfile: str, ccr: Any) -> None:
     """Output comprehensive statistics to tab-delimited file.
 
     Generates a complete statistics file containing all analysis metrics
@@ -104,7 +105,7 @@ def output_stats(outfile, ccr):
             print("{}\t{}".format(row, getattr(ccr.whole, attr, False) or "nan"), file=f)
         for row, attr in STAT_CC_ATTR:
             print("{}\t{}".format(row, getattr(ccr.whole.cc, attr, False) or "nan"), file=f)
-        for row, attr in STAT_MSCC_ATTR:
+        for row, attr in STAT_MSCC_ATTR:  # type: ignore[assignment]
             if callable(attr):
                 print("{}\t{}".format(row, attr(ccr.whole.masc)), file=f)
             else:
@@ -112,7 +113,7 @@ def output_stats(outfile, ccr):
 
 
 @catch_IOError(logger)
-def load_stats(path, names):
+def load_stats(path: str, names: Tuple[str, ...]) -> Dict[str, Any]:
     """Load statistics from tab-delimited file.
 
     Reads statistics file and extracts requested attributes for use in
@@ -134,6 +135,7 @@ def load_stats(path, names):
             if row == "Name":
                 attrs["name"] = val.rstrip()
             if row in stat2attr:
-                val = int(val) if val.strip().isdigit() else None
+                val_converted: Union[int, None] = int(val) if val.strip().isdigit() else None
+                val = val_converted  # type: ignore[assignment]
                 attrs[stat2attr[row]] = val
     return attrs

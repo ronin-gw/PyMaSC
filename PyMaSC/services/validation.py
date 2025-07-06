@@ -168,11 +168,15 @@ class StandardValidationService(ValidationService):
                     return result
 
                 # Check if sorted
-                if 'HD' in bamfile.header:
-                    hd = bamfile.header['HD']
-                    if 'SO' in hd and hd['SO'] != 'coordinate':
-                        result.add_error("BAM file must be sorted by coordinate")
-                else:
+                try:
+                    header_dict = bamfile.header.to_dict()
+                    if 'HD' in header_dict:
+                        hd = header_dict['HD']
+                        if 'SO' in hd and hd['SO'] != 'coordinate':
+                            result.add_error("BAM file must be sorted by coordinate")
+                    else:
+                        result.add_warning("Cannot determine if BAM file is sorted")
+                except (KeyError, AttributeError):
                     result.add_warning("Cannot determine if BAM file is sorted")
 
                 # Check for index
@@ -361,7 +365,11 @@ class StandardValidationService(ValidationService):
             if mappability_config is None:
                 result.add_error(f"{calculation_config.algorithm.value} requires mappability configuration")
             else:
-                map_result = self.validate_mappability_file(mappability_config.mappability_path)
+                if mappability_config.mappability_path is not None:
+                    map_result = self.validate_mappability_file(str(mappability_config.mappability_path))
+                else:
+                    map_result = ValidationResult(is_valid=False, errors=[], warnings=[])
+                    map_result.add_error("Mappability path is required but not provided")
                 result.merge(map_result)
 
                 # Check chromosome compatibility
@@ -379,7 +387,9 @@ class StandardValidationService(ValidationService):
 
         # Validate execution config if provided
         if execution_config:
-            if execution_config.worker_count > 1 and not bam_result.metadata.get('has_index', False):
+            if (execution_config.worker_count > 1 and 
+                bam_result.metadata is not None and 
+                not bam_result.metadata.get('has_index', False)):
                 result.add_warning("Multiprocessing requested but BAM file has no index")
 
         return result

@@ -18,7 +18,9 @@ avoid redundant calculations.
 import logging
 import os
 import json
-from multiprocessing import Process, Queue, Lock
+from multiprocessing import Process, Lock
+from multiprocessing.queues import Queue
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 
@@ -66,7 +68,7 @@ class NumpyEncoder(json.JSONEncoder):
     serialization.
     """
 
-    def default(self, obj):
+    def default(self, obj: Any) -> Union[int, float, Any]:
         """Convert numpy types to JSON-serializable Python types.
 
         Args:
@@ -78,12 +80,12 @@ class NumpyEncoder(json.JSONEncoder):
         Raises:
             TypeError: If object type is not supported
         """
-        if isinstance(obj, (np.int64, np.float, np.float_)):
+        if isinstance(obj, (np.int64, np.floating, np.float_)):
             return float(obj)
         elif isinstance(obj, (np.uint, np.int32, np.int64)):
             return int(obj)
         else:
-            return super(self, NumpyEncoder).default(obj)
+            return super(NumpyEncoder, self).default(obj)
 
 
 class MappabilityHandler(MappableLengthCalculator):
@@ -109,7 +111,7 @@ class MappabilityHandler(MappableLengthCalculator):
     """
 
     @staticmethod
-    def calc_mappable_len_required_shift_size(readlen, max_shift):
+    def calc_mappable_len_required_shift_size(readlen: int, max_shift: int) -> int:
         """Calculate required shift size for mappability analysis.
 
         Determines the appropriate shift size based on read length
@@ -125,7 +127,7 @@ class MappabilityHandler(MappableLengthCalculator):
         """
         return max_shift - readlen + 1 if max_shift > 2*readlen - 1 else readlen
 
-    def __init__(self, path, max_shift=0, readlen=0, map_path=None, nworker=1):
+    def __init__(self, path: str, max_shift: int = 0, readlen: int = 0, map_path: Optional[str] = None, nworker: int = 1) -> None:
         """Initialize mappability handler.
 
         Sets up mappability analysis with specified parameters,
@@ -177,18 +179,18 @@ class MappabilityHandler(MappableLengthCalculator):
             else:
                 logger.info("Use mappability stats read from '{}'".format(self.map_path))
 
-    def _check_saving_directory_is_writable(self):
+    def _check_saving_directory_is_writable(self) -> None:
         dirname = os.path.dirname(self.map_path)
         dirname = dirname if dirname else '.'
         if not prepare_outdir(dirname, logger):
             raise JSONIOError
 
-    def _try_load_mappability_stats(self):
+    def _try_load_mappability_stats(self) -> None:
         try:
             stats = self._read_mappability_stats()
         except IOError as e:
             logger.error("Failed to read '{}'".format(self.map_path))
-            logger.error("[Errno {}] {}".format(e.errno, e.message))
+            logger.error("[Errno {}] {}".format(e.errno, str(e)))
         except (TypeError, OverflowError, ValueError, KeyError, IndexError) as e:
             logger.error("Failed to load json file: '{}'".format(self.map_path))
         except NeedUpdate:
@@ -196,7 +198,7 @@ class MappabilityHandler(MappableLengthCalculator):
         else:
             self._load_mappability_stats(stats)
 
-    def _read_mappability_stats(self):
+    def _read_mappability_stats(self) -> Dict[str, Any]:
         with open(self.map_path) as f:
             stats = json.load(f)
 
@@ -219,26 +221,26 @@ class MappabilityHandler(MappableLengthCalculator):
                 raise KeyError(ref)
 
             if stats["max_shift"] != len(stats["references"][ref]) - 1:
-                logger.error("Max shift length for 'ref' unmatched.".format(ref))
+                logger.error("Max shift length for '{}' unmatched.".format(ref))
                 raise IndexError
 
-        return stats
+        return stats  # type: ignore[no-any-return]
 
-    def _load_mappability_stats(self, stats):
+    def _load_mappability_stats(self, stats: Dict[str, Any]) -> None:
         self.mappable_len = stats["__whole__"][:self.max_shift + 1]
         self.chrom2mappable_len = {ref: b[:self.max_shift + 1] for ref, b in stats["references"].items()}
         self.chrom2is_called = {ref: True for ref in self.chromsizes}
         self.is_called = True
         self.need_save_stats = False
 
-    def _check_stats_is_overwritable(self):
+    def _check_stats_is_overwritable(self) -> None:
         if not os.access(self.map_path, os.W_OK):
             logger.critical("Failed to overwrite '{}'".format(self.map_path))
             raise JSONIOError
         else:
             logger.warning("Existing file '{}' will be overwritten.".format(self.map_path))
 
-    def save_mappability_stats(self):
+    def save_mappability_stats(self) -> None:
         """Save mappability statistics to JSON cache file.
 
         Persists calculated mappability statistics to a JSON file
@@ -264,11 +266,11 @@ class MappabilityHandler(MappableLengthCalculator):
                 }, f, indent=4, sort_keys=True, cls=NumpyEncoder)
         except IOError as e:
             logger.error("Faild to output: {}\n[Errno {}] {}".format(
-                         e.filename, e.errno, e.message))
+                         e.filename, e.errno, str(e)))
 
         self.need_save_stats = False
 
-    def calc_mappability(self):
+    def calc_mappability(self) -> None:
         """Calculate mappability statistics using parallel workers.
 
         Orchestrates parallel calculation of mappability statistics
@@ -287,15 +289,15 @@ class MappabilityHandler(MappableLengthCalculator):
         if not target_chroms:
             return self._sumup_mappability()
 
-        order_queue = Queue()
-        report_queue = Queue()
+        order_queue: Queue = Queue()
+        report_queue: Queue = Queue()
         logger_lock = Lock()
         progress = MultiLineProgressManager()
 
         workers = [MappabilityCalcWorker(self.path, self.max_shift, order_queue, report_queue, logger_lock)
                    for _ in range(min(self.nworker, len(target_chroms)))]
 
-        with exec_worker_pool(workers, target_chroms, order_queue):
+        with exec_worker_pool(workers, target_chroms, order_queue):  # type: ignore[arg-type]
             while not self.is_called:
                 chrom, obj = report_queue.get()
                 if chrom is None:  # update progress
@@ -314,7 +316,7 @@ class MappabilityHandler(MappableLengthCalculator):
         progress.clean()
         self._sumup_mappability()
 
-    def _sumup_mappability(self):
+    def _sumup_mappability(self) -> None:
         for length in self.chrom2mappable_len.values():
             for i in range(self.max_shift + 1):
                 self.mappable_len[i] += length[i]
@@ -339,7 +341,7 @@ class MappabilityCalcWorker(Process):
         logger_lock: Lock for thread-safe logging
     """
 
-    def __init__(self, path, max_shift, order_queue, report_queue, logger_lock):
+    def __init__(self, path: str, max_shift: int, order_queue: Queue, report_queue: Queue, logger_lock: Any) -> None:
         """Initialize mappability calculation worker.
 
         Args:
@@ -358,7 +360,7 @@ class MappabilityCalcWorker(Process):
         self.logger_lock = logger_lock
         self.calculator._progress = ProgressHook(report_queue)
 
-    def run(self):
+    def run(self) -> None:
         """Execute worker process main loop.
 
         Continuously processes chromosome assignments from the order

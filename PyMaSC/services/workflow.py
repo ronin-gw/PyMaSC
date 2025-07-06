@@ -16,6 +16,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
 from typing import List, Optional, Dict, Any, Callable
+from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from multiprocessing import Pool
 
@@ -50,7 +51,7 @@ def _read_single_chromosome_worker(bam_path: str,
         )
     except Exception as e:
         logger.error(f"Error reading chromosome {chromosome}: {e}")
-        return None
+        raise RuntimeError(f"Failed to read chromosome {chromosome}: {e}")
     finally:
         if hasattr(io_service, 'close'):
             io_service.close()
@@ -77,10 +78,10 @@ class WorkflowRequest:
     calculation_config: CalculationConfig
     mappability_config: Optional[MappabilityConfig] = None
     execution_config: Optional[ExecutionConfig] = None
-    output_formats: List[str] = None
+    output_formats: Optional[List[str]] = None
     chromosome_filter: Optional[List[str]] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Set defaults after initialization."""
         if self.execution_config is None:
             self.execution_config = ExecutionConfig()
@@ -178,9 +179,10 @@ class StandardWorkflowService(WorkflowService, ProgressSubject):
 
             # Create services if not provided
             if self._calc_service is None:
+                exec_config = request.execution_config or ExecutionConfig()
                 self._calc_service = create_calculation_service(
-                    parallel=request.execution_config.mode == ExecutionMode.MULTI_PROCESS,
-                    n_workers=request.execution_config.worker_count
+                    parallel=exec_config.mode == ExecutionMode.MULTI_PROCESS,
+                    n_workers=exec_config.worker_count
                 )
 
             if self._io_service is None:
@@ -222,10 +224,11 @@ class StandardWorkflowService(WorkflowService, ProgressSubject):
 
             # Write results
             self._notify_progress("writing_results", 90, 100)
+            output_formats = request.output_formats or []
             output_paths = self._io_service.write_results(
                 calculation_result,
                 request.output_prefix,
-                request.output_formats
+                output_formats
             )
 
             # Complete workflow
@@ -255,7 +258,7 @@ class StandardWorkflowService(WorkflowService, ProgressSubject):
 
         finally:
             # Cleanup resources
-            if hasattr(self._io_service, 'close'):
+            if self._io_service and hasattr(self._io_service, 'close'):
                 self._io_service.close()
 
     def validate_request(self, request: WorkflowRequest) -> List[str]:
@@ -285,9 +288,10 @@ class StandardWorkflowService(WorkflowService, ProgressSubject):
 
         # Validate output formats
         valid_formats = {'table', 'stats', 'figure'}
-        for fmt in request.output_formats:
-            if fmt not in valid_formats:
-                errors.append(f"Invalid output format: {fmt}")
+        if request.output_formats:
+            for fmt in request.output_formats:
+                if fmt not in valid_formats:
+                    errors.append(f"Invalid output format: {fmt}")
 
         return errors
 
@@ -298,7 +302,7 @@ class StandardWorkflowService(WorkflowService, ProgressSubject):
         if filter_list is None:
             return all_chromosomes
 
-        return filter_chroms(all_chromosomes, filter_list)
+        return list(filter_chroms(all_chromosomes, [(True, filter_list)]))
 
     def _read_chromosome_data(self,
                             request: WorkflowRequest,
@@ -314,6 +318,8 @@ class StandardWorkflowService(WorkflowService, ProgressSubject):
             self._notify_progress(f"reading_chromosome_{chrom}", progress, 100)
 
             # Read chromosome data
+            if self._io_service is None:
+                raise RuntimeError("IO service not initialized")
             data = self._io_service.read_chromosome_data(
                 request.bam_path,
                 chrom,
@@ -435,7 +441,7 @@ def execute_workflow(bam_path: str,
                     max_shift: int = 500,
                     mappability_path: Optional[str] = None,
                     n_workers: int = 1,
-                    **kwargs) -> WorkflowResult:
+                    **kwargs: Any) -> WorkflowResult:
     """Execute a workflow with common parameters.
 
     Convenience function that creates all necessary configurations
@@ -464,13 +470,13 @@ def execute_workflow(bam_path: str,
     map_config = None
     if mappability_path:
         map_config = MappabilityConfig(
-            mappability_path=mappability_path,
+            mappability_path=Path(mappability_path),
             read_len=kwargs.get('read_len', 50)
         )
 
     exec_config = ExecutionConfig(
-        multiprocess=n_workers > 1,
-        n_workers=n_workers
+        mode=ExecutionMode.MULTI_PROCESS if n_workers > 1 else ExecutionMode.SINGLE_PROCESS,
+        worker_count=n_workers
     )
 
     # Create request

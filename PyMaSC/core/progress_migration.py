@@ -5,10 +5,10 @@ existing code to use the new observer-based progress system while
 maintaining backward compatibility.
 """
 import logging
-from typing import Optional, Type, Callable, Any
+from typing import Optional, Type, Callable, Any, Dict, List
 from functools import wraps
 
-from PyMaSC.utils.progress import ProgressBar, ProgressHook, MultiLineProgressManager
+from PyMaSC.utils.progress import ProgressBar, ProgressHook, MultiLineProgressManager, ReadCountProgressBar
 from .progress_adapter import (
     ProgressBarAdapter, ProgressHookAdapter, ReadCountProgressBarAdapter,
     get_progress_manager, ProgressManager
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 # Global flag to control migration
 _migration_enabled = False
-_original_classes = {}
+_original_classes: Dict[str, Type[Any]] = {}
 
 
 def enable_progress_migration(enabled: bool = True) -> None:
@@ -43,7 +43,7 @@ def enable_progress_migration(enabled: bool = True) -> None:
         logger.info("Progress migration disabled - using original classes")
 
 
-def _apply_migration_patches():
+def _apply_migration_patches() -> None:
     """Apply monkey patches to replace progress classes with adapters."""
     import PyMaSC.utils.progress as progress_module
 
@@ -54,23 +54,23 @@ def _apply_migration_patches():
         _original_classes['ReadCountProgressBar'] = progress_module.ReadCountProgressBar
 
     # Replace with adapter factories
-    progress_module.ProgressBar = _create_progress_bar_factory()
-    progress_module.ProgressHook = _create_progress_hook_factory()
-    progress_module.ReadCountProgressBar = _create_read_count_factory()
+    progress_module.ProgressBar = _create_progress_bar_factory()  # type: ignore[assignment,misc]
+    progress_module.ProgressHook = _create_progress_hook_factory()  # type: ignore[assignment,misc]
+    progress_module.ReadCountProgressBar = _create_read_count_factory()  # type: ignore[assignment,misc]
 
 
-def _restore_original_classes():
+def _restore_original_classes() -> None:
     """Restore original progress classes."""
     if _original_classes:
         import PyMaSC.utils.progress as progress_module
-        progress_module.ProgressBar = _original_classes['ProgressBar']
-        progress_module.ProgressHook = _original_classes['ProgressHook']
-        progress_module.ReadCountProgressBar = _original_classes['ReadCountProgressBar']
+        progress_module.ProgressBar = _original_classes['ProgressBar']  # type: ignore[misc]
+        progress_module.ProgressHook = _original_classes['ProgressHook']  # type: ignore[misc]
+        progress_module.ReadCountProgressBar = _original_classes['ReadCountProgressBar']  # type: ignore[misc]
 
 
-def _create_progress_bar_factory():
+def _create_progress_bar_factory() -> Callable[..., Any]:
     """Create a factory that returns ProgressBar or adapter based on config."""
-    def factory(*args, **kwargs):
+    def factory(*args: Any, **kwargs: Any) -> Any:
         if _migration_enabled:
             adapter = ProgressBarAdapter(*args, **kwargs)
             # Auto-attach to global manager if available
@@ -82,13 +82,13 @@ def _create_progress_bar_factory():
         else:
             return _original_classes['ProgressBar'](*args, **kwargs)
 
-    factory._auto_attach_observers = []
+    factory._auto_attach_observers = []  # type: ignore[attr-defined]
     return factory
 
 
-def _create_progress_hook_factory():
+def _create_progress_hook_factory() -> Callable[..., Any]:
     """Create a factory that returns ProgressHook or adapter based on config."""
-    def factory(*args, **kwargs):
+    def factory(*args: Any, **kwargs: Any) -> Any:
         if _migration_enabled:
             return ProgressHookAdapter(*args, **kwargs)
         else:
@@ -96,9 +96,9 @@ def _create_progress_hook_factory():
     return factory
 
 
-def _create_read_count_factory():
+def _create_read_count_factory() -> Callable[..., Any]:
     """Create a factory that returns ReadCountProgressBar or adapter."""
-    def factory(*args, **kwargs):
+    def factory(*args: Any, **kwargs: Any) -> Any:
         if _migration_enabled and 'ReadCountProgressBar' in _original_classes:
             # Use original class directly in adapter to avoid recursion
             original_class = _original_classes['ReadCountProgressBar']
@@ -121,7 +121,7 @@ def _create_read_count_factory():
             return _original_classes.get('ReadCountProgressBar', 
                                         ReadCountProgressBar)(*args, **kwargs)
 
-    factory._auto_attach_observers = []
+    factory._auto_attach_observers = []  # type: ignore[attr-defined]
     return factory
 
 
@@ -145,7 +145,7 @@ def auto_attach_observer(observer: ProgressObserver,
 
 
 def with_progress_observer(observer_class: Type[ProgressObserver], 
-                          **observer_kwargs):
+                          **observer_kwargs: Any) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Decorator to automatically attach observers to progress bars in a function.
 
     Args:
@@ -159,9 +159,9 @@ def with_progress_observer(observer_class: Type[ProgressObserver],
         ...     progress = ProgressBar()
         ...     # Observer automatically attached
     """
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             # Create observer
             observer = observer_class(**observer_kwargs)
 
@@ -199,8 +199,8 @@ class ProgressMigrationContext:
             enable: Whether to enable migration in this context
         """
         self.enable = enable
-        self._original_state = None
-        self._observers = []
+        self._original_state: Optional[bool] = None
+        self._observers: List[ProgressObserver] = []
 
     def attach_observer(self, observer: ProgressObserver) -> None:
         """Attach an observer for this context.
@@ -210,10 +210,10 @@ class ProgressMigrationContext:
         """
         self._observers.append(observer)
 
-    def __enter__(self):
+    def __enter__(self) -> 'ProgressMigrationContext':
         """Enter context and enable migration."""
         self._original_state = _migration_enabled
-        self._original_auto_attach = []
+        self._original_auto_attach: List[Any] = []
 
         if self.enable:
             enable_progress_migration(True)
@@ -230,7 +230,7 @@ class ProgressMigrationContext:
 
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Exit context and restore state."""
         # Clean up auto-attach observers
         if self.enable and self._observers:
@@ -253,9 +253,9 @@ class ProgressMigrationContext:
             enable_progress_migration(self._original_state)
 
 
-def create_handler_with_observers(handler_class: Type,
-                                 observers: list,
-                                 *args, **kwargs) -> Any:
+def create_handler_with_observers(handler_class: Type[Any],
+                                 observers: List[ProgressObserver],
+                                 *args: Any, **kwargs: Any) -> Any:
     """Create a handler instance with progress observers attached.
 
     Args:

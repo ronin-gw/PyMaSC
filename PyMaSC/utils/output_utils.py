@@ -343,9 +343,9 @@ def add_suffix_to_path(base_path: Union[str, Path], suffix: str) -> Path:
     return path_obj.parent / (new_stem + path_obj.suffix)
 
 
-def standardize_csv_writer(file_handle,
+def standardize_csv_writer(file_handle: Any,
                           delimiter: str = '\t',
-                          quoting: int = csv.QUOTE_MINIMAL) -> csv.writer:
+                          quoting: int = csv.QUOTE_MINIMAL) -> Any:
     """Create standardized CSV writer with PyMaSC defaults.
 
     Args:
@@ -359,8 +359,8 @@ def standardize_csv_writer(file_handle,
     return csv.writer(file_handle, delimiter=delimiter, quoting=quoting)
 
 
-def standardize_csv_reader(file_handle,
-                          delimiter: str = '\t') -> csv.reader:
+def standardize_csv_reader(file_handle: Any,
+                          delimiter: str = '\t') -> Any:
     """Create standardized CSV reader with PyMaSC defaults.
 
     Args:

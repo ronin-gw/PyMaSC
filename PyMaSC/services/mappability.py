@@ -15,7 +15,7 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, List, Any
 
 import numpy as np
 
@@ -150,15 +150,15 @@ class BigWigMappabilityService(MappabilityService):
         """
         self.bigwig_path = bigwig_path
         self.config = config or MappabilityConfig(
-            mappability_path=bigwig_path,
+            mappability_path=Path(bigwig_path),
             read_len=50
         )
         self.cache_size = cache_size
 
         # Initialize reader
-        self._reader = None
-        self._cache = {}  # Simple LRU-style cache
-        self._cache_order = []
+        self._reader: Optional[BigWigReader] = None
+        self._cache: Dict[Tuple[str, int, int], np.ndarray] = {}  # Simple LRU-style cache
+        self._cache_order: List[Tuple[str, int, int]] = []
 
     def _get_reader(self) -> BigWigReader:
         """Get or create BigWig reader."""
@@ -232,15 +232,16 @@ class BigWigMappabilityService(MappabilityService):
             # Calculate stats in chunks to avoid memory issues
             chunk_size = 1000000  # 1 Mb chunks
             mappable_bases = 0
-            all_values = []
+            all_values: List[float] = []
 
             for start in range(0, length, chunk_size):
                 end = min(start + chunk_size, length)
                 values = self.get_mappability_values(chromosome, start + 1, end + 1)
 
                 # Count mappable bases (using read length threshold)
-                threshold = 1.0 / (2 * self.config.read_len)
-                mappable_bases += np.sum(values > threshold)
+                read_len = self.config.read_len or 50  # Default if None
+                threshold = 1.0 / (2 * read_len)
+                mappable_bases += int(np.sum(values > threshold))
 
                 # Collect non-zero values for statistics
                 non_zero = values[values > 0]
@@ -249,8 +250,8 @@ class BigWigMappabilityService(MappabilityService):
 
             # Calculate statistics
             if all_values:
-                mean_map = np.mean(all_values)
-                median_map = np.median(all_values)
+                mean_map = float(np.mean(all_values))
+                median_map = float(np.median(all_values))
             else:
                 mean_map = 0.0
                 median_map = 0.0
@@ -312,11 +313,11 @@ class BigWigMappabilityService(MappabilityService):
         self._cache.clear()
         self._cache_order.clear()
 
-    def __enter__(self):
+    def __enter__(self) -> 'BigWigMappabilityService':
         """Context manager entry."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Context manager exit."""
         self.close()
 
@@ -335,7 +336,7 @@ class JSONMappabilityService(MappabilityService):
             json_path: Path to JSON file
         """
         self.json_path = json_path
-        self._data = None
+        self._data: Optional[Dict[str, Any]] = None
         self._load_data()
 
     def _load_data(self) -> None:
@@ -359,7 +360,7 @@ class JSONMappabilityService(MappabilityService):
                                     chromosome: str,
                                     length: int) -> MappabilityStats:
         """Get pre-calculated mappability statistics."""
-        chrom_data = self._data.get('chromosomes', {}).get(chromosome, {})
+        chrom_data = (self._data or {}).get('chromosomes', {}).get(chromosome, {})
 
         if chrom_data:
             return MappabilityStats(
@@ -385,7 +386,7 @@ class JSONMappabilityService(MappabilityService):
     ) -> GenomeWideMappabilityStats:
         """Get pre-calculated genome-wide statistics."""
         # Use pre-calculated stats if available
-        if 'stat' in self._data:
+        if self._data and 'stat' in self._data:
             stat = self._data['stat']
             return GenomeWideMappabilityStats(
                 chromosome_stats={

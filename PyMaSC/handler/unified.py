@@ -12,7 +12,10 @@ Key components:
 import logging
 from multiprocessing import Queue, Lock
 from pathlib import Path
-from typing import Optional, List, Dict, Any, Union
+from typing import Optional, List, Dict, Any, Union, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from PyMaSC.core.observer import ProgressObserver
 
 import pysam
 
@@ -128,30 +131,30 @@ class UnifiedCalcHandler:
             self.align_file.close()
 
         # Initialize result storage
-        self.ref2forward_sum = {}
-        self.ref2reverse_sum = {}
-        self.ref2ccbins = {}
+        self.ref2forward_sum: Dict[str, int] = {}
+        self.ref2reverse_sum: Dict[str, int] = {}
+        self.ref2ccbins: Dict[str, Any] = {}
 
-        self.mappable_ref2forward_sum = {}
-        self.mappable_ref2reverse_sum = {}
-        self.mappable_ref2ccbins = {}
-        self.ref2mappable_len = {}
+        self.mappable_ref2forward_sum: Dict[str, Any] = {}
+        self.mappable_ref2reverse_sum: Dict[str, Any] = {}
+        self.mappable_ref2ccbins: Dict[str, Any] = {}
+        self.ref2mappable_len: Dict[str, Any] = {}
 
         # Read length will be set later
-        self.read_len = None
+        self.read_len: Optional[int] = None
 
         # Mappability handler reference
-        self.mappability_handler = None
+        self.mappability_handler: Any = None
 
         # Legacy attributes for backward compatibility
         self._esttype = getattr(config, 'esttype', 'mean')
 
         # Observer pattern support
         self.use_observer_progress = True
-        self._progress_observers = []
-        self._progress_manager = None
+        self._progress_observers: List['ProgressObserver'] = []
+        self._progress_manager: Optional[ProgressManager] = None
 
-    def set_readlen(self, readlen: Optional[int] = None):
+    def set_readlen(self, readlen: Optional[int] = None) -> None:
         """Set or estimate read length.
 
         Args:
@@ -161,7 +164,7 @@ class UnifiedCalcHandler:
             InputUnseekable: If estimation needed but input is unseekable
             ValueError: If read length exceeds maximum shift distance
         """
-        if readlen:
+        if readlen is not None:
             self.read_len = readlen
         elif self.path == '-':
             logger.error("Cannot execute read length checking for unseekable input.")
@@ -174,7 +177,7 @@ class UnifiedCalcHandler:
                 self.path, esttype, self.config.mapq_criteria
             )
 
-        if self.read_len > self.config.max_shift:
+        if self.read_len is not None and self.read_len > self.config.max_shift:
             logger.error(f"Read length ({self.read_len}) seems to be longer than "
                         f"shift size ({self.config.max_shift}).")
             raise ValueError
@@ -182,14 +185,17 @@ class UnifiedCalcHandler:
         # Update config with read length
         self.config.read_length = self.read_len
 
-    def set_mappability_handler(self, mappability_handler: Any):
+    def set_mappability_handler(self, mappability_handler: Any) -> None:
         """Set mappability handler and validate chromosome sizes.
 
         Args:
             mappability_handler: MappabilityHandler instance
         """
         self.mappability_handler = mappability_handler
-        bw_chromsizes = self.mappability_handler.chromsizes
+        if self.mappability_handler is not None:
+            bw_chromsizes = self.mappability_handler.chromsizes
+        else:
+            return
 
         for i, reference in enumerate(self.references):
             if reference not in bw_chromsizes:
@@ -197,7 +203,7 @@ class UnifiedCalcHandler:
                 continue
             self._compare_refsize(reference, bw_chromsizes[reference])
 
-    def _compare_refsize(self, reference: str, bw_chr_size: int):
+    def _compare_refsize(self, reference: str, bw_chr_size: int) -> None:
         """Compare and validate chromosome sizes between BAM and BigWig."""
         i = self.references.index(reference)
         bam_chr_size = self.lengths[i]
@@ -210,7 +216,7 @@ class UnifiedCalcHandler:
                 self.lengths[i] = bw_chr_size
                 self.config.lengths[i] = bw_chr_size
 
-    def run_calcuration(self):
+    def run_calcuration(self) -> None:
         """Execute cross-correlation calculation workflow.
 
         Note: Method name kept as 'calcuration' for backward compatibility
@@ -223,7 +229,7 @@ class UnifiedCalcHandler:
         else:
             self._run_singleprocess_calculation()
 
-    def _run_singleprocess_calculation(self):
+    def _run_singleprocess_calculation(self) -> None:
         """Execute calculation in single process mode."""
         # Create calculator using strategy
         calculator = self.calc_context.create_calculator(
@@ -242,7 +248,7 @@ class UnifiedCalcHandler:
                 for observer in self._progress_observers:
                     progress._subject.attach(observer)
         else:
-            progress = ProgressBar()
+            progress = ProgressBar()  # type: ignore[assignment]
 
         ref2genomelen = dict(zip(self.references, self.lengths))
         current_chr = None
@@ -271,14 +277,16 @@ class UnifiedCalcHandler:
                 continue
 
             # Feed read to calculator
-            if read.is_reverse:
-                calculator.feed_reverse_read(
-                    chrom, read.reference_start + 1, read.infer_query_length()
-                )
-            else:
-                calculator.feed_forward_read(
-                    chrom, read.reference_start + 1, read.infer_query_length()
-                )
+            query_length = read.infer_query_length()
+            if query_length is not None:
+                if read.is_reverse:
+                    calculator.feed_reverse_read(
+                        chrom, read.reference_start + 1, query_length
+                    )
+                else:
+                    calculator.feed_forward_read(
+                        chrom, read.reference_start + 1, query_length
+                    )
 
         progress.clean()
         self.align_file.close()
@@ -290,19 +298,31 @@ class UnifiedCalcHandler:
         self._collect_calculator_results(calculator)
         self._calc_unsolved_mappability()
 
-    def _run_multiprocess_calculation(self):
+    def _run_multiprocess_calculation(self) -> None:
         """Execute calculation using multiple processes."""
-        self._order_queue = Queue()
-        self._report_queue = Queue()
+        self._order_queue: Queue = Queue()
+        self._report_queue: Queue = Queue()
         self._logger_lock = Lock()
 
         # Create worker configuration
-        worker_config = WorkerConfig(
-            calculation_config=self.config,
-            mappability_config=self.mappability_config,
-            progress_enabled=True,
-            logger_lock=self._logger_lock
-        )
+        # Handle None mappability_config by providing a default or skipping
+        if self.mappability_config is not None:
+            worker_config = WorkerConfig(
+                calculation_config=self.config,
+                mappability_config=self.mappability_config,
+                progress_enabled=True,
+                logger_lock=self._logger_lock
+            )
+        else:
+            # Create a minimal config when mappability is not needed
+            from PyMaSC.core.models import MappabilityConfig
+            default_mappability = MappabilityConfig()  # Use default config
+            worker_config = WorkerConfig(
+                calculation_config=self.config,
+                mappability_config=default_mappability,
+                progress_enabled=True,
+                logger_lock=self._logger_lock
+            )
 
         # Create workers using factory
         workers = []
@@ -321,7 +341,7 @@ class UnifiedCalcHandler:
         self._run_calculation_with_workers(workers)
         self._calc_unsolved_mappability()
 
-    def _run_calculation_with_workers(self, workers: List[Any]):
+    def _run_calculation_with_workers(self, workers: List[Any]) -> None:
         """Coordinate worker processes and collect results."""
         _chrom2finished = {c: False for c in self.references}
         progress = MultiLineProgressManager()
@@ -348,7 +368,7 @@ class UnifiedCalcHandler:
         progress.clean()
 
     def _receive_results(self, chrom: str, mappable_len: Optional[int],
-                        cc_stats: tuple, masc_stats: tuple):
+                        cc_stats: tuple, masc_stats: tuple) -> None:
         """Process and store results from worker processes."""
         f_sum, r_sum, ccbins = cc_stats
         mf_sum, mr_sum, mccbins = masc_stats
@@ -367,7 +387,7 @@ class UnifiedCalcHandler:
             self.mappable_ref2reverse_sum[chrom] = mr_sum
             self.mappable_ref2ccbins[chrom] = mccbins
 
-    def _collect_calculator_results(self, calculator: CrossCorrelationCalculator):
+    def _collect_calculator_results(self, calculator: CrossCorrelationCalculator) -> None:
         """Collect results from calculator instance."""
         # Basic NCC results
         if not self.config.skip_ncc:
@@ -378,10 +398,12 @@ class UnifiedCalcHandler:
         # MSCC/BitArray results if available
         if hasattr(calculator, 'ref2mappable_forward_sum'):
             adapter = calculator  # Should be CalculatorAdapter
-            if adapter.ref2mappable_forward_sum:
+            if hasattr(adapter, 'ref2mappable_forward_sum') and adapter.ref2mappable_forward_sum:
                 self.mappable_ref2forward_sum = adapter.ref2mappable_forward_sum
-                self.mappable_ref2reverse_sum = adapter.ref2mappable_reverse_sum
-                self.mappable_ref2ccbins = adapter.ref2mascbins
+                if hasattr(adapter, 'ref2mappable_reverse_sum'):
+                    self.mappable_ref2reverse_sum = adapter.ref2mappable_reverse_sum
+                if hasattr(adapter, 'ref2mascbins'):
+                    self.mappable_ref2ccbins = adapter.ref2mascbins
 
         # Mappable length handling for BitArray
         if hasattr(calculator, '_calculator') and hasattr(calculator._calculator, 'ref2mappable_len'):
@@ -391,36 +413,36 @@ class UnifiedCalcHandler:
                 self.ref2mappable_len = mappable_len
                 self.mappability_handler.chrom2mappable_len = mappable_len
                 self.mappability_handler.mappable_len = list(map(sum, zip(*mappable_len.values())))
-                
+
         # Aggregate mappable results for result processing compatibility
         self._aggregate_mappable_results()
 
-    def _aggregate_mappable_results(self):
+    def _aggregate_mappable_results(self) -> None:
         """Aggregate per-reference mappable results into scalar attributes for result processing."""
         import numpy as np
-        
+
         # Initialize all mappable attributes as None by default
         self.mappable_forward_sum = None
         self.mappable_reverse_sum = None
         self.mappable_ccbins = None
-        
+
         # Process mappable results if we have them (both SUCCESSIVE and BITARRAY can have mappability)
         if hasattr(self, 'mappable_ref2forward_sum') and self.mappable_ref2forward_sum:
             valid_forward = [v for v in self.mappable_ref2forward_sum.values() if v is not None]
             if valid_forward:
                 self.mappable_forward_sum = np.sum(valid_forward, axis=0)
-                
+
         if hasattr(self, 'mappable_ref2reverse_sum') and self.mappable_ref2reverse_sum:
             valid_reverse = [v for v in self.mappable_ref2reverse_sum.values() if v is not None]
             if valid_reverse:
                 self.mappable_reverse_sum = np.sum(valid_reverse, axis=0)
-                
+
         if hasattr(self, 'mappable_ref2ccbins') and self.mappable_ref2ccbins:
             valid_ccbins = [v for v in self.mappable_ref2ccbins.values() if v is not None]
             if valid_ccbins:
                 self.mappable_ccbins = np.sum(valid_ccbins, axis=0)
 
-    def _calc_unsolved_mappability(self):
+    def _calc_unsolved_mappability(self) -> None:
         """Complete any remaining mappability calculations."""
         if self.mappability_handler is not None:
             if not self.mappability_handler.is_called:
@@ -457,7 +479,7 @@ class UnifiedCalcHandler:
         return self._esttype
 
     @esttype.setter
-    def esttype(self, value: str):
+    def esttype(self, value: str) -> None:
         """Set read length estimation type."""
         self._esttype = value
 

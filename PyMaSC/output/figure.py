@@ -16,6 +16,7 @@ error logging for troubleshooting visualization issues.
 """
 import logging
 import os.path
+from typing import Any, Optional, Tuple, Union
 
 import numpy as np
 
@@ -34,7 +35,7 @@ except:
     raise
 
 
-def _feed_pdf_page(pp):
+def _feed_pdf_page(pp: Any) -> None:
     """Save current plot to PDF and close the figure.
 
     Args:
@@ -45,7 +46,7 @@ def _feed_pdf_page(pp):
 
 
 @catch_IOError(logger)
-def plot_figures(outfile, ccr):
+def plot_figures(outfile: str, ccr: Any) -> None:
     """Generate all PyMaSC plots and save to PDF file.
 
     Creates a multi-page PDF containing all relevant plots based on the
@@ -74,7 +75,7 @@ def plot_figures(outfile, ccr):
         plot_ncc_vs_masc(pp, ccr, name)
 
 
-def _annotate_point(x, color, axis_y, axis_text, point_y=None, point_text=None, yoffset=0):
+def _annotate_point(x: Union[int, float], color: str, axis_y: Union[int, float], axis_text: str, point_y: Optional[Union[int, float]] = None, point_text: Optional[str] = None, yoffset: Union[int, float] = 0) -> None:
     """Add vertical line and annotations to plot at specified x position.
 
     Args:
@@ -93,7 +94,7 @@ def _annotate_point(x, color, axis_y, axis_text, point_y=None, point_text=None, 
         plt.annotate(point_text, (x, point_y + yoffset))
 
 
-def _annotate_bottom_right_box(text):
+def _annotate_bottom_right_box(text: str) -> None:
     """Add text box annotation to bottom right corner of plot.
 
     Args:
@@ -106,7 +107,7 @@ def _annotate_bottom_right_box(text):
     )
 
 
-def _annotate_params(nsc=None, rsc=None, est_nsc=None, est_rsc=None, loc="lower right"):
+def _annotate_params(nsc: Optional[Union[int, float]] = None, rsc: Optional[Union[int, float]] = None, est_nsc: Optional[Union[int, float]] = None, est_rsc: Optional[Union[int, float]] = None, loc: str = "lower right") -> None:
     """Add parameter annotations to plot showing quality metrics.
 
     Args:
@@ -126,7 +127,7 @@ def _annotate_params(nsc=None, rsc=None, est_nsc=None, est_rsc=None, loc="lower 
         _annotate_bottom_right_box('\n'.join(anno))
 
 
-def _set_ylim():
+def _set_ylim() -> Tuple[float, float, float]:
     """Adjust Y-axis limits with appropriate padding.
 
     Sets Y-axis limits to provide better visualization by adding
@@ -142,7 +143,7 @@ def _set_ylim():
     return lower, upper, height
 
 
-def plot_naive_cc(ccr, name=None, xlim=None):
+def plot_naive_cc(ccr: Any, name: Optional[str] = None, xlim: Optional[Tuple[int, Any]] = None) -> None:
     """Plot naive cross-correlation results.
 
     Creates a comprehensive plot of naive cross-correlation showing:
@@ -200,7 +201,7 @@ def plot_naive_cc(ccr, name=None, xlim=None):
     _annotate_params(stats.nsc, stats.rsc, stats.est_nsc, stats.est_rsc)
 
 
-def plot_naive_cc_just(ccr, name=None):
+def plot_naive_cc_just(ccr: Any, name: Optional[str] = None) -> bool:
     """Plot zoomed naive cross-correlation around fragment length peak.
 
     Creates a focused plot showing the cross-correlation peak region
@@ -220,7 +221,7 @@ def plot_naive_cc_just(ccr, name=None):
     return False
 
 
-def plot_masc(ccr, name=None):
+def plot_masc(ccr: Any, name: Optional[str] = None) -> None:
     """Plot mappability-sensitive cross-correlation (MSCC) results.
 
     Creates comprehensive MSCC plots showing:
@@ -272,7 +273,7 @@ def plot_masc(ccr, name=None):
     _annotate_bottom_right_box("Mov avr win size = {}".format(stats.mv_avr_filter_len))
 
 
-def plot_ncc_vs_masc(pp, ccr, name):
+def plot_ncc_vs_masc(pp: Any, ccr: Any, name: str) -> None:
     """Generate comparison plots between NCC and MSCC.
 
     Creates side-by-side comparison plots for each chromosome showing
@@ -299,7 +300,7 @@ def plot_ncc_vs_masc(pp, ccr, name):
             logger.debug("Skip plot for {}, valid reads unable.".format(ref))
 
 
-def _plot_ncc_vs_masc(stats, title):
+def _plot_ncc_vs_masc(stats: Any, title: str) -> None:
     """Create individual NCC vs MSCC comparison plot.
 
     Generates a single comparison plot showing both NCC and MSCC

@@ -15,12 +15,13 @@ all PyMaSC applications.
 """
 import sys
 from functools import wraps
+from typing import Any, Callable
 
 VERSION = "0.3.1"
 WEBSITE_URL = "https://pymasc.sb.ecei.tohoku.ac.jp/"
 
 
-def logging_version(logger):
+def logging_version(logger: Any) -> None:
     """Log PyMaSC and Python version information.
 
     Outputs comprehensive version information including PyMaSC version,
@@ -36,7 +37,7 @@ def logging_version(logger):
         logger.debug(line)
 
 
-def entrypoint(logger):
+def entrypoint(logger: Any) -> Callable[[Callable[[], None]], Callable[[], None]]:
     """Decorator for main entry point exception handling.
 
     Provides consistent exception handling and cleanup for all PyMaSC
@@ -55,9 +56,9 @@ def entrypoint(logger):
             # Main application logic
             pass
     """
-    def _entrypoint_wrapper_base(main_func):
+    def _entrypoint_wrapper_base(main_func: Callable[[], None]) -> Callable[[], None]:
         @wraps(main_func)
-        def _inner():
+        def _inner() -> None:
             try:
                 main_func()
                 logger.info("PyMASC finished.")

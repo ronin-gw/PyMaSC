@@ -11,10 +11,12 @@ The plotting utility supports:
 - Chromosome filtering and data validation
 - Output file management and overwrite protection
 """
+import argparse
 import logging
 import sys
 import os.path
 import json
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from pysam import AlignmentFile
 
@@ -32,7 +34,7 @@ from PyMaSC.output.figure import plot_figures
 logger = logging.getLogger(__name__)
 
 
-def _complete_path_arg(args, attr, val):
+def _complete_path_arg(args: argparse.Namespace, attr: str, val: str) -> None:
     """Auto-complete file path arguments based on base filename.
 
     Sets an argument attribute to the provided value if the attribute
@@ -47,7 +49,7 @@ def _complete_path_arg(args, attr, val):
         setattr(args, attr, val)
 
 
-def _parse_args():
+def _parse_args() -> argparse.Namespace:
     """Parse and validate plot-specific command-line arguments.
 
     Handles argument parsing for the plotting utility, including:
@@ -122,7 +124,7 @@ def _parse_args():
 
 
 @entrypoint(logger)
-def main():
+def main() -> None:
     """Main plotting workflow coordinator.
 
     Orchestrates the complete plotting workflow:
@@ -139,7 +141,7 @@ def main():
     read_len = _prepare_stats(args)
     (ref2cc, ref2genomelen, ref2masc, ref2mappable_len, references,
      (forward_sum, reverse_sum, mappable_forward_sum, mappable_reverse_sum)) = _load_tables(args)
-    references = filter_chroms(references, args.chromfilter)
+    references = list(filter_chroms(references, args.chromfilter))
     checked_suffixes = _prepare_outputs(args)
 
     #
@@ -168,7 +170,7 @@ def main():
     plot_figures(os.path.join(args.outdir, args.name + PLOTFILE_SUFFIX), ccr)
 
 
-def _prepare_stats(args):
+def _prepare_stats(args: argparse.Namespace) -> int:
     """Load and validate statistics from stats file.
 
     Loads essential statistics including read length, library length,
@@ -197,7 +199,7 @@ def _prepare_stats(args):
     if "read_len" not in statattrs:
         logger.critical("Mandatory attribute 'Read length' not found in '{}'.".format(args.stats))
         sys.exit(1)
-    read_len = statattrs["read_len"]
+    read_len: int = statattrs["read_len"]
 
     #
     if "name" in statattrs:
@@ -210,7 +212,7 @@ def _prepare_stats(args):
     return read_len
 
 
-def _load_table(path, load_fun):
+def _load_table(path: str, load_fun: Callable[[str], Any]) -> Any:
     """Generic table loading with error handling.
 
     Loads a data table using the specified loading function with
@@ -233,7 +235,7 @@ def _load_table(path, load_fun):
         sys.exit(1)
 
 
-def _load_tables(args):
+def _load_tables(args: argparse.Namespace) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, int]], Optional[Dict[str, Any]], Optional[Dict[str, int]], List[str], Tuple[Dict[str, int], Dict[str, int], Dict[str, int], Dict[str, int]]]:
     """Load all required data tables for plotting.
 
     Loads cross-correlation tables, MSCC tables, read count tables,
@@ -272,7 +274,7 @@ def _load_tables(args):
         masc_references = set(masc_table.keys())
         try:
             ref2mappable_len = _load_mappable_lengths(args.mappability_stats)
-        except json.JSONDecoder as e:
+        except json.JSONDecodeError as e:
             logger.critical("Failed to load '{}':".format(args.mappability_stats))
             logger.error(e.msg)
             sys.exit(1)
@@ -304,7 +306,7 @@ def _load_tables(args):
     return cc_table, ref2genomelen, masc_table, ref2mappable_len, sorted(intersection), dicts
 
 
-def _prepare_outputs(args):
+def _prepare_outputs(args: argparse.Namespace) -> List[str]:
     """Prepare output files and handle overwrite protection.
 
     Determines which output files will be generated and checks for
@@ -316,7 +318,7 @@ def _prepare_outputs(args):
     Returns:
         List of output file suffixes that will be generated
     """
-    check_suffixes = [PLOTFILE_SUFFIX]
+    check_suffixes: List[str] = [PLOTFILE_SUFFIX]
     output_base = os.path.join(args.outdir, args.name)
 
     for source, suffix, force_overwrite in zip(
@@ -326,12 +328,12 @@ def _prepare_outputs(args):
         if source and _check_overwrite(source, os.path.normpath(output_base + suffix), force_overwrite):
             check_suffixes.append(suffix)
 
-    prepare_output([None], [args.name], args.outdir, check_suffixes)
+    prepare_output([args.name], [args.name], args.outdir, tuple(check_suffixes))
 
     return check_suffixes
 
 
-def _check_overwrite(source, output, force_overwrite):
+def _check_overwrite(source: str, output: str, force_overwrite: bool) -> bool:
     """Validate file overwrite permissions.
 
     Checks if an output file would overwrite an input file and
@@ -356,7 +358,7 @@ def _check_overwrite(source, output, force_overwrite):
     return True
 
 
-def _load_chrom_sizes(path):
+def _load_chrom_sizes(path: str) -> Dict[str, int]:
     """Load chromosome sizes from BAM index or text file.
 
     Attempts to load chromosome sizes from either a BAM file (using
@@ -376,7 +378,7 @@ def _load_chrom_sizes(path):
         with AlignmentFile(path) as f:
             return {r: l for r, l in zip(f.references, f.lengths)}
     except ValueError:
-        ref2len = {}
+        ref2len: Dict[str, int] = {}
         with open(path) as f:
             for l in f:
                 chrom, length, _ = l.split('\t', 2)
@@ -384,7 +386,7 @@ def _load_chrom_sizes(path):
             return ref2len
 
 
-def _load_mappable_lengths(path):
+def _load_mappable_lengths(path: str) -> Dict[str, int]:
     """Load mappable lengths from JSON statistics file.
 
     Loads pre-calculated mappable length statistics from a JSON file
@@ -402,4 +404,5 @@ def _load_mappable_lengths(path):
         KeyError: If required 'references' key is missing
     """
     with open(path) as f:
-        return json.load(f)["references"]
+        references: Dict[str, int] = json.load(f)["references"]
+        return references

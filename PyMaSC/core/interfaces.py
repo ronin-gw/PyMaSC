@@ -11,8 +11,11 @@ Key interfaces:
 - ResultCollector: Protocol for result collection and aggregation
 """
 from abc import ABC, abstractmethod
-from typing import Protocol, Dict, Any, Optional, Iterator, Tuple
+from typing import Protocol, Dict, Any, Optional, Iterator, Tuple, TYPE_CHECKING
 import numpy as np
+
+if TYPE_CHECKING:
+    from PyMaSC.core.models import CalculationConfig, WorkerConfig
 
 
 class CrossCorrelationCalculator(ABC):
@@ -213,7 +216,7 @@ class WorkerFactory(Protocol):
     for multiprocessing calculation scenarios.
     """
 
-    def create_worker(self, config: 'WorkerConfig') -> 'CalculationWorker':
+    def create_worker(self, config: 'WorkerConfig') -> Any:
         """Create a worker instance with the specified configuration.
 
         Args:

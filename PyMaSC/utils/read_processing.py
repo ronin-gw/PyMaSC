@@ -163,8 +163,13 @@ class ReadProcessor:
 
         # Extract read information
         chrom = read.reference_name
+        if chrom is None:
+            return False  # Skip reads without reference
+
         pos = read.reference_start + self.position_offset
         readlen = read.infer_query_length()
+        if readlen is None:
+            return False  # Skip reads without queryable length
 
         # Feed to appropriate calculator method based on strand
         try:
@@ -230,8 +235,13 @@ class DualReadProcessor:
 
         # Extract read information
         chrom = read.reference_name
+        if chrom is None:
+            return False  # Skip reads without reference
+
         pos = read.reference_start + self.position_offset
         readlen = read.infer_query_length()
+        if readlen is None:
+            return False  # Skip reads without queryable length
 
         # Feed to both calculators
         try:

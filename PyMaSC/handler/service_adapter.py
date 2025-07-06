@@ -16,7 +16,7 @@ from typing import Optional, Dict, List, Any
 from PyMaSC.handler.base import BaseCalcHandler
 from PyMaSC.core.models import (
     CalculationConfig, MappabilityConfig, ExecutionConfig, 
-    AlgorithmType, WorkerConfig
+    AlgorithmType, WorkerConfig, ExecutionMode
 )
 from PyMaSC.services.workflow import (
     WorkflowService, WorkflowRequest, WorkflowResult,
@@ -77,12 +77,12 @@ class ServiceBasedCalcHandler(BaseCalcHandler):
         )
 
         # Create services
-        self._workflow_service = None
-        self._calculation_service = None
-        self._io_service = None
+        self._workflow_service: Optional[WorkflowService] = None
+        self._calculation_service: Optional[Any] = None
+        self._io_service: Optional[Any] = None
 
         # Workflow result storage
-        self._workflow_result = None
+        self._workflow_result: Optional[WorkflowResult] = None
 
     def set_mappability_handler(self, handler: Any) -> None:
         """Set mappability handler for compatibility.
@@ -127,8 +127,8 @@ class ServiceBasedCalcHandler(BaseCalcHandler):
 
         # Create execution configuration
         exec_config = ExecutionConfig(
-            multiprocess=multiprocess,
-            n_workers=self.nworker if multiprocess else 1
+            mode=ExecutionMode.MULTI_PROCESS if multiprocess else ExecutionMode.SINGLE_PROCESS,
+            worker_count=self.nworker if multiprocess else 1
         )
 
         # Create workflow request
@@ -157,9 +157,13 @@ class ServiceBasedCalcHandler(BaseCalcHandler):
             )
 
         # Execute workflow
+        if self._workflow_service is None:
+            raise RuntimeError("Workflow service not initialized")
         self._workflow_result = self._workflow_service.execute(request)
 
         # Check for errors
+        if self._workflow_result is None:
+            raise RuntimeError("Workflow execution returned no result")
         if not self._workflow_result.is_successful:
             raise RuntimeError(f"Workflow failed: {self._workflow_result.error}")
 
@@ -191,7 +195,8 @@ class ServiceBasedCalcHandler(BaseCalcHandler):
                 self.ref2ccbins[chrom] = chrom_result.correlation_bins
 
             # MSCC results
-            if chrom_result.mappable_forward_count is not None:
+            if (chrom_result.mappable_forward_count is not None and 
+                chrom_result.mappable_reverse_count is not None):
                 self.mappable_ref2forward_sum[chrom] = chrom_result.mappable_forward_count
                 self.mappable_ref2reverse_sum[chrom] = chrom_result.mappable_reverse_count
                 self.mappable_ref2ccbins[chrom] = chrom_result.mappable_correlation_bins
@@ -268,7 +273,7 @@ def create_service_based_handler(path: str,
 
     # Set read length if provided
     if read_len:
-        handler.set_readlen(read_len)
+        handler.read_len = read_len
 
     # Set mappability if provided
     if mappability_path:
@@ -276,8 +281,8 @@ def create_service_based_handler(path: str,
         mappability_handler = MappabilityHandler(
             path=mappability_path,
             max_shift=max_shift,
-            read_len=read_len or 50,
-            n_worker=nworker
+            readlen=read_len or 50,
+            nworker=nworker
         )
         handler.set_mappability_handler(mappability_handler)
 

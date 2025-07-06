@@ -60,7 +60,7 @@ class ReadLengthEstimator:
                  path: str, 
                  esttype: str, 
                  mapq_criteria: int,
-                 **kwargs) -> int:
+                 **kwargs: Any) -> int:
         """Estimate read length with optional observer notifications.
 
         Args:
@@ -74,7 +74,7 @@ class ReadLengthEstimator:
         """
         # If not using observers, just call original function
         if not self.use_observer:
-            return _original_estimate_readlen(path, esttype, mapq_criteria)
+            return _original_estimate_readlen(path, esttype, mapq_criteria)  # type: ignore[no-any-return]
 
         # Notify observers about start
         if self._progress_manager:
@@ -106,7 +106,7 @@ class ReadLengthEstimator:
                 if hasattr(observer, 'notify_complete'):
                     observer.notify_complete("read_length_estimation", result=result)
 
-            return result
+            return result  # type: ignore[no-any-return]
 
         except Exception as e:
             # Notify failure
@@ -130,7 +130,7 @@ def estimate_readlen_enhanced(path: str,
                             use_observer: bool = True,
                             progress_manager: Optional[ProgressManager] = None,
                             observers: Optional[List[ProgressObserver]] = None,
-                            **kwargs) -> int:
+                            **kwargs: Any) -> int:
     """Enhanced read length estimation with observer pattern support.
 
     This function provides a convenient interface for read length estimation
@@ -194,7 +194,7 @@ def enable_readlen_observers(enabled: bool = True) -> None:
             )
 
         # Replace with enhanced version
-        def _wrapper(path, esttype, mapq_criteria):
+        def _wrapper(path: str, esttype: str, mapq_criteria: int) -> int:
             return estimate_readlen_enhanced(
                 path, esttype, mapq_criteria, 
                 use_observer=True

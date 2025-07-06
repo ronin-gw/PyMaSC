@@ -154,10 +154,10 @@ class FileIOService(IOService):
     local filesystem files.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize file I/O service."""
-        self._open_files = {}
-        self._read_filter = None
+        self._open_files: Dict[str, Any] = {}
+        self._read_filter: Optional[Any] = None
 
     def get_bam_info(self, path: str) -> BAMFileInfo:
         """Get information about a BAM file."""
@@ -220,20 +220,26 @@ class FileIOService(IOService):
                     mapq_threshold: int = 0) -> Iterator[ReadData]:
         """Stream reads for a chromosome."""
         # Create read filter if needed
-        if self._read_filter is None or self._read_filter.mapq_criteria != mapq_threshold:
+        if self._read_filter is None or getattr(self._read_filter, 'mapq_criteria', -1) != mapq_threshold:
             self._read_filter = create_standard_filter(mapq_threshold)
 
         try:
             with AlignmentFile(bam_path) as bamfile:
                 for read in bamfile.fetch(chromosome):
                     # Apply quality filtering
-                    if self._read_filter.should_skip_read(read):
+                    if self._read_filter and self._read_filter.should_skip_read(read):
+                        continue
+
+                    # Skip reads without reference or queryable length
+                    chrom = read.reference_name
+                    readlen = read.infer_query_length()
+                    if chrom is None or readlen is None:
                         continue
 
                     yield ReadData(
-                        chromosome=read.reference_name,
+                        chromosome=chrom,
                         position=read.reference_start + 1,  # Convert to 1-based
-                        length=read.infer_query_length(),
+                        length=readlen,
                         is_reverse=read.is_reverse,
                         mapping_quality=read.mapping_quality
                     )
@@ -305,7 +311,7 @@ class FileIOService(IOService):
         for chrom, chrom_result in result.chromosome_results.items():
             if len(chrom_result.correlation_bins) > 0:
                 max_corr = np.max(chrom_result.correlation_bins)
-                peak_pos = np.argmax(chrom_result.correlation_bins)
+                peak_pos = int(np.argmax(chrom_result.correlation_bins))
             else:
                 max_corr = 0.0
                 peak_pos = 0
@@ -321,7 +327,7 @@ class FileIOService(IOService):
         # Add summary row
         if len(result.aggregated_correlation) > 0:
             genome_max = np.max(result.aggregated_correlation)
-            genome_peak = np.argmax(result.aggregated_correlation)
+            genome_peak = int(np.argmax(result.aggregated_correlation))
         else:
             genome_max = 0.0
             genome_peak = 0
@@ -389,11 +395,11 @@ class FileIOService(IOService):
                 reader.close()
         self._open_files.clear()
 
-    def __enter__(self):
+    def __enter__(self) -> 'FileIOService':
         """Context manager entry."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Context manager exit."""
         self.close()
 
@@ -405,11 +411,11 @@ class InMemoryIOService(IOService):
     useful for unit testing.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize in-memory I/O service."""
-        self.bam_data = {}
-        self.bigwig_data = {}
-        self.written_results = {}
+        self.bam_data: Dict[str, Any] = {}
+        self.bigwig_data: Dict[str, Any] = {}
+        self.written_results: Dict[str, Any] = {}
 
     def add_test_data(self, 
                      bam_path: str, 
@@ -453,7 +459,7 @@ class InMemoryIOService(IOService):
     def get_bam_info(self, path: str) -> BAMFileInfo:
         """Get test BAM info."""
         if path in self.bam_data:
-            return self.bam_data[path]['info']
+            return self.bam_data[path]['info']  # type: ignore[no-any-return]
         else:
             raise IOError(f"Test BAM file not found: {path}")
 
@@ -464,7 +470,7 @@ class InMemoryIOService(IOService):
         """Read test chromosome data."""
         if bam_path in self.bam_data:
             if chromosome in self.bam_data[bam_path]['chromosomes']:
-                return self.bam_data[bam_path]['chromosomes'][chromosome]
+                return self.bam_data[bam_path]['chromosomes'][chromosome]  # type: ignore[no-any-return]
 
         raise IOError(f"Test chromosome data not found: {bam_path}:{chromosome}")
 

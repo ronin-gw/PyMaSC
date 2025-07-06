@@ -55,7 +55,7 @@ class CalculationConfig:
     references: List[str] = field(default_factory=list)
     lengths: List[int] = field(default_factory=list)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Validate configuration after initialization."""
         if self.max_shift <= 0:
             raise ValueError("max_shift must be positive")
@@ -102,7 +102,7 @@ class ExecutionConfig:
     timeout: Optional[float] = None
     chrom_filter: Optional[Dict[str, Any]] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Validate execution configuration."""
         if self.worker_count <= 0:
             raise ValueError("worker_count must be positive")
@@ -123,7 +123,7 @@ class IOConfig:
     output_names: Optional[List[str]] = None
     expected_suffixes: List[str] = field(default_factory=lambda: ['.pdf', '.tab', '.json'])
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Validate I/O configuration."""
         if not self.input_paths:
             raise ValueError("At least one input path must be specified")

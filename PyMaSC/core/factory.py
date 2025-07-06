@@ -12,7 +12,8 @@ Key factories:
 """
 import logging
 from typing import Optional, Any, Dict, List, Union
-from multiprocessing import Queue, Lock
+from multiprocessing import Queue
+from multiprocessing.synchronize import Lock
 
 from .interfaces import CrossCorrelationCalculator, CalculatorFactory as ICalculatorFactory
 from .models import (
@@ -75,115 +76,115 @@ class CalculatorAdapter(CrossCorrelationCalculator):
     @property
     def ref2forward_sum(self) -> Dict[str, int]:
         """Forward read counts by chromosome."""
-        return self._calculator.ref2forward_sum
+        return self._calculator.ref2forward_sum  # type: ignore[no-any-return]
 
     @property
     def ref2reverse_sum(self) -> Dict[str, int]:
         """Reverse read counts by chromosome."""
-        return self._calculator.ref2reverse_sum
+        return self._calculator.ref2reverse_sum  # type: ignore[no-any-return]
 
     @property
     def ref2ccbins(self) -> Dict[str, Any]:
         """Cross-correlation bins by chromosome."""
-        return self._calculator.ref2ccbins
+        return self._calculator.ref2ccbins  # type: ignore[no-any-return]
 
     @property
     def ref2mappable_forward_sum(self) -> Optional[Dict[str, int]]:
         """Mappable forward read counts (BitArray and MSCC)."""
         if self._is_bitarray:
-            return self._calculator.ref2mappable_forward_sum
+            return self._calculator.ref2mappable_forward_sum  # type: ignore[no-any-return]
         elif self._is_mscc:
             # For pure MSCC, forward sums are mappability-weighted
-            return self._calculator.ref2forward_sum
+            return self._calculator.ref2forward_sum  # type: ignore[no-any-return]
         return None
 
     @property
     def ref2mappable_reverse_sum(self) -> Optional[Dict[str, int]]:
         """Mappable reverse read counts (BitArray and MSCC)."""
         if self._is_bitarray:
-            return self._calculator.ref2mappable_reverse_sum
+            return self._calculator.ref2mappable_reverse_sum  # type: ignore[no-any-return]
         elif self._is_mscc:
             # For pure MSCC, reverse sums are mappability-weighted
-            return self._calculator.ref2reverse_sum
+            return self._calculator.ref2reverse_sum  # type: ignore[no-any-return]
         return None
 
     @property
     def ref2mascbins(self) -> Optional[Dict[str, Any]]:
         """MSCC bins (BitArray and MSCC)."""
         if self._is_bitarray:
-            return self._calculator.ref2mascbins
+            return self._calculator.ref2mascbins  # type: ignore[no-any-return]
         elif self._is_mscc:
             # For pure MSCC, ccbins are mappability-weighted
-            return self._calculator.ref2ccbins
+            return self._calculator.ref2ccbins  # type: ignore[no-any-return]
         return None
 
 
 class CompositeCalculator(CrossCorrelationCalculator):
     """Composite calculator that runs both NCC and MSCC calculations.
-    
+
     This calculator is used when SUCCESSIVE algorithm is combined with
     mappability data, matching the behavior of the original implementation.
     """
-    
+
     def __init__(self, ncc_calculator: Any, mscc_calculator: Any):
         """Initialize composite calculator.
-        
+
         Args:
             ncc_calculator: NCC calculator instance
             mscc_calculator: MSCC calculator instance
         """
         self._ncc_calculator = ncc_calculator
         self._mscc_calculator = mscc_calculator
-        
+
     def feed_forward_read(self, chrom: str, pos: int, readlen: int) -> None:
         """Process a forward strand read in both calculators."""
         self._ncc_calculator.feed_forward_read(chrom, pos, readlen)
         self._mscc_calculator.feed_forward_read(chrom, pos, readlen)
-        
+
     def feed_reverse_read(self, chrom: str, pos: int, readlen: int) -> None:
         """Process a reverse strand read in both calculators."""
         self._ncc_calculator.feed_reverse_read(chrom, pos, readlen)
         self._mscc_calculator.feed_reverse_read(chrom, pos, readlen)
-        
+
     def finishup_calculation(self) -> None:
         """Complete calculation in both calculators."""
         self._ncc_calculator.finishup_calculation()
         self._mscc_calculator.finishup_calculation()
-        
+
     def flush(self) -> None:
         """Flush both calculators."""
         self._ncc_calculator.finishup_calculation()
         self._mscc_calculator.finishup_calculation()
-    
+
     @property
     def ref2forward_sum(self) -> Dict[str, int]:
         """Forward read counts from NCC calculator."""
-        return self._ncc_calculator.ref2forward_sum
-    
+        return self._ncc_calculator.ref2forward_sum  # type: ignore[no-any-return]
+
     @property
     def ref2reverse_sum(self) -> Dict[str, int]:
         """Reverse read counts from NCC calculator."""
-        return self._ncc_calculator.ref2reverse_sum
-    
+        return self._ncc_calculator.ref2reverse_sum  # type: ignore[no-any-return]
+
     @property
     def ref2ccbins(self) -> Dict[str, Any]:
         """NCC bins from NCC calculator."""
-        return self._ncc_calculator.ref2ccbins
-    
+        return self._ncc_calculator.ref2ccbins  # type: ignore[no-any-return]
+
     @property
     def ref2mappable_forward_sum(self) -> Optional[Dict[str, int]]:
         """Mappable forward read counts from MSCC calculator."""
-        return self._mscc_calculator.ref2forward_sum
-    
+        return self._mscc_calculator.ref2forward_sum  # type: ignore[no-any-return]
+
     @property
     def ref2mappable_reverse_sum(self) -> Optional[Dict[str, int]]:
         """Mappable reverse read counts from MSCC calculator."""
-        return self._mscc_calculator.ref2reverse_sum
-    
+        return self._mscc_calculator.ref2reverse_sum  # type: ignore[no-any-return]
+
     @property
     def ref2mascbins(self) -> Optional[Dict[str, Any]]:
         """MSCC bins from MSCC calculator."""
-        return self._mscc_calculator.ref2ccbins
+        return self._mscc_calculator.ref2ccbins  # type: ignore[no-any-return]
 
 
 class CalculatorFactory:
@@ -237,6 +238,8 @@ class CalculatorFactory:
                 return CalculatorFactory._create_ncc_calculator(config, logger_lock)
 
         elif algorithm == AlgorithmType.MSCC:
+            if mappability_config is None:
+                raise ValueError("MSCC algorithm requires mappability configuration")
             return CalculatorFactory._create_mscc_calculator(
                 config, mappability_config, logger_lock
             )
@@ -337,19 +340,19 @@ class CalculatorFactory:
             config.lengths,
             logger_lock
         )
-        
+
         # Create MSCC calculator
         bwfeeder = BWFeederWithMappableRegionSum(
             str(mappability_config.mappability_path),
             config.max_shift
         )
-        
+
         read_len = config.read_length
         if read_len is None:
             read_len = mappability_config.read_len
         if read_len is None:
             raise ValueError("Read length must be specified for SUCCESSIVE with mappability")
-        
+
         mscc_calc = _NativeMSCCCalculator(
             config.max_shift,
             read_len,
@@ -358,7 +361,7 @@ class CalculatorFactory:
             bwfeeder,
             logger_lock
         )
-        
+
         return CompositeCalculator(ncc_calc, mscc_calc)
 
 
@@ -412,60 +415,23 @@ class WorkerFactory:
 
         # Determine which worker class to use based on algorithm
         if calc_config.algorithm == AlgorithmType.BITARRAY:
-            # Use BitArray worker
-            from PyMaSC.core.worker import UnifiedWorker as BACalcWorker  # Use unified worker
-
-            # Create handler with mappability if configured
-            handler = None
-            if map_config and map_config.is_enabled():
-                from PyMaSC.handler.mappability import MappabilityHandler
-                handler = MappabilityHandler(
-                    str(map_config.mappability_path),
-                    calc_config.max_shift,
-                    calc_config.read_length or 50,
-                    str(map_config.mappability_stats_path) if map_config.mappability_stats_path else None,
-                    1  # Single worker in this context
-                )
-
-            return BACalcWorker(
-                order_queue, report_queue, logger_lock,
-                bam_path, calc_config.mapq_criteria, calc_config.max_shift,
-                calc_config.read_length or 50,
-                calc_config.references, calc_config.lengths,
-                handler, calc_config.skip_ncc
+            # Use unified worker with proper configuration
+            from PyMaSC.core.worker import UnifiedWorker
+            return UnifiedWorker(
+                worker_config,
+                order_queue,
+                report_queue,
+                logger_lock,
+                bam_path
             )
 
         else:
-            # Use standard workers for NCC/MSCC
-            if calc_config.skip_ncc and map_config and map_config.is_enabled():
-                # MSCC only
-                from PyMaSC.core.worker import UnifiedWorker as MSCCCalcWorker  # Use unified worker
-                return MSCCCalcWorker(
-                    order_queue, report_queue, logger_lock,
-                    bam_path, calc_config.mapq_criteria, calc_config.max_shift,
-                    calc_config.references, calc_config.lengths,
-                    str(map_config.mappability_path),
-                    calc_config.read_length or 50,
-                    {}  # chrom2mappable_len - will be populated during execution
-                )
-
-            elif map_config and map_config.is_enabled():
-                # Both NCC and MSCC
-                from PyMaSC.core.worker import UnifiedWorker as NCCandMSCCCalcWorker  # Use unified worker
-                return NCCandMSCCCalcWorker(
-                    order_queue, report_queue, logger_lock,
-                    bam_path, calc_config.mapq_criteria, calc_config.max_shift,
-                    calc_config.references, calc_config.lengths,
-                    str(map_config.mappability_path),
-                    calc_config.read_length or 50,
-                    {}  # chrom2mappable_len
-                )
-
-            else:
-                # NCC only
-                from PyMaSC.core.worker import UnifiedWorker as NaiveCCCalcWorker  # Use unified worker
-                return NaiveCCCalcWorker(
-                    order_queue, report_queue, logger_lock,
-                    bam_path, calc_config.mapq_criteria, calc_config.max_shift,
-                    calc_config.references, calc_config.lengths
-                )
+            # Use unified worker for all other cases
+            from PyMaSC.core.worker import UnifiedWorker
+            return UnifiedWorker(
+                worker_config,
+                order_queue,
+                report_queue,
+                logger_lock,
+                bam_path
+            )

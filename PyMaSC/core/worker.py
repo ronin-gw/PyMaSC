@@ -14,7 +14,8 @@ import logging
 import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from multiprocessing import Process, Queue, Lock
+from multiprocessing import Process, Queue
+from multiprocessing.synchronize import Lock
 from typing import Optional, Dict, Any, Protocol, runtime_checkable
 
 from pysam import AlignmentFile, AlignedSegment
@@ -120,7 +121,7 @@ class BaseWorker(Process, ABC):
 
         # Create progress reporter
         self._progress = ProgressHook(report_queue) if worker_config.progress_enabled else None
-        self._current_chrom = None
+        self._current_chrom: Optional[str] = None
 
         # Reference information
         calc_config = worker_config.calculation_config
@@ -313,10 +314,10 @@ class UnifiedWorker(BaseWorker):
                         logger_lock, bam_path)
 
         self._calculator_factory = calculator_factory
-        self._calculator = None
-        self._processor = None
-        self._secondary_calculator = None  # For dual NCC/MSCC mode
-        self._bwfeeder = None
+        self._calculator: Optional[CrossCorrelationCalculator] = None
+        self._processor: Optional[ReadProcessor] = None
+        self._secondary_calculator: Optional[CrossCorrelationCalculator] = None  # For dual NCC/MSCC mode
+        self._bwfeeder: Optional[Any] = None
 
     def _initialize(self) -> None:
         """Initialize calculators based on configuration."""
@@ -369,27 +370,27 @@ class UnifiedWorker(BaseWorker):
             if self._secondary_calculator:
                 # Dual processor for NCC+MSCC
                 self._processor = DualReadProcessor(
-                    self._calculator,
+                    self._calculator,  # type: ignore[arg-type]
                     self._secondary_calculator,
                     calc_config.mapq_criteria
                 )
             else:
                 # Standard single processor
                 self._processor = StandardReadProcessor(
-                    self._calculator,
+                    self._calculator,  # type: ignore[arg-type]
                     calc_config.mapq_criteria
                 )
 
-        return self._processor
+        return self._processor  # type: ignore[return-value]
 
     def _collect_results(self, chrom: str) -> WorkerResult:
         """Collect results from calculators."""
         result = WorkerResult(chromosome=chrom)
 
         # Flush calculators
-        if hasattr(self._calculator, 'flush'):
+        if self._calculator is not None and hasattr(self._calculator, 'flush'):
             self._calculator.flush()
-        if self._secondary_calculator and hasattr(self._secondary_calculator, 'flush'):
+        if self._secondary_calculator is not None and hasattr(self._secondary_calculator, 'flush'):
             self._secondary_calculator.flush()
         if self._bwfeeder and hasattr(self._bwfeeder, 'flush'):
             self._bwfeeder.flush()
@@ -398,7 +399,7 @@ class UnifiedWorker(BaseWorker):
         if self._bwfeeder and hasattr(self._bwfeeder, 'chrom2mappable_len'):
             result.mappable_length = self._bwfeeder.chrom2mappable_len.get(chrom)
         elif hasattr(self._calculator, 'ref2mappable_len'):
-            result.mappable_length = self._calculator.ref2mappable_len.get(chrom)
+            result.mappable_length = self._calculator.ref2mappable_len.get(chrom)  # type: ignore[union-attr]
 
         # Collect NCC results
         if self._secondary_calculator:
@@ -408,25 +409,25 @@ class UnifiedWorker(BaseWorker):
             result.ncc_bins = self._secondary_calculator.ref2ccbins.get(chrom)
         elif not self.config.calculation_config.skip_ncc:
             # From primary calculator if it includes NCC
-            result.ncc_forward_sum = self._calculator.ref2forward_sum.get(chrom)
-            result.ncc_reverse_sum = self._calculator.ref2reverse_sum.get(chrom)
-            result.ncc_bins = self._calculator.ref2ccbins.get(chrom)
+            result.ncc_forward_sum = self._calculator.ref2forward_sum.get(chrom)  # type: ignore[union-attr]
+            result.ncc_reverse_sum = self._calculator.ref2reverse_sum.get(chrom)  # type: ignore[union-attr]
+            result.ncc_bins = self._calculator.ref2ccbins.get(chrom)  # type: ignore[union-attr]
 
         # Collect MSCC results
         algorithm = self.config.calculation_config.algorithm
         has_mappability = self.config.mappability_config and self.config.mappability_config.is_enabled()
-        
+
         if algorithm == AlgorithmType.MSCC:
             # For pure MSCC, use standard ref2* attributes
-            result.mscc_forward_sum = self._calculator.ref2forward_sum.get(chrom)
-            result.mscc_reverse_sum = self._calculator.ref2reverse_sum.get(chrom)
-            result.mscc_bins = self._calculator.ref2ccbins.get(chrom)
+            result.mscc_forward_sum = self._calculator.ref2forward_sum.get(chrom)  # type: ignore[union-attr]
+            result.mscc_reverse_sum = self._calculator.ref2reverse_sum.get(chrom)  # type: ignore[union-attr]
+            result.mscc_bins = self._calculator.ref2ccbins.get(chrom)  # type: ignore[union-attr]
         elif algorithm == AlgorithmType.SUCCESSIVE and has_mappability:
             # For SUCCESSIVE with mappability (CompositeCalculator), use mappable attributes
             if hasattr(self._calculator, 'ref2mappable_forward_sum'):
-                mappable_forward = self._calculator.ref2mappable_forward_sum
-                mappable_reverse = self._calculator.ref2mappable_reverse_sum
-                mappable_bins = self._calculator.ref2mascbins
+                mappable_forward = self._calculator.ref2mappable_forward_sum  # type: ignore[union-attr]
+                mappable_reverse = self._calculator.ref2mappable_reverse_sum  # type: ignore[union-attr]
+                mappable_bins = self._calculator.ref2mascbins  # type: ignore[union-attr]
 
                 if mappable_forward is not None:
                     result.mscc_forward_sum = mappable_forward.get(chrom)
@@ -434,9 +435,9 @@ class UnifiedWorker(BaseWorker):
                     result.mscc_bins = mappable_bins.get(chrom)
         elif hasattr(self._calculator, 'ref2mappable_forward_sum'):
             # For BitArray with mappability
-            mappable_forward = self._calculator.ref2mappable_forward_sum
-            mappable_reverse = self._calculator.ref2mappable_reverse_sum
-            mappable_bins = self._calculator.ref2mascbins
+            mappable_forward = self._calculator.ref2mappable_forward_sum  # type: ignore[union-attr]
+            mappable_reverse = self._calculator.ref2mappable_reverse_sum  # type: ignore[union-attr]
+            mappable_bins = self._calculator.ref2mascbins  # type: ignore[union-attr]
 
             if mappable_forward is not None:
                 result.mscc_forward_sum = mappable_forward.get(chrom)
@@ -452,7 +453,7 @@ class UnifiedWorker(BaseWorker):
 
         # Call finishup on calculators if available
         if hasattr(self._calculator, 'finishup_calculation'):
-            self._calculator.finishup_calculation()
+            self._calculator.finishup_calculation()  # type: ignore[union-attr]
         if self._secondary_calculator and hasattr(self._secondary_calculator, 'finishup_calculation'):
             self._secondary_calculator.finishup_calculation()
 
@@ -497,7 +498,7 @@ class DualReadProcessor:
 
 
 # Backward compatibility aliases
-def create_legacy_worker(worker_type: str, *args, **kwargs) -> BaseWorker:
+def create_legacy_worker(worker_type: str, *args: Any, **kwargs: Any) -> BaseWorker:
     """Create worker using legacy interface.
 
     This function provides backward compatibility for code expecting
@@ -564,6 +565,11 @@ def create_legacy_worker(worker_type: str, *args, **kwargs) -> BaseWorker:
         )
 
     # Create worker config
+    # Handle optional mappability config
+    if map_config is None:
+        from PyMaSC.core.models import MappabilityConfig
+        map_config = MappabilityConfig()  # Use default empty config
+
     worker_config = WorkerConfig(
         calculation_config=calc_config,
         mappability_config=map_config,

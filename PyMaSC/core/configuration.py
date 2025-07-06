@@ -42,7 +42,7 @@ class ConfigurationBuilder:
                   .build())
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize builder with default values."""
         self._calculation_config = CalculationConfig(
             algorithm=AlgorithmType.BITARRAY,
@@ -51,9 +51,9 @@ class ConfigurationBuilder:
         )
         self._mappability_config = MappabilityConfig()
         self._execution_config = ExecutionConfig()
-        self._io_config = None
-        self._errors = []
-        self._warnings = []
+        self._io_config: Optional[IOConfig] = None
+        self._errors: List[str] = []
+        self._warnings: List[str] = []
 
     def with_algorithm(self, algorithm: Union[str, AlgorithmType]) -> 'ConfigurationBuilder':
         """Set the cross-correlation algorithm.
@@ -210,15 +210,19 @@ class ConfigurationBuilder:
 
         # Validate input files exist
         for path in input_paths:
-            if not path.exists():
+            path_obj = Path(path) if isinstance(path, str) else path
+            if not path_obj.exists():
                 self._errors.append(f"Input file does not exist: {path}")
 
         # Validate output names if provided
         if output_names and len(output_names) != len(input_paths):
             self._errors.append("output_names length must match input_paths length")
 
+        # Convert input paths to Path objects
+        path_objects = [Path(p) if isinstance(p, str) else p for p in input_paths]
+
         self._io_config = IOConfig(
-            input_paths=input_paths,
+            input_paths=path_objects,
             output_dir=output_dir,
             output_names=output_names
         )

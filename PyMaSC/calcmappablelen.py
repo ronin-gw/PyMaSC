@@ -10,6 +10,7 @@ The pre-calculation process:
 - Saves statistics to JSON files for later use
 - Supports multiprocessing for faster computation
 """
+import argparse
 import logging
 import sys
 
@@ -23,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 @entrypoint(logger)
-def main():
+def main() -> None:
     """Main pre-calculation workflow for mappability statistics.
 
     Orchestrates the complete pre-calculation workflow:

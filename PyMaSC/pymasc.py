@@ -2,10 +2,11 @@
 
 This module provides the main entry point for PyMaSC.
 """
+import argparse
 import logging
 import os
 import sys
-
+from typing import List, Optional, Tuple, Union
 from itertools import zip_longest
 
 from PyMaSC import entrypoint, logging_version
@@ -27,10 +28,10 @@ from PyMaSC.output.table import (output_cc, output_mscc, output_nreads_table,
 logger = logging.getLogger(__name__)
 
 PLOTFILE_SUFFIX = ".pdf"
-EXPECT_OUTFILE_SUFFIXES = (PLOTFILE_SUFFIX, CCOUTPUT_SUFFIX, MSCCOUTPUT_SUFFIX, NREADOUTPUT_SUFFIX, STATSFILE_SUFFIX)
+EXPECT_OUTFILE_SUFFIXES: Tuple[str, ...] = (PLOTFILE_SUFFIX, CCOUTPUT_SUFFIX, MSCCOUTPUT_SUFFIX, NREADOUTPUT_SUFFIX, STATSFILE_SUFFIX)
 
 
-def _get_output_basename(dirpath, filepath):
+def _get_output_basename(dirpath: str, filepath: str) -> str:
     """Generate output basename from directory and file paths.
 
     Args:
@@ -43,7 +44,7 @@ def _get_output_basename(dirpath, filepath):
     return os.path.join(dirpath, os.path.splitext(os.path.basename(filepath))[0])
 
 
-def _parse_args():
+def _parse_args() -> argparse.Namespace:
     """Parse and validate command-line arguments.
 
     Handles argument parsing, validation, and setup of logging configuration.
@@ -76,7 +77,7 @@ def _parse_args():
 
 
 @entrypoint(logger)
-def main():
+def main() -> None:
     """Main PyMaSC application entry point.
 
     Orchestrates the complete PyMaSC workflow:
@@ -97,7 +98,7 @@ def main():
         ProgressBase.global_switch = True
 
     #
-    suffixes = list(EXPECT_OUTFILE_SUFFIXES)
+    suffixes: List[str] = list(EXPECT_OUTFILE_SUFFIXES)
     if args.mappability:
         if args.skip_ncc:
             suffixes.remove(CCOUTPUT_SUFFIX)
@@ -105,7 +106,7 @@ def main():
         suffixes.remove(MSCCOUTPUT_SUFFIX)
     if args.skip_plots:
         suffixes.remove(PLOTFILE_SUFFIX)
-    basenames = prepare_output(args.reads, args.name, args.outdir, suffixes)
+    basenames = prepare_output(args.reads, args.name, args.outdir, tuple(suffixes))
 
     #
     calc_handlers = make_handlers(args)
@@ -116,7 +117,7 @@ def main():
     max_readlen = set_readlen(args, calc_handlers)
 
     #
-    mappability_handler = None
+    mappability_handler: Optional[MappabilityHandler] = None
     if args.mappability:
         try:
             mappability_handler = MappabilityHandler(
@@ -142,7 +143,7 @@ def main():
         mappability_handler.close()
 
 
-def prepare_output(reads, names, outdir, suffixes=EXPECT_OUTFILE_SUFFIXES):
+def prepare_output(reads: List[str], names: List[Optional[str]], outdir: str, suffixes: Tuple[str, ...] = EXPECT_OUTFILE_SUFFIXES) -> List[str]:
     """Prepare output directory and generate output basenames.
 
     Creates output directory if needed and generates output basenames for each
@@ -165,7 +166,7 @@ def prepare_output(reads, names, outdir, suffixes=EXPECT_OUTFILE_SUFFIXES):
         sys.exit(1)
 
     #
-    basenames = []
+    basenames: List[str] = []
     for f, n in zip_longest(reads, names):
         if n is None:
             output_basename = os.path.join(outdir, os.path.splitext(os.path.basename(f))[0])
@@ -181,7 +182,7 @@ def prepare_output(reads, names, outdir, suffixes=EXPECT_OUTFILE_SUFFIXES):
     return basenames
 
 
-def make_handlers(args):
+def make_handlers(args: argparse.Namespace) -> List[UnifiedCalcHandler]:
     """Create calculation handlers for input files.
 
     Instantiates UnifiedCalcHandler with appropriate configuration objects
@@ -196,8 +197,8 @@ def make_handlers(args):
     Note:
         Failed handlers are logged but not included in returned list
     """
-    calc_handlers = []
-    
+    calc_handlers: List[UnifiedCalcHandler] = []
+
     # Create configuration objects from arguments
     for f in args.reads:
         try:
@@ -209,15 +210,15 @@ def make_handlers(args):
                 skip_ncc=args.skip_ncc
             )
             # Store additional attributes for backward compatibility
-            calc_config.esttype = args.readlen_estimator
-            calc_config.chromfilter = args.chromfilter
-            
+            calc_config.esttype = args.readlen_estimator  # type: ignore[attr-defined]
+            calc_config.chromfilter = args.chromfilter  # type: ignore[attr-defined]
+
             # Create execution configuration
             exec_config = ExecutionConfig(
                 mode=ExecutionMode.MULTI_PROCESS if args.process > 1 else ExecutionMode.SINGLE_PROCESS,
                 worker_count=args.process
             )
-            
+
             # Create mappability configuration if needed
             # Both SUCCESSIVE and BITARRAY algorithms support mappability
             mappability_config = None
@@ -227,11 +228,11 @@ def make_handlers(args):
                     mappability_path=Path(args.mappability),
                     mappability_stats_path=Path(args.mappability_stats) if getattr(args, 'mappability_stats', None) else None
                 )
-            
+
             # Create handler
             handler = UnifiedCalcHandler(f, calc_config, exec_config, mappability_config)
             calc_handlers.append(handler)
-            
+
         except ValueError:
             logger.error("Failed to open file '{}'".format(f))
         except NothingToCalc:
@@ -242,7 +243,7 @@ def make_handlers(args):
     return calc_handlers
 
 
-def set_readlen(args, calc_handlers):
+def set_readlen(args: argparse.Namespace, calc_handlers: List[UnifiedCalcHandler]) -> int:
     """Set or estimate read length for all calculation handlers.
 
     Either uses user-specified read length or estimates it from the data.
@@ -263,24 +264,25 @@ def set_readlen(args, calc_handlers):
         logger.info("Check read length: Get {} from read length distribution".format(args.readlen_estimator.lower()))
 
     #
-    readlens = []
+    readlens: List[int] = []
     for i, handler in enumerate(calc_handlers[:]):
         try:
             handler.set_readlen(args.read_length)
         except ValueError:
             calc_handlers.pop(i)
             continue
-        readlens.append(handler.read_len)
+        if handler.read_len is not None:
+            readlens.append(handler.read_len)
 
     #
     max_readlen = max(readlens)
     if len(set(readlens)) != 1:
         logger.warning("There are multiple read length candidates. Use max length "
-                       "() for MSCC calculation.".format(max_readlen))
+                       "({}) for MSCC calculation.".format(max_readlen))
     return max_readlen
 
 
-def run_calculation(args, handler, output_basename):
+def run_calculation(args: argparse.Namespace, handler: UnifiedCalcHandler, output_basename: str) -> Optional[CCResult]:
     """Execute cross-correlation calculation for a single file.
 
     Runs the main calculation workflow and creates a result handler
@@ -299,7 +301,7 @@ def run_calculation(args, handler, output_basename):
     try:
         handler.run_calcuration()
     except ReadUnsortedError:
-        return
+        return None
 
     try:
         return CCResult(
@@ -308,9 +310,10 @@ def run_calculation(args, handler, output_basename):
         )
     except ReadsTooFew:
         logger.warning("Faild to process {}. Skip this file.".format(handler.path))
+        return None
 
 
-def output_results(args, output_basename, result_handler):
+def output_results(args: argparse.Namespace, output_basename: str, result_handler: Optional[CCResult]) -> None:
     """Generate all output files and plots from calculation results.
 
     Creates statistics files, data tables, and plots based on the
@@ -324,6 +327,9 @@ def output_results(args, output_basename, result_handler):
     Note:
         Plot generation may be skipped if matplotlib is not available
     """
+    if result_handler is None:
+        return
+
     output_stats(output_basename, result_handler)
     output_nreads_table(output_basename, result_handler)
     if not result_handler.skip_ncc:

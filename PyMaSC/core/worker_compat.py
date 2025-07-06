@@ -8,8 +8,10 @@ This ensures that existing code continues to work without modification
 while new code can use the unified architecture.
 """
 import warnings
-from typing import Any, Dict, Optional
-from multiprocessing import Queue, Lock
+from typing import Any, Dict, Optional, List
+from multiprocessing import Queue
+from multiprocessing.synchronize import Lock
+from pathlib import Path
 
 from PyMaSC.core.worker import UnifiedWorker
 from PyMaSC.core.models import (
@@ -24,9 +26,9 @@ class LegacyWorkerBase:
     with the same interface as the original worker classes.
     """
 
-    def __init__(self, order_queue: Queue, report_queue: Queue, logger_lock: Lock,
+    def __init__(self, order_queue: Queue[Any], report_queue: Queue[Any], logger_lock: Lock,
                  bam_path: str, mapq_criteria: int, max_shift: int,
-                 references: list, lengths: list, **kwargs):
+                 references: List[str], lengths: List[int], **kwargs: Any) -> None:
         """Initialize legacy worker wrapper.
 
         Args:
@@ -78,9 +80,9 @@ class NaiveCCCalcWorker(LegacyWorkerBase):
     while delegating to UnifiedWorker internally.
     """
 
-    def __init__(self, order_queue: Queue, report_queue: Queue, logger_lock: Lock,
+    def __init__(self, order_queue: Queue[Any], report_queue: Queue[Any], logger_lock: Lock,
                  bam_path: str, mapq_criteria: int, max_shift: int,
-                 references: list, lengths: list):
+                 references: List[str], lengths: List[int]) -> None:
         """Initialize NaiveCCCalcWorker compatibility wrapper."""
         warnings.warn(
             "NaiveCCCalcWorker is deprecated. Use UnifiedWorker instead.",
@@ -101,9 +103,15 @@ class NaiveCCCalcWorker(LegacyWorkerBase):
             skip_ncc=False
         )
 
+        # Create a minimal mappability config for NCC (not used but required by interface)
+        map_config = MappabilityConfig(
+            mappability_path=None,
+            read_len=50
+        )
+
         worker_config = WorkerConfig(
             calculation_config=calc_config,
-            mappability_config=None,
+            mappability_config=map_config,
             progress_enabled=True,
             logger_lock=self._logger_lock
         )
@@ -124,10 +132,10 @@ class MSCCCalcWorker(LegacyWorkerBase):
     while delegating to UnifiedWorker internally.
     """
 
-    def __init__(self, order_queue: Queue, report_queue: Queue, logger_lock: Lock,
+    def __init__(self, order_queue: Queue[Any], report_queue: Queue[Any], logger_lock: Lock,
                  bam_path: str, mapq_criteria: int, max_shift: int,
-                 references: list, lengths: list, mappable_path: str,
-                 read_len: int, chrom2mappable_len: Dict[str, int]):
+                 references: List[str], lengths: List[int], mappable_path: str,
+                 read_len: int, chrom2mappable_len: Dict[str, int]) -> None:
         """Initialize MSCCCalcWorker compatibility wrapper."""
         warnings.warn(
             "MSCCCalcWorker is deprecated. Use UnifiedWorker instead.",
@@ -152,7 +160,7 @@ class MSCCCalcWorker(LegacyWorkerBase):
         )
 
         map_config = MappabilityConfig(
-            mappability_path=self._kwargs['mappable_path'],
+            mappability_path=Path(self._kwargs['mappable_path']),
             read_len=self._kwargs['read_len']
         )
 
@@ -179,10 +187,10 @@ class NCCandMSCCCalcWorker(LegacyWorkerBase):
     while delegating to UnifiedWorker internally.
     """
 
-    def __init__(self, order_queue: Queue, report_queue: Queue, logger_lock: Lock,
+    def __init__(self, order_queue: Queue[Any], report_queue: Queue[Any], logger_lock: Lock,
                  bam_path: str, mapq_criteria: int, max_shift: int,
-                 references: list, lengths: list, mappable_path: str,
-                 read_len: int, chrom2mappable_len: Dict[str, int]):
+                 references: List[str], lengths: List[int], mappable_path: str,
+                 read_len: int, chrom2mappable_len: Dict[str, int]) -> None:
         """Initialize NCCandMSCCCalcWorker compatibility wrapper."""
         warnings.warn(
             "NCCandMSCCCalcWorker is deprecated. Use UnifiedWorker instead.",
@@ -207,7 +215,7 @@ class NCCandMSCCCalcWorker(LegacyWorkerBase):
         )
 
         map_config = MappabilityConfig(
-            mappability_path=self._kwargs['mappable_path'],
+            mappability_path=Path(self._kwargs['mappable_path']),
             read_len=self._kwargs['read_len']
         )
 
@@ -234,10 +242,10 @@ class BACalcWorker(LegacyWorkerBase):
     while delegating to UnifiedWorker internally.
     """
 
-    def __init__(self, order_queue: Queue, report_queue: Queue, logger_lock: Lock,
+    def __init__(self, order_queue: Queue[Any], report_queue: Queue[Any], logger_lock: Lock,
                  bam_path: str, mapq_criteria: int, max_shift: int, read_len: int,
-                 references: list, lengths: list, mappability_handler: Optional[Any] = None,
-                 skip_ncc: bool = False):
+                 references: List[str], lengths: List[int], mappability_handler: Optional[Any] = None,
+                 skip_ncc: bool = False) -> None:
         """Initialize BACalcWorker compatibility wrapper."""
         warnings.warn(
             "BACalcWorker is deprecated. Use UnifiedWorker instead.",
@@ -261,11 +269,17 @@ class BACalcWorker(LegacyWorkerBase):
             skip_ncc=self._kwargs['skip_ncc']
         )
 
-        map_config = None
+        # Create mappability config - either from handler or minimal default
         mappability_handler = self._kwargs.get('mappability_handler')
         if mappability_handler:
             map_config = MappabilityConfig(
-                mappability_path=mappability_handler.path,
+                mappability_path=Path(mappability_handler.path),
+                read_len=self._kwargs['read_len']
+            )
+        else:
+            # Create minimal config for BitArray without mappability
+            map_config = MappabilityConfig(
+                mappability_path=None,
                 read_len=self._kwargs['read_len']
             )
 
@@ -286,7 +300,7 @@ class BACalcWorker(LegacyWorkerBase):
 
 
 # Convenience function for backward compatibility
-def create_legacy_worker(worker_type: str, *args, **kwargs) -> Any:
+def create_legacy_worker(worker_type: str, *args: Any, **kwargs: Any) -> Any:
     """Create a legacy worker using the old interface.
 
     This function provides backward compatibility for code that

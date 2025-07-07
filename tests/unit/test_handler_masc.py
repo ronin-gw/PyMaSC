@@ -22,12 +22,12 @@ def create_test_handler(path="test.bam", esttype="ncc", max_shift=200, mapq_crit
     )
     calc_config.esttype = esttype
     calc_config.chromfilter = chromfilter
-    
+
     exec_config = ExecutionConfig(
         mode=ExecutionMode.MULTI_PROCESS if nworker > 1 else ExecutionMode.SINGLE_PROCESS,
         worker_count=nworker
     )
-    
+
     return UnifiedCalcHandler(path, calc_config, exec_config)
 
 

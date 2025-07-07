@@ -425,17 +425,21 @@ class PyMaSCStats(object):
 
             self._make_cc_masc_stats(cc, masc)
 
-    def _make_ccstat(self, cc: np.ndarray, genomelen: int, forward_sum: Union[int, float, np.ndarray], reverse_sum: Union[int, float, np.ndarray], do_llestimation: bool = False, est_lib_len: Optional[int] = None) -> CCStats:
-        # Convert arrays to scalars if needed
-        if isinstance(forward_sum, np.ndarray):
-            forward_sum_val = int(np.sum(forward_sum))
+    def _make_ccstat(self, cc: np.ndarray, genomelen: int, forward_sum: Union[int, float, np.ndarray, tuple], reverse_sum: Union[int, float, np.ndarray, tuple], do_llestimation: bool = False, est_lib_len: Optional[int] = None) -> CCStats:
+        # Convert tuples to numpy arrays, keep arrays as arrays, scalars as scalars
+        if isinstance(forward_sum, tuple):
+            forward_sum_val = np.array(forward_sum)
+        elif isinstance(forward_sum, list):
+            forward_sum_val = np.array(forward_sum)
         else:
-            forward_sum_val = int(forward_sum)
+            forward_sum_val = forward_sum
 
-        if isinstance(reverse_sum, np.ndarray):
-            reverse_sum_val = int(np.sum(reverse_sum))
+        if isinstance(reverse_sum, tuple):
+            reverse_sum_val = np.array(reverse_sum)
+        elif isinstance(reverse_sum, list):
+            reverse_sum_val = np.array(reverse_sum)
         else:
-            reverse_sum_val = int(reverse_sum)
+            reverse_sum_val = reverse_sum
 
         return CCStats(cc, genomelen, forward_sum_val, reverse_sum_val, self.read_len,
                        self.min_calc_width or 0, self.mv_avr_filter_len,

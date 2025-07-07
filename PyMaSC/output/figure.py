@@ -15,7 +15,7 @@ The module handles matplotlib import failures gracefully and provides detailed
 error logging for troubleshooting visualization issues.
 """
 import logging
-import os.path
+from pathlib import Path
 from typing import Any, Optional, Tuple, Union
 
 import numpy as np
@@ -58,7 +58,7 @@ def plot_figures(outfile: str, ccr: Any) -> None:
         ccr: CCResult object containing analysis results
     """
     logger.info("Output '{}'".format(outfile))
-    name = os.path.basename(os.path.splitext(outfile)[0])
+    name = Path(outfile).stem
 
     with PdfPages(outfile) as pp:
         if not ccr.skip_ncc:

@@ -8,6 +8,7 @@ import pytest
 import os
 import json
 import numpy as np
+from pathlib import Path
 from unittest.mock import patch
 import tempfile
 
@@ -25,27 +26,27 @@ class TestENCODEDataValidation:
     @pytest.fixture
     def test_data_paths(self):
         """Provide paths to user-provided test data."""
-        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-        test_data_dir = os.path.join(base_dir, 'tests', 'data')
+        base_dir = Path(__file__).parent.parent.parent
+        test_data_dir = base_dir / 'tests' / 'data'
         return {
-            'bigwig': os.path.join(test_data_dir, 'hg19_36mer-test.bigwig'),
-            'bam': os.path.join(test_data_dir, 'ENCFF000RMB-test.bam'),
-            'bam_index': os.path.join(test_data_dir, 'ENCFF000RMB-test.bam.bai'),
-            'reference_sam': os.path.join(test_data_dir, 'ENCFF000RMB-test.sam'),
-            'reference_bedgraph': os.path.join(test_data_dir, 'hg19_36mer-test.bedGraph')
+            'bigwig': str(test_data_dir / 'hg19_36mer-test.bigwig'),
+            'bam': str(test_data_dir / 'ENCFF000RMB-test.bam'),
+            'bam_index': str(test_data_dir / 'ENCFF000RMB-test.bam.bai'),
+            'reference_sam': str(test_data_dir / 'ENCFF000RMB-test.sam'),
+            'reference_bedgraph': str(test_data_dir / 'hg19_36mer-test.bedGraph')
         }
 
     def test_encode_data_files_exist(self, test_data_paths):
         """Test that all required ENCODE test data files exist."""
         for name, path in test_data_paths.items():
-            assert os.path.exists(path), f"Test data file missing: {name} at {path}"
+            assert Path(path).exists(), f"Test data file missing: {name} at {path}"
 
     def test_encode_bam_basic_validation(self, test_data_paths):
         """Test basic BAM file validation with pysam."""
         bam_path = test_data_paths['bam']
 
         # Open BAM file and validate basic properties
-        with pysam.AlignmentFile(bam_path, 'rb') as bam:
+        with pysam.AlignmentFile(str(bam_path), 'rb') as bam:
             # Check that file has references
             assert len(bam.references) > 0, "BAM file has no reference sequences"
 
@@ -83,7 +84,7 @@ class TestENCODEDataValidation:
         forward_positions = []
         reverse_positions = []
 
-        with pysam.AlignmentFile(bam_path, 'rb') as bam:
+        with pysam.AlignmentFile(str(bam_path), 'rb') as bam:
             # Extract all reads from chr1 (they are concentrated in ~700k-850k region)
             for read in bam.fetch('chr1'):
                 if read.is_unmapped or read.mapping_quality < 10:
@@ -116,17 +117,17 @@ class TestCrossCorrelationNumerics:
     @pytest.fixture
     def encode_read_data(self):
         """Extract read data from ENCODE BAM for testing."""
-        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-        test_data_dir = os.path.join(base_dir, 'tests', 'data')
-        bam_path = os.path.join(test_data_dir, 'ENCFF000RMB-test.bam')
+        base_dir = Path(__file__).parent.parent.parent
+        test_data_dir = base_dir / 'tests' / 'data'
+        bam_path = test_data_dir / 'ENCFF000RMB-test.bam'
 
-        if not os.path.exists(bam_path):
+        if not bam_path.exists():
             pytest.skip("ENCODE test BAM file not found")
 
         forward_positions = []
         reverse_positions = []
 
-        with pysam.AlignmentFile(bam_path, 'rb') as bam:
+        with pysam.AlignmentFile(str(bam_path), 'rb') as bam:
             # Get reads from the actual data region (~700k-850k)
             for read in bam.fetch('chr1', 700000, 900000):
                 if read.is_unmapped or read.mapping_quality < 10:
@@ -239,14 +240,14 @@ class TestBigWigMappabilityValidation:
     @pytest.fixture
     def bigwig_test_data(self):
         """Open BigWig test file for validation."""
-        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-        test_data_dir = os.path.join(base_dir, 'tests', 'data')
-        bigwig_path = os.path.join(test_data_dir, 'hg19_36mer-test.bigwig')
+        base_dir = Path(__file__).parent.parent.parent
+        test_data_dir = base_dir / 'tests' / 'data'
+        bigwig_path = test_data_dir / 'hg19_36mer-test.bigwig'
 
-        if not os.path.exists(bigwig_path):
+        if not bigwig_path.exists():
             pytest.skip("ENCODE test BigWig file not found")
 
-        return bigwig_path
+        return str(bigwig_path)
 
     def test_bigwig_file_structure(self, bigwig_test_data):
         """Test BigWig file basic structure with pyBigWig."""
@@ -293,12 +294,12 @@ class TestIntegrationWorkflow:
         # This is a structural test to ensure the workflow can be set up
         # without running the full computation
 
-        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-        test_data_dir = os.path.join(base_dir, 'tests', 'data')
-        bam_path = os.path.join(test_data_dir, 'ENCFF000RMB-test.bam')
-        bigwig_path = os.path.join(test_data_dir, 'hg19_36mer-test.bigwig')
+        base_dir = Path(__file__).parent.parent.parent
+        test_data_dir = base_dir / 'tests' / 'data'
+        bam_path = test_data_dir / 'ENCFF000RMB-test.bam'
+        bigwig_path = test_data_dir / 'hg19_36mer-test.bigwig'
 
-        if not os.path.exists(bam_path) or not os.path.exists(bigwig_path):
+        if not bam_path.exists() or not bigwig_path.exists():
             pytest.skip("Test data files not found")
 
         # Test that handler can be initialized with real data paths
@@ -311,21 +312,21 @@ class TestIntegrationWorkflow:
                 skip_ncc=False
             )
             calc_config.esttype = 'mscc'  # Set estimation type
-            
+
             exec_config = ExecutionConfig(
                 mode=ExecutionMode.SINGLE_PROCESS,
                 worker_count=1
             )
-            
+
             handler = UnifiedCalcHandler(
-                path=bam_path,
+                path=str(bam_path),
                 config=calc_config,
                 execution_config=exec_config
             )
 
             # Handler should initialize successfully
             assert handler is not None
-            assert handler.path == bam_path
+            assert handler.path == str(bam_path)
             assert handler.max_shift == 200
 
             print("Full workflow handler initialized successfully")

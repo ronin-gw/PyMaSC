@@ -20,6 +20,7 @@ import os
 import json
 from multiprocessing import Process, Lock
 from multiprocessing.queues import Queue
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
@@ -149,7 +150,7 @@ class MappabilityHandler(MappableLengthCalculator):
         self.nworker = nworker
 
         if not os.access(path, os.R_OK):
-            reason = "file is unreadable." if os.path.isfile(path) else "no such file."
+            reason = "file is unreadable." if Path(path).is_file() else "no such file."
             logger.critical("Failed to open '{}': {}".format(path, reason))
             raise BWIOError
 
@@ -161,12 +162,12 @@ class MappabilityHandler(MappableLengthCalculator):
         if map_path:
             self.map_path = map_path
         else:
-            self.map_path = os.path.splitext(path)[0] + "_mappability.json"
+            self.map_path = str(Path(path).with_suffix("")) + "_mappability.json"
 
-        if not os.path.exists(self.map_path):
+        if not Path(self.map_path).exists():
             self._check_saving_directory_is_writable()
             logger.info("Calcurate mappable length with max shift size {}.".format(max_shift))
-        elif not os.path.isfile(self.map_path):
+        elif not Path(self.map_path).is_file():
             logger.critical("Specified path is not file: '{}'".format(self.map_path))
             raise JSONIOError
         elif not os.access(self.map_path, os.R_OK):
@@ -180,7 +181,7 @@ class MappabilityHandler(MappableLengthCalculator):
                 logger.info("Use mappability stats read from '{}'".format(self.map_path))
 
     def _check_saving_directory_is_writable(self) -> None:
-        dirname = os.path.dirname(self.map_path)
+        dirname = str(Path(self.map_path).parent)
         dirname = dirname if dirname else '.'
         if not prepare_outdir(dirname, logger):
             raise JSONIOError

@@ -6,6 +6,7 @@ import argparse
 import logging
 import os
 import sys
+from pathlib import Path
 from typing import List, Optional, Tuple, Union
 from itertools import zip_longest
 
@@ -41,7 +42,7 @@ def _get_output_basename(dirpath: str, filepath: str) -> str:
     Returns:
         Complete output basename path without extension
     """
-    return os.path.join(dirpath, os.path.splitext(os.path.basename(filepath))[0])
+    return str(Path(dirpath) / Path(filepath).stem)
 
 
 def _parse_args() -> argparse.Namespace:
@@ -169,13 +170,13 @@ def prepare_output(reads: List[str], names: List[Optional[str]], outdir: str, su
     basenames: List[str] = []
     for f, n in zip_longest(reads, names):
         if n is None:
-            output_basename = os.path.join(outdir, os.path.splitext(os.path.basename(f))[0])
+            output_basename = str(Path(outdir) / Path(f).stem)
         else:
-            output_basename = os.path.join(outdir, n)
+            output_basename = str(Path(outdir) / n)
 
         for suffix in suffixes:
             expect_outfile = output_basename + suffix
-            if os.path.exists(expect_outfile):
+            if Path(expect_outfile).exists():
                 logger.warning("Existing file '{}' will be overwritten.".format(expect_outfile))
         basenames.append(output_basename)
 
@@ -223,7 +224,6 @@ def make_handlers(args: argparse.Namespace) -> List[UnifiedCalcHandler]:
             # Both SUCCESSIVE and BITARRAY algorithms support mappability
             mappability_config = None
             if hasattr(args, 'mappability') and args.mappability:
-                from pathlib import Path
                 mappability_config = MappabilityConfig(
                     mappability_path=Path(args.mappability),
                     mappability_stats_path=Path(args.mappability_stats) if getattr(args, 'mappability_stats', None) else None

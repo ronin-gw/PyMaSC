@@ -15,6 +15,7 @@ functionality with consistent error reporting and recovery.
 """
 import os
 from functools import wraps
+from pathlib import Path
 
 
 def catch_IOError(logger):
@@ -70,15 +71,16 @@ def prepare_outdir(outdir, logger):
     Note:
         Logs detailed error messages for all failure scenarios
     """
-    if os.path.exists(outdir):
-        if not os.path.isdir(outdir):
+    outdir_path = Path(outdir)
+    if outdir_path.exists():
+        if not outdir_path.is_dir():
             logger.critical("Specified path as a output directory is not directory.")
             logger.critical(outdir)
             return False
     else:
         logger.info("Make output directory: {}".format(outdir))
         try:
-            os.mkdir(outdir)
+            outdir_path.mkdir(parents=True, exist_ok=True)
         except IOError as e:
             logger.critical("Faild to make output directory: [Errno {}] {}".format(e.errno, e.message))
             return False

@@ -7,6 +7,7 @@ while maintaining the same interface as the original workers.
 This ensures that existing code continues to work without modification
 while new code can use the unified architecture.
 """
+from __future__ import annotations
 import warnings
 from typing import Any, Dict, Optional, List
 from multiprocessing import Queue

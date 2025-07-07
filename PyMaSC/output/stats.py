@@ -13,8 +13,8 @@ The module supports:
 """
 from __future__ import print_function
 
-import os.path
 import logging
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Tuple, Union
 
 from PyMaSC.utils.output import catch_IOError
@@ -95,7 +95,7 @@ def output_stats(outfile: str, ccr: Any) -> None:
         outfile: Base output file path (suffix will be added)
         ccr: CCResult object containing analysis results
     """
-    basename = os.path.basename(outfile)
+    basename = Path(outfile).name
     outfile += STATSFILE_SUFFIX
     logger.info("Output '{}'".format(outfile))
 

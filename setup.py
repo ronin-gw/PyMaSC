@@ -9,6 +9,7 @@ import os
 import subprocess
 import glob
 import platform
+from pathlib import Path
 from setuptools import setup, Extension
 from setuptools.command import build_ext
 
@@ -21,7 +22,7 @@ import logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
 #
-BASEDIR = os.path.abspath(os.path.dirname(__file__))
+BASEDIR = Path(__file__).parent.absolute()
 
 # Advanced source selection with staged fallback
 # Priority: .pyx (Cython) -> version-specific C -> generic _3.c -> error
@@ -54,7 +55,7 @@ def _get_source_file(base_name):
         logging.info(f"Versioned build mode detected: suffix={version_suffix}")
         # For versioned builds, check if we already have the versioned C file
         versioned_c_file = f"{base_name}{version_suffix}.c"
-        if os.path.exists(versioned_c_file):
+        if Path(versioned_c_file).exists():
             # Use existing versioned C file
             candidates.append((versioned_c_file, "Existing versioned C source"))
         else:
@@ -72,7 +73,7 @@ def _get_source_file(base_name):
         ])
 
     for candidate_file, description in candidates:
-        if os.path.exists(candidate_file):
+        if Path(candidate_file).exists():
             logging.info(f"Using {description}: {candidate_file}")
             return candidate_file
 
@@ -102,13 +103,13 @@ except ImportError:
 NUMPY_INCLUDES = [numpy.get_include()]
 # pysam path
 PYSAM_PATH = pysam.__path__[0]
-PYSAM_INCLUDES = [PYSAM_PATH, os.path.join(PYSAM_PATH, "include", "htslib")]
+PYSAM_INCLUDES = [PYSAM_PATH, str(Path(PYSAM_PATH) / "include" / "htslib")]
 # bx-python path removed - using pyBigWig implementation
 # BitArray path
-BITARRAY_DIR = os.path.join(BASEDIR, "external", "BitArray")
+BITARRAY_DIR = str(BASEDIR / "external" / "BitArray")
 BITARRAY_INCLUDES = [
     BITARRAY_DIR,
-    os.path.join(BASEDIR, "external")
+    str(BASEDIR / "external")
 ]
 
 EXTRA_C_ARGS = ["-O3", "-ffast-math"]
@@ -116,8 +117,8 @@ EXTRA_C_ARGS = ["-O3", "-ffast-math"]
 EXTRA_BA_ARGS = ["-Wextra", "-Wc++-compat"]
 
 # Platform-specific linker flags for BitArray
-BITARRAY_LIB_PATH = os.path.join("external", "BitArray", "libbitarr.a")
-BITARRAY_OBJ_PATH = os.path.join("external", "BitArray", "bit_array.o")
+BITARRAY_LIB_PATH = str(Path("external") / "BitArray" / "libbitarr.a")
+BITARRAY_OBJ_PATH = str(Path("external") / "BitArray" / "bit_array.o")
 if platform.system() == "Darwin":
     # macOS uses -all_load
     BITARRAY_LINK_ARGS = ["-Wl,-all_load", BITARRAY_LIB_PATH]
@@ -132,7 +133,7 @@ else:
 class BuildExtCommand(build_ext.build_ext):
     def run(self):
         # Use relative path for BitArray directory
-        bitarray_rel_path = os.path.join("external", "BitArray")
+        bitarray_rel_path = str(Path("external") / "BitArray")
         command = ' '.join(["cd", bitarray_rel_path, "&&", "make", "libbitarr.a"])
         subprocess.check_call(command, shell=True)
 
@@ -171,7 +172,7 @@ class BuildExtCommand(build_ext.build_ext):
             pyx_file = f"{module_path}.pyx"
             target_c_file = f"{module_path}{version_suffix}.c"
 
-            if os.path.exists(pyx_file):
+            if Path(pyx_file).exists():
                 logging.info(f"Generating versioned C source: {pyx_file} -> {target_c_file}")
 
                 try:
@@ -207,9 +208,9 @@ class BuildExtCommand(build_ext.build_ext):
             # Standard expected C file location
             standard_c_file = pyx_file.replace('.pyx', '.c')
 
-            if os.path.exists(standard_c_file):
+            if Path(standard_c_file).exists():
                 # Remove target file if it exists
-                if os.path.exists(target_c_file):
+                if Path(target_c_file).exists():
                     os.remove(target_c_file)
                 # Move from standard location to versioned name
                 shutil.move(standard_c_file, target_c_file)
@@ -219,7 +220,7 @@ class BuildExtCommand(build_ext.build_ext):
         finally:
             # Clean up any temporary files that might have been created
             for temp_pattern in [temp_c_file, f"{base_path}.c"]:
-                if os.path.exists(temp_pattern) and temp_pattern != target_c_file:
+                if Path(temp_pattern).exists() and temp_pattern != target_c_file:
                     try:
                         os.remove(temp_pattern)
                     except OSError:
@@ -242,7 +243,7 @@ class BuildExtCommand(build_ext.build_ext):
                     base_name = source_file[:-4]  # Remove .pyx extension
                     versioned_c_file = f"{base_name}{version_suffix}.c"
 
-                    if os.path.exists(versioned_c_file):
+                    if Path(versioned_c_file).exists():
                         ext.sources[0] = versioned_c_file
                         logging.info(f"  Updated {ext.name}: {source_file} -> {versioned_c_file}")
                         updated_count += 1
@@ -253,7 +254,7 @@ class BuildExtCommand(build_ext.build_ext):
                     base_name = source_file[:-2]  # Remove .c extension
                     versioned_c_file = f"{base_name}{version_suffix}.c"
 
-                    if os.path.exists(versioned_c_file):
+                    if Path(versioned_c_file).exists():
                         ext.sources[0] = versioned_c_file
                         logging.info(f"  Updated {ext.name}: {source_file} -> {versioned_c_file}")
                         updated_count += 1

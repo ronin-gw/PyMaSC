@@ -119,6 +119,7 @@ test-match:
 lint:
 	@echo "Note: Linting not configured. Add flake8/black/isort as needed."
 
-# Run type checking (if configured)
+# Run type checking with mypy
 typecheck:
-	@echo "Note: Type checking not configured. Add mypy as needed."
+	@echo "Running mypy type checker..."
+	python -m mypy PyMaSC --show-error-codes --pretty

@@ -139,6 +139,11 @@ coverage.xml
 *,cover
 .hypothesis/
 
+# Type checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
 # Translations
 *.mo
 *.pot

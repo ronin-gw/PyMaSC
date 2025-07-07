@@ -111,32 +111,35 @@ cdef class BigWigReader(object):
         chromsizes: Dictionary mapping chromosome names to lengths
     """
 
-    def __init__(self, str path):
+    def __init__(self, path):
         """Initialize BigWig reader.
 
         Opens the BigWig file and extracts chromosome size information
         for efficient data access during MSCC calculations.
 
         Args:
-            path: Path to BigWig file to read
+            path: Path to BigWig file to read (Union[str, os.PathLike[str]])
 
         Raises:
             IOError: If the specified file does not exist
             RuntimeError: If the BigWig file cannot be opened
         """
-        if not os.path.exists(path) and path != '-':
-            raise IOError("input file '{0}' dose not exist.".format(path))
+        # Convert Path objects to string for Cython compatibility
+        path_str = str(path)
+        
+        if not os.path.exists(path_str) and path_str != '-':
+            raise IOError("input file '{0}' dose not exist.".format(path_str))
 
-        self.path = path
+        self.path = path_str
         self.closed = False
 
-        if path == '-':
+        if path_str == '-':
             raise ValueError("pyBigWig does not support stdin input")
 
         # Open BigWig file with pyBigWig
-        self.file = pyBigWig.open(path)
+        self.file = pyBigWig.open(path_str)
         if self.file is None:
-            raise IOError("Failed to open BigWig file: {}".format(path))
+            raise IOError("Failed to open BigWig file: {}".format(path_str))
 
         # Get chromosome sizes
         self.chromsizes = self.file.chroms()

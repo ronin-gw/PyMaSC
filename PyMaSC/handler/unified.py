@@ -9,7 +9,10 @@ Key components:
 - Integrates with factory pattern for calculator and worker creation
 - Maintains backward compatibility while simplifying the architecture
 """
+from __future__ import annotations
+
 import logging
+import os
 from multiprocessing import Queue, Lock
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Union, TYPE_CHECKING
@@ -70,7 +73,7 @@ class UnifiedCalcHandler:
     """
 
     def __init__(self, 
-                 path: Union[str, Path],
+                 path: os.PathLike[str],
                  config: CalculationConfig,
                  execution_config: Optional[ExecutionConfig] = None,
                  mappability_config: Optional[MappabilityConfig] = None):

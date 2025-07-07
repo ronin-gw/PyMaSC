@@ -12,6 +12,8 @@ Key features:
 
 This eliminates 50-65 lines of duplicate code across output modules.
 """
+from __future__ import annotations
+
 import csv
 import logging
 import os
@@ -62,8 +64,8 @@ class OutputPathManager:
         create_dirs: Whether to create parent directories
     """
 
-    def __init__(self, 
-                 base_path: Union[str, Path],
+    def __init__(self,
+                 base_path: Union[str, os.PathLike[str]],
                  suffix: Optional[str] = None,
                  create_dirs: bool = True):
         """Initialize output path manager.
@@ -77,7 +79,7 @@ class OutputPathManager:
         self.suffix = suffix or ""
         self.create_dirs = create_dirs
 
-    def get_output_path(self, 
+    def get_output_path(self,
                        filename: Optional[str] = None,
                        extension: Optional[str] = None) -> Path:
         """Get complete output file path with suffix and extension.
@@ -113,7 +115,7 @@ class OutputPathManager:
 
         return output_path
 
-    def log_output_creation(self, output_path: Union[str, Path]) -> None:
+    def log_output_creation(self, output_path: os.PathLike[str]) -> None:
         """Log output file creation with consistent format.
 
         Args:
@@ -121,7 +123,7 @@ class OutputPathManager:
         """
         logger.info(f"Output '{output_path}'")
 
-    def get_basename(self, path: Optional[Union[str, Path]] = None) -> str:
+    def get_basename(self, path: Optional[os.PathLike[str]] = None) -> str:
         """Get basename of file path for naming purposes.
 
         Args:
@@ -148,7 +150,7 @@ class TableWriter:
     """
 
     def __init__(self,
-                 output_path: Union[str, Path],
+                 output_path: os.PathLike[str],
                  delimiter: str = '\t',
                  quoting: int = csv.QUOTE_MINIMAL):
         """Initialize table writer.
@@ -202,7 +204,7 @@ class TableWriter:
             fieldnames = list(data[0].keys())
 
         with open(self.output_path, 'w', newline='') as f:
-            writer = csv.DictWriter(f, 
+            writer = csv.DictWriter(f,
                                   fieldnames=fieldnames,
                                   delimiter=self.delimiter,
                                   quoting=self.quoting)
@@ -225,7 +227,7 @@ class TableReader:
     """
 
     def __init__(self,
-                 input_path: Union[str, Path],
+                 input_path: os.PathLike[str],
                  delimiter: str = '\t'):
         """Initialize table reader.
 
@@ -280,7 +282,7 @@ class LoggingUtils:
     """
 
     @staticmethod
-    def log_output_file(output_path: Union[str, Path],
+    def log_output_file(output_path: os.PathLike[str],
                        logger_obj: Optional[logging.Logger] = None) -> None:
         """Log output file creation with consistent format.
 
@@ -314,7 +316,7 @@ class LoggingUtils:
 
 
 # Convenience functions for common patterns
-def ensure_output_directory(output_path: Union[str, Path]) -> Path:
+def ensure_output_directory(output_path: os.PathLike[str]) -> Path:
     """Ensure output directory exists for given file path.
 
     Args:
@@ -328,7 +330,7 @@ def ensure_output_directory(output_path: Union[str, Path]) -> Path:
     return path_obj
 
 
-def add_suffix_to_path(base_path: Union[str, Path], suffix: str) -> Path:
+def add_suffix_to_path(base_path: os.PathLike[str], suffix: str) -> Path:
     """Add suffix to file path before extension.
 
     Args:

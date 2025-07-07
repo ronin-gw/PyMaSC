@@ -2,6 +2,8 @@
 
 This module provides the main entry point for PyMaSC.
 """
+from __future__ import annotations
+
 import argparse
 import logging
 import os
@@ -30,19 +32,6 @@ logger = logging.getLogger(__name__)
 
 PLOTFILE_SUFFIX = ".pdf"
 EXPECT_OUTFILE_SUFFIXES: Tuple[str, ...] = (PLOTFILE_SUFFIX, CCOUTPUT_SUFFIX, MSCCOUTPUT_SUFFIX, NREADOUTPUT_SUFFIX, STATSFILE_SUFFIX)
-
-
-def _get_output_basename(dirpath: str, filepath: str) -> str:
-    """Generate output basename from directory and file paths.
-
-    Args:
-        dirpath: Output directory path
-        filepath: Input file path
-
-    Returns:
-        Complete output basename path without extension
-    """
-    return str(Path(dirpath) / Path(filepath).stem)
 
 
 def _parse_args() -> argparse.Namespace:
@@ -225,8 +214,8 @@ def make_handlers(args: argparse.Namespace) -> List[UnifiedCalcHandler]:
             mappability_config = None
             if hasattr(args, 'mappability') and args.mappability:
                 mappability_config = MappabilityConfig(
-                    mappability_path=Path(args.mappability),
-                    mappability_stats_path=Path(args.mappability_stats) if getattr(args, 'mappability_stats', None) else None
+                    mappability_path=args.mappability,
+                    mappability_stats_path=args.mappability_stats if getattr(args, 'mappability_stats', None) else None
                 )
 
             # Create handler

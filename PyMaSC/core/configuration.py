@@ -11,8 +11,11 @@ Key components:
 - ArgumentConverter: Bridge between argparse and new configuration models
 - ConfigurationValidator: Comprehensive validation with detailed error reporting
 """
+from __future__ import annotations
+
 import argparse
 import logging
+import os
 from pathlib import Path
 from typing import List, Optional, Dict, Any, Union
 from dataclasses import replace
@@ -147,8 +150,8 @@ class ConfigurationBuilder:
         return self
 
     def with_mappability(self,
-                         bigwig_path: Union[str, Path],
-                         stats_path: Optional[Union[str, Path]] = None) -> 'ConfigurationBuilder':
+                         bigwig_path: os.PathLike[str],
+                         stats_path: Optional[os.PathLike[str]] = None) -> 'ConfigurationBuilder':
         """Configure mappability correction.
 
         Args:
@@ -192,8 +195,8 @@ class ConfigurationBuilder:
         return self
 
     def with_input_output(self,
-                          input_paths: List[Union[str, Path]],
-                          output_dir: Union[str, Path],
+                          input_paths: List[os.PathLike[str]],
+                          output_dir: os.PathLike[str],
                           output_names: Optional[List[str]] = None) -> 'ConfigurationBuilder':
         """Configure input and output settings.
 
@@ -205,25 +208,22 @@ class ConfigurationBuilder:
         Returns:
             Self for method chaining
         """
-        input_paths = [Path(p) for p in input_paths]
-        output_dir = Path(output_dir)
+        # Convert all paths to Path objects
+        input_path_objects = [Path(p) for p in input_paths]
+        output_dir_obj = Path(output_dir)
 
         # Validate input files exist
-        for path in input_paths:
-            path_obj = Path(path) if isinstance(path, str) else path
+        for path_obj in input_path_objects:
             if not path_obj.exists():
-                self._errors.append(f"Input file does not exist: {path}")
+                self._errors.append(f"Input file does not exist: {path_obj}")
 
         # Validate output names if provided
-        if output_names and len(output_names) != len(input_paths):
+        if output_names and len(output_names) != len(input_path_objects):
             self._errors.append("output_names length must match input_paths length")
 
-        # Convert input paths to Path objects
-        path_objects = [Path(p) if isinstance(p, str) else p for p in input_paths]
-
         self._io_config = IOConfig(
-            input_paths=path_objects,
-            output_dir=output_dir,
+            input_paths=input_path_objects,
+            output_dir=output_dir_obj,
             output_names=output_names
         )
         return self
@@ -325,7 +325,7 @@ class ConfigurationService:
 
         # I/O configuration
         input_paths = args.reads if hasattr(args, 'reads') else []
-        output_dir = getattr(args, 'outdir', '.')
+        output_dir = Path(getattr(args, 'outdir', '.'))
         output_names = getattr(args, 'name', None)
 
         builder.with_input_output(input_paths, output_dir, output_names)

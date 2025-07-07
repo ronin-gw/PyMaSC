@@ -11,11 +11,14 @@ Key features:
 - Resource management
 - Workflow customization
 """
+from __future__ import annotations
+
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import List, Optional, Dict, Any, Callable
+from typing import List, Optional, Dict, Any, Callable, Union
+import os
 from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from multiprocessing import Pool
@@ -36,7 +39,7 @@ logger = logging.getLogger(__name__)
 
 
 # Top-level function for multiprocessing
-def _read_single_chromosome_worker(bam_path: str,
+def _read_single_chromosome_worker(bam_path: Union[str, os.PathLike[str]],
                                   chromosome: str,
                                   mapq_threshold: int) -> ChromosomeData:
     """Read single chromosome data (for parallel execution).
@@ -73,8 +76,8 @@ class WorkflowRequest:
     Contains all parameters needed to execute a complete
     cross-correlation analysis workflow.
     """
-    bam_path: str
-    output_prefix: str
+    bam_path: Union[str, os.PathLike[str]]
+    output_prefix: Union[str, os.PathLike[str]]
     calculation_config: CalculationConfig
     mappability_config: Optional[MappabilityConfig] = None
     execution_config: Optional[ExecutionConfig] = None
@@ -227,7 +230,7 @@ class StandardWorkflowService(WorkflowService, ProgressSubject):
             output_formats = request.output_formats or []
             output_paths = self._io_service.write_results(
                 calculation_result,
-                request.output_prefix,
+                Path(request.output_prefix),
                 output_formats
             )
 
@@ -435,11 +438,11 @@ def create_workflow_service(parallel: bool = False,
 
 
 # Convenience function for common use case
-def execute_workflow(bam_path: str,
-                    output_prefix: str,
+def execute_workflow(bam_path: Union[str, os.PathLike[str]],
+                    output_prefix: Union[str, os.PathLike[str]],
                     algorithm: str = 'bitarray',
                     max_shift: int = 500,
-                    mappability_path: Optional[str] = None,
+                    mappability_path: Optional[Union[str, os.PathLike[str]]] = None,
                     n_workers: int = 1,
                     **kwargs: Any) -> WorkflowResult:
     """Execute a workflow with common parameters.

@@ -15,6 +15,8 @@ The module handles BigWig file access, parallel computation across
 chromosomes, and persistent storage of mappability statistics to
 avoid redundant calculations.
 """
+from __future__ import annotations
+
 import logging
 import os
 import json
@@ -128,7 +130,7 @@ class MappabilityHandler(MappableLengthCalculator):
         """
         return max_shift - readlen + 1 if max_shift > 2*readlen - 1 else readlen
 
-    def __init__(self, path: str, max_shift: int = 0, readlen: int = 0, map_path: Optional[str] = None, nworker: int = 1) -> None:
+    def __init__(self, path: os.PathLike[str], max_shift: int = 0, readlen: int = 0, map_path: Optional[os.PathLike[str]] = None, nworker: int = 1) -> None:
         """Initialize mappability handler.
 
         Sets up mappability analysis with specified parameters,
@@ -149,12 +151,15 @@ class MappabilityHandler(MappableLengthCalculator):
         max_shift = self.calc_mappable_len_required_shift_size(readlen, max_shift)
         self.nworker = nworker
 
-        if not os.access(path, os.R_OK):
+        # Convert path to string for file access and parent class compatibility
+        path_str = os.fspath(path)
+        
+        if not os.access(path_str, os.R_OK):
             reason = "file is unreadable." if Path(path).is_file() else "no such file."
             logger.critical("Failed to open '{}': {}".format(path, reason))
             raise BWIOError
 
-        super(MappabilityHandler, self).__init__(path, max_shift)
+        super(MappabilityHandler, self).__init__(path_str, max_shift)
         self.close()
         self._progress.disable_bar()
         self.need_save_stats = True
@@ -162,7 +167,10 @@ class MappabilityHandler(MappableLengthCalculator):
         if map_path:
             self.map_path = map_path
         else:
-            self.map_path = str(Path(path).with_suffix("")) + "_mappability.json"
+            path_obj = Path(path)
+            # Create: /path/to/file.bw -> /path/to/file_mappability.json
+            stem_with_suffix = path_obj.with_suffix("").name + "_mappability"
+            self.map_path = path_obj.parent / f"{stem_with_suffix}.json"
 
         if not Path(self.map_path).exists():
             self._check_saving_directory_is_writable()
@@ -342,7 +350,7 @@ class MappabilityCalcWorker(Process):
         logger_lock: Lock for thread-safe logging
     """
 
-    def __init__(self, path: str, max_shift: int, order_queue: Queue, report_queue: Queue, logger_lock: Any) -> None:
+    def __init__(self, path: os.PathLike[str], max_shift: int, order_queue: Queue, report_queue: Queue, logger_lock: Any) -> None:
         """Initialize mappability calculation worker.
 
         Args:
@@ -354,7 +362,7 @@ class MappabilityCalcWorker(Process):
         """
         super(MappabilityCalcWorker, self).__init__()
 
-        self.calculator = MappableLengthCalculator(path, max_shift, logger_lock)
+        self.calculator = MappableLengthCalculator(os.fspath(path), max_shift, logger_lock)
         self.calculator._progress.disable_bar()
         self.order_queue = order_queue
         self.report_queue = report_queue

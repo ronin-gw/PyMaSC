@@ -10,7 +10,10 @@ Key features:
 - Mockable for testing
 - Resource management
 """
+from __future__ import annotations
+
 import logging
+import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
@@ -65,7 +68,7 @@ class IOService(ABC):
     """
 
     @abstractmethod
-    def get_bam_info(self, path: str) -> BAMFileInfo:
+    def get_bam_info(self, path: Union[str, os.PathLike[str]]) -> BAMFileInfo:
         """Get information about a BAM file.
 
         Args:
@@ -78,7 +81,7 @@ class IOService(ABC):
 
     @abstractmethod
     def read_chromosome_data(self, 
-                           bam_path: str,
+                           bam_path: Union[str, os.PathLike[str]],
                            chromosome: str,
                            mapq_threshold: int = 0) -> ChromosomeData:
         """Read all data for a chromosome.
@@ -95,7 +98,7 @@ class IOService(ABC):
 
     @abstractmethod
     def stream_reads(self,
-                    bam_path: str,
+                    bam_path: Union[str, os.PathLike[str]],
                     chromosome: str,
                     mapq_threshold: int = 0) -> Iterator[ReadData]:
         """Stream reads for a chromosome.
@@ -112,7 +115,7 @@ class IOService(ABC):
 
     @abstractmethod
     def read_mappability(self,
-                       bigwig_path: str,
+                       bigwig_path: os.PathLike[str],
                        chromosome: str,
                        start: int,
                        end: int) -> List[float]:
@@ -132,7 +135,7 @@ class IOService(ABC):
     @abstractmethod
     def write_results(self,
                      result: GenomeWideResult,
-                     output_prefix: str,
+                     output_prefix: os.PathLike[str],
                      formats: List[str]) -> Dict[str, str]:
         """Write calculation results to files.
 
@@ -159,10 +162,10 @@ class FileIOService(IOService):
         self._open_files: Dict[str, Any] = {}
         self._read_filter: Optional[Any] = None
 
-    def get_bam_info(self, path: str) -> BAMFileInfo:
+    def get_bam_info(self, path: Union[str, os.PathLike[str]]) -> BAMFileInfo:
         """Get information about a BAM file."""
         try:
-            with AlignmentFile(path) as bamfile:
+            with AlignmentFile(path) as bamfile:  # type: ignore[arg-type]
                 # Check for index
                 has_index = False
                 try:
@@ -174,7 +177,7 @@ class FileIOService(IOService):
                     has_index = False
 
                 return BAMFileInfo(
-                    path=path,
+                    path=str(path),
                     has_index=has_index,
                     references=list(bamfile.references),
                     lengths=list(bamfile.lengths)
@@ -184,7 +187,7 @@ class FileIOService(IOService):
             raise IOError(f"Cannot read BAM file: {e}") from e
 
     def read_chromosome_data(self, 
-                           bam_path: str,
+                           bam_path: Union[str, os.PathLike[str]],
                            chromosome: str,
                            mapq_threshold: int = 0) -> ChromosomeData:
         """Read all data for a chromosome at once."""
@@ -215,7 +218,7 @@ class FileIOService(IOService):
         )
 
     def stream_reads(self,
-                    bam_path: str,
+                    bam_path: Union[str, os.PathLike[str]],
                     chromosome: str,
                     mapq_threshold: int = 0) -> Iterator[ReadData]:
         """Stream reads for a chromosome."""
@@ -224,7 +227,7 @@ class FileIOService(IOService):
             self._read_filter = create_standard_filter(mapq_threshold)
 
         try:
-            with AlignmentFile(bam_path) as bamfile:
+            with AlignmentFile(bam_path) as bamfile:  # type: ignore[arg-type]
                 for read in bamfile.fetch(chromosome):
                     # Apply quality filtering
                     if self._read_filter and self._read_filter.should_skip_read(read):
@@ -248,17 +251,18 @@ class FileIOService(IOService):
             raise IOError(f"Cannot read from BAM file: {e}") from e
 
     def read_mappability(self,
-                       bigwig_path: str,
+                       bigwig_path: os.PathLike[str],
                        chromosome: str,
                        start: int,
                        end: int) -> List[float]:
         """Read mappability values from BigWig file."""
+        bigwig_path_str = os.fspath(bigwig_path)
         try:
             # Use cached reader if available
-            if bigwig_path not in self._open_files:
-                self._open_files[bigwig_path] = BigWigReader(bigwig_path)
+            if bigwig_path_str not in self._open_files:
+                self._open_files[bigwig_path_str] = BigWigReader(bigwig_path_str)
 
-            reader = self._open_files[bigwig_path]
+            reader = self._open_files[bigwig_path_str]
 
             # Get values for region
             values = reader.get_as_array(chromosome, start, end)
@@ -267,15 +271,15 @@ class FileIOService(IOService):
             return [v if v is not None else 0.0 for v in values]
 
         except Exception as e:
-            logger.error(f"Error reading mappability from {bigwig_path}: {e}")
+            logger.error(f"Error reading mappability from {bigwig_path_str}: {e}")
             raise IOError(f"Cannot read BigWig file: {e}") from e
 
     def write_results(self,
                      result: GenomeWideResult,
-                     output_prefix: str,
+                     output_prefix: os.PathLike[str],
                      formats: List[str]) -> Dict[str, str]:
         """Write calculation results to files."""
-        output_manager = OutputPathManager(output_prefix)
+        output_manager = OutputPathManager(Path(output_prefix))
         output_paths = {}
 
         # Ensure output directory exists
@@ -284,25 +288,26 @@ class FileIOService(IOService):
         # Write table format
         if 'table' in formats:
             table_path = output_manager.get_output_path(extension='.txt')
-            self._write_table_output(result, str(table_path))
+            self._write_table_output(result, table_path)
             output_paths['table'] = str(table_path)
 
         # Write statistics format
         if 'stats' in formats:
             stats_path = output_manager.get_output_path(extension='.json')
-            self._write_stats_output(result, str(stats_path))
+            self._write_stats_output(result, stats_path)
             output_paths['stats'] = str(stats_path)
 
         # Write figure format
         if 'figure' in formats:
             figure_path = output_manager.get_output_path(extension='.pdf')
-            self._write_figure_output(result, str(figure_path))
+            self._write_figure_output(result, figure_path)
             output_paths['figure'] = str(figure_path)
 
         return output_paths
 
-    def _write_table_output(self, result: GenomeWideResult, path: str) -> None:
+    def _write_table_output(self, result: GenomeWideResult, path: os.PathLike[str]) -> None:
         """Write table format output."""
+        path_str = os.fspath(path)
         # Prepare data for table writer
         data = []
         headers = ['chromosome', 'forward_reads', 'reverse_reads', 
@@ -341,11 +346,12 @@ class FileIOService(IOService):
         ])
 
         # Write using utility
-        writer = UtilTableWriter(path)
+        writer = UtilTableWriter(path_str)
         writer.write_table(data, headers)
 
-    def _write_stats_output(self, result: GenomeWideResult, path: str) -> None:
+    def _write_stats_output(self, result: GenomeWideResult, path: os.PathLike[str]) -> None:
         """Write statistics format output."""
+        path_str = os.fspath(path)
         # Prepare statistics dictionary
         stats = {
             'total_reads': result.total_forward_reads + result.total_reverse_reads,
@@ -370,23 +376,24 @@ class FileIOService(IOService):
 
         # Write using standard library
         import json
-        with open(path, 'w') as f:
+        with open(path_str, 'w') as f:
             json.dump(stats, f, indent=2)
 
-        logger.info(f"Output '{path}'")
+        logger.info(f"Output '{path_str}'")
 
-    def _write_figure_output(self, result: GenomeWideResult, path: str) -> None:
+    def _write_figure_output(self, result: GenomeWideResult, path: os.PathLike[str]) -> None:
         """Write figure format output.
 
         Note: This is a placeholder. Real implementation would create
         actual plots using matplotlib.
         """
+        path_obj = Path(path)
         # For now, just log that we would create a figure
-        logger.info(f"Would create figure at '{path}'")
+        logger.info(f"Would create figure at '{path_obj}'")
 
         # Create a minimal PDF to satisfy the interface
         # In production, this would use FigureWriter to create actual plots
-        Path(path).touch()
+        path_obj.touch()
 
     def close(self) -> None:
         """Close all open file handles."""
@@ -456,26 +463,28 @@ class InMemoryIOService(IOService):
             length=length
         )
 
-    def get_bam_info(self, path: str) -> BAMFileInfo:
+    def get_bam_info(self, path: Union[str, os.PathLike[str]]) -> BAMFileInfo:
         """Get test BAM info."""
-        if path in self.bam_data:
-            return self.bam_data[path]['info']  # type: ignore[no-any-return]
+        path_str = os.fspath(path)
+        if path_str in self.bam_data:
+            return self.bam_data[path_str]['info']  # type: ignore[no-any-return]
         else:
-            raise IOError(f"Test BAM file not found: {path}")
+            raise IOError(f"Test BAM file not found: {path_str}")
 
     def read_chromosome_data(self, 
-                           bam_path: str,
+                           bam_path: Union[str, os.PathLike[str]],
                            chromosome: str,
                            mapq_threshold: int = 0) -> ChromosomeData:
         """Read test chromosome data."""
-        if bam_path in self.bam_data:
-            if chromosome in self.bam_data[bam_path]['chromosomes']:
-                return self.bam_data[bam_path]['chromosomes'][chromosome]  # type: ignore[no-any-return]
+        bam_path_str = os.fspath(bam_path)
+        if bam_path_str in self.bam_data:
+            if chromosome in self.bam_data[bam_path_str]['chromosomes']:
+                return self.bam_data[bam_path_str]['chromosomes'][chromosome]  # type: ignore[no-any-return]
 
-        raise IOError(f"Test chromosome data not found: {bam_path}:{chromosome}")
+        raise IOError(f"Test chromosome data not found: {bam_path_str}:{chromosome}")
 
     def stream_reads(self,
-                    bam_path: str,
+                    bam_path: Union[str, os.PathLike[str]],
                     chromosome: str,
                     mapq_threshold: int = 0) -> Iterator[ReadData]:
         """Stream test reads."""
@@ -502,7 +511,7 @@ class InMemoryIOService(IOService):
             )
 
     def read_mappability(self,
-                       bigwig_path: str,
+                       bigwig_path: os.PathLike[str],
                        chromosome: str,
                        start: int,
                        end: int) -> List[float]:
@@ -512,13 +521,14 @@ class InMemoryIOService(IOService):
 
     def write_results(self,
                      result: GenomeWideResult,
-                     output_prefix: str,
+                     output_prefix: os.PathLike[str],
                      formats: List[str]) -> Dict[str, str]:
         """Store results in memory instead of writing files."""
+        output_prefix_str = os.fspath(output_prefix)
         output_paths = {}
 
         for format_type in formats:
-            path = f"{output_prefix}.{format_type}"
+            path = f"{output_prefix_str}.{format_type}"
             self.written_results[path] = result
             output_paths[format_type] = path
 

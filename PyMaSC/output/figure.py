@@ -14,7 +14,10 @@ Key plot types:
 The module handles matplotlib import failures gracefully and provides detailed
 error logging for troubleshooting visualization issues.
 """
+from __future__ import annotations
+
 import logging
+import os
 from pathlib import Path
 from typing import Any, Optional, Tuple, Union
 
@@ -46,7 +49,7 @@ def _feed_pdf_page(pp: Any) -> None:
 
 
 @catch_IOError(logger)
-def plot_figures(outfile: str, ccr: Any) -> None:
+def plot_figures(outfile: os.PathLike[str], ccr: Any) -> None:
     """Generate all PyMaSC plots and save to PDF file.
 
     Creates a multi-page PDF containing all relevant plots based on the
@@ -57,10 +60,11 @@ def plot_figures(outfile: str, ccr: Any) -> None:
         outfile: Output PDF file path
         ccr: CCResult object containing analysis results
     """
-    logger.info("Output '{}'".format(outfile))
-    name = Path(outfile).stem
+    outfile_path = Path(outfile)
+    logger.info("Output '{}'".format(outfile_path))
+    name = outfile_path.stem
 
-    with PdfPages(outfile) as pp:
+    with PdfPages(os.fspath(outfile_path)) as pp:
         if not ccr.skip_ncc:
             plot_naive_cc(ccr, name)
             _feed_pdf_page(pp)

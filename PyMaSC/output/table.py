@@ -14,7 +14,7 @@ Key components:
 The module handles both reading and writing of tables with proper error
 handling and logging for debugging and validation.
 """
-from __future__ import print_function
+from __future__ import annotations, print_function
 
 import logging
 from functools import partial
@@ -22,6 +22,8 @@ import csv
 from itertools import chain
 from collections import defaultdict
 from copy import copy
+import os
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, TextIO, Tuple, Union
 
 import numpy as np
@@ -50,7 +52,7 @@ class TableIO(object):
     """
     DIALECT = "excel-tab"
 
-    def __init__(self, path: str, mode: str = 'r') -> None:
+    def __init__(self, path: os.PathLike[str], mode: str = 'r') -> None:
         """Initialize table I/O handler.
 
         Args:
@@ -124,7 +126,7 @@ class TableIO(object):
 
 
 @catch_IOError(logger)
-def _load_table(path: str, logfmt: str) -> Dict[str, List[float]]:
+def _load_table(path: os.PathLike[str], logfmt: str) -> Dict[str, List[float]]:
     """Generic table loading with logging.
 
     Args:
@@ -155,7 +157,7 @@ load_masc = partial(_load_table, logfmt="Load MSCC table from '{}'")
 
 
 @catch_IOError(logger)
-def _output_cctable(outfile: str, ccr: Any, suffix: str, target_attr: str) -> None:
+def _output_cctable(outfile: os.PathLike[str], ccr: Any, suffix: str, target_attr: str) -> None:
     """Output cross-correlation tables.
 
     Args:
@@ -164,15 +166,18 @@ def _output_cctable(outfile: str, ccr: Any, suffix: str, target_attr: str) -> No
         suffix: File suffix to append
         target_attr: Attribute name ('cc' or 'masc') to extract
     """
-    outfile += suffix
-    logger.info("Output '{}'".format(outfile))
+    outfile_path = Path(outfile)
+    # Create: /path/to/file.ext -> /path/to/file_cc.tab or /path/to/file_mscc.tab
+    stem_with_suffix = outfile_path.stem + suffix.replace('.tab', '')
+    outfile_with_suffix = outfile_path.parent / f"{stem_with_suffix}.tab"
+    logger.info("Output '{}'".format(outfile_with_suffix))
 
     cc = getattr(ccr.whole, target_attr).cc
     ref2cc = {k: getattr(ccr.ref2stats[k], target_attr) for k in ccr.references}
     ref2cc = {k: v.cc for k, v in ref2cc.items() if v is not None and not np.isnan(v.cc).all()}
     keys = sorted(ref2cc.keys())
 
-    with TableIO(outfile, 'w') as tab:
+    with TableIO(outfile_with_suffix, 'w') as tab:
         tab.write(["whole", ] + keys, ([cc] + [ref2cc[k][i] for k in keys] for i, cc in enumerate(cc)))
 
 
@@ -294,7 +299,7 @@ class NReadsIO(TableIO):
 
 
 @catch_IOError(logger)
-def load_nreads_table(path: str) -> Tuple[Dict[str, int], Dict[str, int], Dict[str, List[int]], Dict[str, List[int]]]:
+def load_nreads_table(path: os.PathLike[str]) -> Tuple[Dict[str, int], Dict[str, int], Dict[str, List[int]], Dict[str, List[int]]]:
     """Load read count table from file.
 
     Args:
@@ -326,15 +331,18 @@ def load_nreads_table(path: str) -> Tuple[Dict[str, int], Dict[str, int], Dict[s
 
 
 @catch_IOError(logger)
-def output_nreads_table(outfile: str, ccr: Any) -> None:
+def output_nreads_table(outfile: os.PathLike[str], ccr: Any) -> None:
     """Output read count table from analysis results.
 
     Args:
         outfile: Base output file path
         ccr: CCResult object containing read count data
     """
-    outfile += NREADOUTPUT_SUFFIX
-    logger.info("Output '{}'".format(outfile))
+    outfile_path = Path(outfile)
+    # Create: /path/to/file.ext -> /path/to/file_nreads.tab
+    stem_with_suffix = outfile_path.stem + NREADOUTPUT_SUFFIX.replace('.tab', '')
+    outfile_with_suffix = outfile_path.parent / f"{stem_with_suffix}.tab"
+    logger.info("Output '{}'".format(outfile_with_suffix))
 
     def _make_dict_with_whole(add_target, target1, target2):
         if not add_target:
@@ -346,7 +354,7 @@ def output_nreads_table(outfile: str, ccr: Any) -> None:
         d["whole"] = getattr(target_obj, target2)
         return d
 
-    with NReadsIO(outfile, 'w') as tab:
+    with NReadsIO(outfile_with_suffix, 'w') as tab:
         header = ["whole"] + sorted(ccr.references)
         forward_sum = _make_dict_with_whole(ccr.ref2forward_sum, "cc", "forward_sum")
         reverse_sum = _make_dict_with_whole(ccr.ref2reverse_sum, "cc", "reverse_sum")

@@ -11,9 +11,10 @@ The module supports:
 - Both naive cross-correlation and MSCC statistics
 - Quality metrics (NSC, RSC, FWHM, VSN) and fragment length estimates
 """
-from __future__ import print_function
+from __future__ import annotations, print_function
 
 import logging
+import os
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Tuple, Union
 
@@ -84,7 +85,7 @@ logger = logging.getLogger(__name__)
 
 
 @catch_IOError(logger)
-def output_stats(outfile: str, ccr: Any) -> None:
+def output_stats(outfile: os.PathLike[str], ccr: Any) -> None:
     """Output comprehensive statistics to tab-delimited file.
 
     Generates a complete statistics file containing all analysis metrics
@@ -95,11 +96,12 @@ def output_stats(outfile: str, ccr: Any) -> None:
         outfile: Base output file path (suffix will be added)
         ccr: CCResult object containing analysis results
     """
-    basename = Path(outfile).name
-    outfile += STATSFILE_SUFFIX
-    logger.info("Output '{}'".format(outfile))
+    outfile_path = Path(outfile)
+    basename = outfile_path.name
+    outfile_with_suffix = str(outfile_path) + STATSFILE_SUFFIX
+    logger.info("Output '{}'".format(outfile_with_suffix))
 
-    with open(outfile, 'w') as f:
+    with open(outfile_with_suffix, 'w') as f:
         print("{}\t{}".format("Name", basename), file=f)
         for row, attr in STAT_ATTR:
             print("{}\t{}".format(row, getattr(ccr.whole, attr, False) or "nan"), file=f)
@@ -113,7 +115,7 @@ def output_stats(outfile: str, ccr: Any) -> None:
 
 
 @catch_IOError(logger)
-def load_stats(path: str, names: Tuple[str, ...]) -> Dict[str, Any]:
+def load_stats(path: os.PathLike[str], names: Tuple[str, ...]) -> Dict[str, Any]:
     """Load statistics from tab-delimited file.
 
     Reads statistics file and extracts requested attributes for use in

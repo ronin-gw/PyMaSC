@@ -19,7 +19,7 @@ from PyMaSC.handler.simplified import SimplifiedCalcHandler, HandlerBuilder
 from PyMaSC.handler.service_adapter import ServiceBasedCalcHandler
 from PyMaSC.core.models import (
     CalculationConfig, MappabilityConfig, ExecutionConfig,
-    AlgorithmType, ExecutionMode
+    CalculationTarget, ImplementationAlgorithm, ExecutionMode
 )
 
 
@@ -84,7 +84,8 @@ class TestServiceArchitectureE2E:
 
         # Create calculation config
         config = CalculationConfig(
-            algorithm=AlgorithmType.BITARRAY,
+            target=CalculationTarget.NCC,
+            implementation=ImplementationAlgorithm.BITARRAY,
             max_shift=100,
             mapq_criteria=20,
             references=self.test_chromosomes,
@@ -154,7 +155,8 @@ class TestServiceArchitectureE2E:
         # Build handler with test services
         handler = HandlerBuilder() \
             .with_bam_file("/test/file.bam") \
-            .with_algorithm('ncc') \
+            .with_target('ncc') \
+            .with_implementation('successive') \
             .with_max_shift(100) \
             .with_io_service(io_service) \
             .with_validation_service(mock_validation) \
@@ -177,7 +179,8 @@ class TestServiceArchitectureE2E:
 
         # Create config with positive max_shift first
         config = CalculationConfig(
-            algorithm=AlgorithmType.BITARRAY,
+            target=CalculationTarget.NCC,
+            implementation=ImplementationAlgorithm.BITARRAY,
             max_shift=100,
             mapq_criteria=20
         )
@@ -344,7 +347,8 @@ class TestServiceArchitectureE2E:
 
         # Create config
         config = CalculationConfig(
-            algorithm=AlgorithmType.BITARRAY,
+            target=CalculationTarget.NCC,
+            implementation=ImplementationAlgorithm.BITARRAY,
             max_shift=100,
             mapq_criteria=20,
             references=self.test_chromosomes,
@@ -396,7 +400,8 @@ class TestServiceArchitectureE2E:
             bam_path="/test/missing.bam",
             output_prefix="/test/output",
             calculation_config=CalculationConfig(
-                algorithm=AlgorithmType.BITARRAY,
+                target=CalculationTarget.NCC,
+            implementation=ImplementationAlgorithm.BITARRAY,
                 max_shift=100,
                 mapq_criteria=20
             )
@@ -435,7 +440,8 @@ class TestServicePerformance:
         )
 
         config = CalculationConfig(
-            algorithm=AlgorithmType.BITARRAY,
+            target=CalculationTarget.NCC,
+            implementation=ImplementationAlgorithm.BITARRAY,
             max_shift=100,
             mapq_criteria=20,
             references=["chr1", "chr2"],

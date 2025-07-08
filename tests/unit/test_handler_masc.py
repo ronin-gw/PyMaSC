@@ -7,15 +7,17 @@ from unittest.mock import Mock, patch, MagicMock
 
 from tests.utils.test_data_generator import MockBAMData, create_mock_reference_data
 from PyMaSC.handler.unified import UnifiedCalcHandler
-from PyMaSC.core.models import CalculationConfig, ExecutionConfig, AlgorithmType, ExecutionMode
+from PyMaSC.core.models import CalculationConfig, ExecutionConfig, CalculationTarget, ImplementationAlgorithm, ExecutionMode
 from PyMaSC.handler.base import NothingToCalc
 
 
 def create_test_handler(path="test.bam", esttype="ncc", max_shift=200, mapq_criteria=20, 
-                       nworker=1, skip_ncc=False, chromfilter=None, algorithm=AlgorithmType.SUCCESSIVE):
+                       nworker=1, skip_ncc=False, chromfilter=None, 
+                       target=CalculationTarget.NCC, implementation=ImplementationAlgorithm.SUCCESSIVE):
     """Helper function to create UnifiedCalcHandler for testing."""
     calc_config = CalculationConfig(
-        algorithm=algorithm,
+        target=target,
+        implementation=implementation,
         max_shift=max_shift,
         mapq_criteria=mapq_criteria,
         skip_ncc=skip_ncc

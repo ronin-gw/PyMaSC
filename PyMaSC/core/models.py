@@ -17,12 +17,17 @@ import numpy as np
 from enum import Enum
 
 
-class AlgorithmType(Enum):
-    """Supported cross-correlation algorithms."""
-    NAIVE_CC = "ncc"
-    MSCC = "mscc"
-    BITARRAY = "bitarray"
-    SUCCESSIVE = "successive"
+class CalculationTarget(Enum):
+    """What type of cross-correlation to calculate."""
+    NCC = "ncc"           # Naive Cross-Correlation only
+    MSCC = "mscc"         # Mappability-Sensitive Cross-Correlation only
+    BOTH = "both"         # Both NCC and MSCC
+
+
+class ImplementationAlgorithm(Enum):
+    """How to implement the cross-correlation calculation."""
+    BITARRAY = "bitarray"     # Memory-intensive but fast BitArray algorithm
+    SUCCESSIVE = "successive"  # Memory-efficient successive algorithm
 
 
 class ExecutionMode(Enum):
@@ -39,7 +44,8 @@ class CalculationConfig:
     calculation, providing validation and default values.
 
     Attributes:
-        algorithm: Cross-correlation algorithm to use
+        target: What type of cross-correlation to calculate
+        implementation: How to implement the calculation
         max_shift: Maximum shift distance for correlation
         mapq_criteria: Minimum mapping quality threshold
         skip_ncc: Whether to skip naive cross-correlation calculation
@@ -49,9 +55,10 @@ class CalculationConfig:
         esttype: Read length estimation type (mean, median, mode, min, max)
         chromfilter: Chromosome filtering patterns (include/exclude rules)
     """
-    algorithm: AlgorithmType
     max_shift: int
     mapq_criteria: int
+    target: CalculationTarget
+    implementation: ImplementationAlgorithm
     skip_ncc: bool = False
     read_length: Optional[int] = None
     references: List[str] = field(default_factory=list)
@@ -180,13 +187,15 @@ class CalculationResult:
         chromosome_results: Results for each chromosome
         total_forward_reads: Total forward reads across all chromosomes
         total_reverse_reads: Total reverse reads across all chromosomes
-        algorithm_used: Algorithm used for calculation
+        calculation_target: What type of cross-correlation was calculated
+        implementation_algorithm: How the calculation was implemented
         execution_metadata: Additional execution information
     """
     chromosome_results: List[ChromosomeResult]
     total_forward_reads: int
     total_reverse_reads: int
-    algorithm_used: AlgorithmType
+    calculation_target: CalculationTarget
+    implementation_algorithm: ImplementationAlgorithm
     execution_metadata: Dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -226,19 +235,19 @@ class CalculationRequest:
         """
         errors = []
 
-        # Check algorithm-specific requirements
-        if (self.calculation_config.algorithm in [AlgorithmType.MSCC, AlgorithmType.BITARRAY] 
+        # Check algorithm-specific requirements using new conceptual approach
+        if (self.calculation_config.target in [CalculationTarget.MSCC, CalculationTarget.BOTH]
             and not self.mappability_config.is_enabled()):
-            errors.append("MSCC/BitArray algorithms require mappability configuration")
+            errors.append(f"{self.calculation_config.target.value} target requires mappability configuration")
 
         # Check execution mode compatibility
-        if (self.execution_config.mode == ExecutionMode.MULTI_PROCESS 
+        if (self.execution_config.mode == ExecutionMode.MULTI_PROCESS
             and self.execution_config.worker_count == 1):
             errors.append("Multi-process mode requires worker_count > 1")
 
         # Check I/O compatibility
-        if (len(self.io_config.input_paths) > 1 
-            and self.io_config.output_names 
+        if (len(self.io_config.input_paths) > 1
+            and self.io_config.output_names
             and len(self.io_config.output_names) != len(self.io_config.input_paths)):
             errors.append("output_names length must match input_paths length")
 

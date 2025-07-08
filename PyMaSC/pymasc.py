@@ -21,7 +21,10 @@ from PyMaSC.handler.mappability import MappabilityHandler, BWIOError, JSONIOErro
 from PyMaSC.handler.unified import InputUnseekable
 from PyMaSC.handler.base import NothingToCalc
 from PyMaSC.handler.unified import UnifiedCalcHandler
-from PyMaSC.core.models import CalculationConfig, ExecutionConfig, AlgorithmType, ExecutionMode, MappabilityConfig
+from PyMaSC.core.models import (
+    CalculationConfig, ExecutionConfig, CalculationTarget, 
+    ImplementationAlgorithm, ExecutionMode, MappabilityConfig
+)
 from PyMaSC.handler.result import CCResult, ReadsTooFew
 from PyMaSC.core.ncc import ReadUnsortedError
 from PyMaSC.output.stats import output_stats, STATSFILE_SUFFIX
@@ -194,9 +197,22 @@ def make_handlers(args: argparse.Namespace) -> List[UnifiedCalcHandler]:
     # Create configuration objects from arguments
     for f in args.reads:
         try:
-            # Create calculation configuration
+            # Determine calculation target and implementation based on existing logic
+            # Implementation: Use successive if --successive flag, otherwise BitArray (default)
+            implementation = ImplementationAlgorithm.SUCCESSIVE if args.successive else ImplementationAlgorithm.BITARRAY
+            
+            # Target: Auto-determine based on mappability presence (existing behavior)
+            if hasattr(args, 'mappability') and args.mappability:
+                # Mappability provided: calculate both NCC and MSCC unless --skip-ncc
+                target = CalculationTarget.MSCC if args.skip_ncc else CalculationTarget.BOTH
+            else:
+                # No mappability: only NCC
+                target = CalculationTarget.NCC
+            
+            # Create calculation configuration using new conceptual approach
             calc_config = CalculationConfig(
-                algorithm=AlgorithmType.SUCCESSIVE if args.successive else AlgorithmType.BITARRAY,
+                target=target,
+                implementation=implementation,
                 max_shift=args.max_shift,
                 mapq_criteria=args.mapq,
                 skip_ncc=args.skip_ncc,

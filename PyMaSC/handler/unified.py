@@ -27,7 +27,7 @@ from PyMaSC.core.factory import CalculatorFactory, WorkerFactory
 from PyMaSC.core.configuration import ConfigurationService
 from PyMaSC.core.models import (
     CalculationConfig, MappabilityConfig, ExecutionConfig,
-    AlgorithmType, ExecutionMode, WorkerConfig
+    ExecutionMode, WorkerConfig
 )
 from PyMaSC.core.interfaces import CrossCorrelationCalculator
 

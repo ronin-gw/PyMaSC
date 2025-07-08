@@ -23,7 +23,7 @@ from dataclasses import replace
 from .models import (
     CalculationConfig, MappabilityConfig, ExecutionConfig, IOConfig,
     WorkerConfig, CalculationRequest, ValidationResult,
-    AlgorithmType, ExecutionMode
+    CalculationTarget, ImplementationAlgorithm, ExecutionMode
 )
 
 logger = logging.getLogger(__name__)
@@ -48,7 +48,8 @@ class ConfigurationBuilder:
     def __init__(self) -> None:
         """Initialize builder with default values."""
         self._calculation_config = CalculationConfig(
-            algorithm=AlgorithmType.BITARRAY,
+            target=CalculationTarget.BOTH,
+            implementation=ImplementationAlgorithm.BITARRAY,
             max_shift=300,
             mapq_criteria=20
         )
@@ -58,28 +59,50 @@ class ConfigurationBuilder:
         self._errors: List[str] = []
         self._warnings: List[str] = []
 
-    def with_algorithm(self, algorithm: Union[str, AlgorithmType]) -> 'ConfigurationBuilder':
-        """Set the cross-correlation algorithm.
+    def with_target(self, target: Union[str, CalculationTarget]) -> 'ConfigurationBuilder':
+        """Set the calculation target.
 
         Args:
-            algorithm: Algorithm name ('ncc', 'mscc', 'bitarray', 'successive')
-                      or AlgorithmType enum value
+            target: Target name ('ncc', 'mscc', 'both') or CalculationTarget enum value
 
         Returns:
             Self for method chaining
 
         Raises:
-            ValueError: If algorithm is not supported
+            ValueError: If target is not supported
         """
-        if isinstance(algorithm, str):
+        if isinstance(target, str):
             try:
-                algorithm = AlgorithmType(algorithm.lower())
+                target = CalculationTarget(target.lower())
             except ValueError:
-                valid_algorithms = [alg.value for alg in AlgorithmType]
-                raise ValueError(f"Unsupported algorithm '{algorithm}'. "
-                                 f"Valid options: {valid_algorithms}")
+                valid_targets = [t.value for t in CalculationTarget]
+                raise ValueError(f"Unsupported target '{target}'. "
+                                 f"Valid options: {valid_targets}")
 
-        self._calculation_config = replace(self._calculation_config, algorithm=algorithm)
+        self._calculation_config = replace(self._calculation_config, target=target)
+        return self
+
+    def with_implementation(self, implementation: Union[str, ImplementationAlgorithm]) -> 'ConfigurationBuilder':
+        """Set the implementation algorithm.
+
+        Args:
+            implementation: Implementation name ('bitarray', 'successive') or ImplementationAlgorithm enum value
+
+        Returns:
+            Self for method chaining
+
+        Raises:
+            ValueError: If implementation is not supported
+        """
+        if isinstance(implementation, str):
+            try:
+                implementation = ImplementationAlgorithm(implementation.lower())
+            except ValueError:
+                valid_implementations = [impl.value for impl in ImplementationAlgorithm]
+                raise ValueError(f"Unsupported implementation '{implementation}'. "
+                                 f"Valid options: {valid_implementations}")
+
+        self._calculation_config = replace(self._calculation_config, implementation=implementation)
         return self
 
     def with_max_shift(self, max_shift: int) -> 'ConfigurationBuilder':
@@ -298,11 +321,23 @@ class ConfigurationService:
         """
         builder = ConfigurationBuilder()
 
-        # Algorithm selection
-        if hasattr(args, 'successive') and args.successive:
-            builder.with_algorithm(AlgorithmType.SUCCESSIVE)
+        # Target and implementation selection based on CLI arguments
+        # Determine target based on mappability presence (maintaining existing behavior)
+        if hasattr(args, 'mappability') and args.mappability:
+            if hasattr(args, 'skip_ncc') and args.skip_ncc:
+                target = CalculationTarget.MSCC
+            else:
+                target = CalculationTarget.BOTH
         else:
-            builder.with_algorithm(AlgorithmType.BITARRAY)
+            target = CalculationTarget.NCC
+            
+        # Determine implementation based on --successive flag
+        if hasattr(args, 'successive') and args.successive:
+            implementation = ImplementationAlgorithm.SUCCESSIVE
+        else:
+            implementation = ImplementationAlgorithm.BITARRAY
+            
+        builder.with_target(target).with_implementation(implementation)
 
         # Core calculation parameters
         if hasattr(args, 'max_shift'):
@@ -345,13 +380,13 @@ class ConfigurationService:
         errors = []
         warnings = []
 
-        # Validate algorithm-specific requirements
+        # Validate target-specific requirements
         calc_config = config.calculation_config
         map_config = config.mappability_config
 
-        if calc_config.algorithm in [AlgorithmType.MSCC, AlgorithmType.BITARRAY]:
+        if calc_config.target in [CalculationTarget.MSCC, CalculationTarget.BOTH]:
             if not map_config.is_enabled():
-                errors.append(f"{calc_config.algorithm.value} algorithm requires mappability data")
+                errors.append(f"{calc_config.target.value} target requires mappability data")
 
         if calc_config.skip_ncc and not map_config.is_enabled():
             errors.append("Cannot skip NCC without mappability data for MSCC")

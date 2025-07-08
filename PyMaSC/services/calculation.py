@@ -20,7 +20,7 @@ import numpy as np
 
 from PyMaSC.core.interfaces import CrossCorrelationCalculator
 from PyMaSC.core.models import (
-    CalculationConfig, MappabilityConfig, AlgorithmType
+    CalculationConfig, MappabilityConfig, CalculationTarget, ImplementationAlgorithm
 )
 from PyMaSC.core.factory import CalculatorFactory
 from PyMaSC.utils.stats_utils import (
@@ -204,7 +204,7 @@ class StandardCalculationService(CalculationService):
 
     def __init__(self) -> None:
         """Initialize calculation service."""
-        self._calculator_cache: Dict[Tuple[AlgorithmType, int, int, bool], Any] = {}
+        self._calculator_cache: Dict[Tuple[CalculationTarget, ImplementationAlgorithm, int, int, bool], Any] = {}
 
     def calculate_chromosome(self, 
                            data: ChromosomeData,
@@ -216,14 +216,15 @@ class StandardCalculationService(CalculationService):
         Performs pure calculation without any I/O operations.
         """
         # Create or reuse calculator
-        cache_key = (config.algorithm, config.max_shift, 
+        cache_key = (config.target, config.implementation, config.max_shift, 
                     config.read_length or 50, config.skip_ncc)
 
         if cache_key not in self._calculator_cache:
             # Create calculator for this configuration
             # Use all references from original config, not just current chromosome
             calc_config = CalculationConfig(
-                algorithm=config.algorithm,
+                target=config.target,
+                implementation=config.implementation,
                 max_shift=config.max_shift,
                 mapq_criteria=config.mapq_criteria,
                 references=config.references,  # Use all references
@@ -233,7 +234,8 @@ class StandardCalculationService(CalculationService):
             )
 
             calculator = CalculatorFactory.create_calculator(
-                config.algorithm,
+                config.target,
+                config.implementation,
                 calc_config,
                 mappability_config
             )

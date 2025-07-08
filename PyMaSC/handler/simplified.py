@@ -18,7 +18,7 @@ from pathlib import Path
 
 from PyMaSC.core.models import (
     CalculationConfig, MappabilityConfig, ExecutionConfig,
-    AlgorithmType, ExecutionMode
+    CalculationTarget, ImplementationAlgorithm, ExecutionMode
 )
 from PyMaSC.services.calculation import (
     CalculationService, GenomeWideResult, create_calculation_service
@@ -173,8 +173,8 @@ class SimplifiedCalcHandler:
         )
 
         # Update configuration
-        if self.config.algorithm == AlgorithmType.NAIVE_CC:
-            self.config.algorithm = AlgorithmType.MSCC
+        if self.config.target == CalculationTarget.NCC:
+            self.config.target = CalculationTarget.MSCC
 
         # Create mappability service
         self.deps.mappability_service = create_mappability_service(path, map_config)
@@ -239,7 +239,8 @@ class HandlerBuilder:
     def __init__(self) -> None:
         """Initialize builder."""
         self._bam_path: Optional[str] = None
-        self._algorithm = AlgorithmType.BITARRAY
+        self._target = CalculationTarget.BOTH
+        self._implementation = ImplementationAlgorithm.BITARRAY
         self._max_shift = 500
         self._mapq_criteria = 30
         self._read_length: Optional[int] = None
@@ -254,9 +255,14 @@ class HandlerBuilder:
         self._bam_path = path
         return self
 
-    def with_algorithm(self, algorithm: str) -> 'HandlerBuilder':
-        """Set algorithm type."""
-        self._algorithm = AlgorithmType(algorithm)
+    def with_target(self, target: str) -> 'HandlerBuilder':
+        """Set calculation target."""
+        self._target = CalculationTarget(target)
+        return self
+        
+    def with_implementation(self, implementation: str) -> 'HandlerBuilder':
+        """Set implementation algorithm."""
+        self._implementation = ImplementationAlgorithm(implementation)
         return self
 
     def with_max_shift(self, max_shift: int) -> 'HandlerBuilder':
@@ -279,9 +285,9 @@ class HandlerBuilder:
         self._mappability_path = path
         self._mappability_read_len = read_len
 
-        # Adjust algorithm if needed
-        if self._algorithm == AlgorithmType.NAIVE_CC:
-            self._algorithm = AlgorithmType.MSCC
+        # Adjust target if needed for mappability compatibility
+        if self._target == CalculationTarget.NCC and path:
+            self._target = CalculationTarget.BOTH
 
         return self
 
@@ -358,7 +364,8 @@ class HandlerBuilder:
 
         # Create calculation configuration
         calc_config = CalculationConfig(
-            algorithm=self._algorithm,
+            target=self._target,
+            implementation=self._implementation,
             max_shift=self._max_shift,
             mapq_criteria=self._mapq_criteria,
             references=bam_info.references,
@@ -401,9 +408,26 @@ def create_simplified_handler(bam_path: str,
     Returns:
         Configured handler
     """
+    # Map algorithm string to target/implementation combination
+    if algorithm.lower() == 'ncc':
+        target = 'ncc'
+        implementation = 'successive'
+    elif algorithm.lower() == 'mscc':
+        target = 'mscc'
+        implementation = 'successive'
+    elif algorithm.lower() == 'bitarray':
+        target = 'both'
+        implementation = 'bitarray'
+    elif algorithm.lower() == 'successive':
+        target = 'both'
+        implementation = 'successive'
+    else:
+        raise ValueError(f"Unknown algorithm: {algorithm}")
+        
     builder = HandlerBuilder() \
         .with_bam_file(bam_path) \
-        .with_algorithm(algorithm) \
+        .with_target(target) \
+        .with_implementation(implementation) \
         .with_max_shift(max_shift) \
         .with_mapq_threshold(mapq_criteria) \
         .with_multiprocessing(n_workers)

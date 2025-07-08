@@ -293,7 +293,7 @@ class TestMigrationIntegration:
     def test_unified_handler_integration(self):
         """Test integration with UnifiedCalcHandler."""
         from PyMaSC.handler.unified import UnifiedCalcHandler
-        from PyMaSC.core.models import CalculationConfig, AlgorithmType
+        from PyMaSC.core.models import CalculationConfig, CalculationTarget, ImplementationAlgorithm
 
         # Mock file
         with patch('pysam.AlignmentFile') as mock_af:
@@ -305,7 +305,8 @@ class TestMigrationIntegration:
 
             # Create handler
             config = CalculationConfig(
-                algorithm=AlgorithmType.SUCCESSIVE,
+                target=CalculationTarget.NCC,
+                implementation=ImplementationAlgorithm.SUCCESSIVE,
                 max_shift=200,
                 mapq_criteria=20
             )

@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch, MagicMock
 
 from PyMaSC.core.models import (
     CalculationConfig, MappabilityConfig, ExecutionConfig,
-    AlgorithmType, ExecutionMode
+    CalculationTarget, ImplementationAlgorithm, ExecutionMode
 )
 from tests.utils.test_data_generator import create_mock_reference_data
 
@@ -33,7 +33,8 @@ class TestUnifiedHandler:
 
         # Create configuration
         calc_config = CalculationConfig(
-            algorithm=AlgorithmType.SUCCESSIVE,
+            target=CalculationTarget.NCC,
+            implementation=ImplementationAlgorithm.SUCCESSIVE,
             max_shift=200,
             mapq_criteria=20,
             skip_ncc=False
@@ -72,7 +73,8 @@ class TestUnifiedHandler:
 
         # Create configuration with mappability
         calc_config = CalculationConfig(
-            algorithm=AlgorithmType.BITARRAY,
+            target=CalculationTarget.MSCC,
+            implementation=ImplementationAlgorithm.BITARRAY,
             max_shift=300,
             mapq_criteria=30,
             skip_ncc=True
@@ -109,7 +111,8 @@ class TestUnifiedHandler:
 
         # Request multiprocess
         calc_config = CalculationConfig(
-            algorithm=AlgorithmType.SUCCESSIVE,
+            target=CalculationTarget.NCC,
+            implementation=ImplementationAlgorithm.SUCCESSIVE,
             max_shift=200,
             mapq_criteria=20
         )
@@ -138,7 +141,8 @@ class TestUnifiedHandler:
         mock_alignment_file.side_effect = ValueError("File has no sequences defined.")
 
         calc_config = CalculationConfig(
-            algorithm=AlgorithmType.SUCCESSIVE,
+            target=CalculationTarget.NCC,
+            implementation=ImplementationAlgorithm.SUCCESSIVE,
             max_shift=200,
             mapq_criteria=20
         )
@@ -164,7 +168,8 @@ class TestUnifiedHandler:
 
         # Create config with chromfilter
         calc_config = CalculationConfig(
-            algorithm=AlgorithmType.SUCCESSIVE,
+            target=CalculationTarget.NCC,
+            implementation=ImplementationAlgorithm.SUCCESSIVE,
             max_shift=200,
             mapq_criteria=20
         )
@@ -204,7 +209,8 @@ class TestUnifiedHandler:
         mock_alignment_file.return_value = mock_bam
 
         calc_config = CalculationConfig(
-            algorithm=AlgorithmType.SUCCESSIVE,
+            target=CalculationTarget.NCC,
+            implementation=ImplementationAlgorithm.SUCCESSIVE,
             max_shift=250,
             mapq_criteria=25,
             skip_ncc=True
@@ -248,16 +254,17 @@ class TestHandlerIntegration:
         mock_bam.has_index.return_value = False
         mock_alignment_file.return_value = mock_bam
 
-        # Test different algorithms
-        algorithms = [
-            AlgorithmType.SUCCESSIVE,
-            AlgorithmType.BITARRAY,
-            AlgorithmType.MSCC
+        # Test different target/implementation combinations
+        combinations = [
+            (CalculationTarget.NCC, ImplementationAlgorithm.SUCCESSIVE),
+            (CalculationTarget.BOTH, ImplementationAlgorithm.BITARRAY),
+            (CalculationTarget.MSCC, ImplementationAlgorithm.SUCCESSIVE)
         ]
 
-        for algo in algorithms:
+        for target, implementation in combinations:
             calc_config = CalculationConfig(
-                algorithm=algo,
+                target=target,
+                implementation=implementation,
                 max_shift=200,
                 mapq_criteria=20
             )
@@ -288,7 +295,8 @@ class TestHandlerIntegration:
         mock_alignment_file.return_value = mock_bam
 
         calc_config = CalculationConfig(
-            algorithm=AlgorithmType.SUCCESSIVE,
+            target=CalculationTarget.NCC,
+            implementation=ImplementationAlgorithm.SUCCESSIVE,
             max_shift=200,
             mapq_criteria=20
         )

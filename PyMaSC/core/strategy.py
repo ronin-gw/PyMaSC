@@ -1,39 +1,118 @@
-"""Strategy pattern implementation for algorithm selection.
+"""Strategy pattern implementation with mixin-based architecture.
 
-This module implements the Strategy pattern to decouple algorithm selection
-from the calculation logic. It enables runtime algorithm switching and
-provides a clean abstraction for different cross-correlation algorithms.
+This module implements the Strategy pattern using a sophisticated mixin architecture
+that cleanly separates "what to calculate" (targets) from "how to calculate"
+(implementations). This design eliminates code duplication and enables easy
+extension with new targets or implementations.
+
+Architecture Design:
+- Target Mixins: NCCMixin, MSCCMixin, BothMixin (what to calculate)
+- Implementation Mixins: BitArrayMixin, SuccessiveMixin (how to calculate)
+- Strategy Classes: Combinations of target + implementation mixins using ClassVar
+
+Technical Features:
+- ClassVar approach: Properties defined as class variables for zero overhead
+- Multiple inheritance: Clean composition of orthogonal concerns
+- Type safety: Compile-time validation of strategy combinations
+- Zero instantiation overhead: Properties accessed directly from class
 
 Key components:
-- CalculationStrategy: Abstract base for all algorithm strategies
-- BitArrayStrategy: Strategy for BitArray algorithm
-- SuccessiveStrategy: Strategy for Successive/NCC algorithm
-- MSCCStrategy: Strategy for pure MSCC algorithm
+- CalculationTargetMixin: Abstract base for target-specific logic
+- CalculationStrategy: Unified strategy interface with ClassVar properties
+- Target Mixins: Encapsulate calculation target logic (NCC/MSCC/BOTH)
+- Implementation Mixins: Encapsulate algorithm logic (BitArray/Successive)
+- Strategy Classes: Minimal combinations using multiple inheritance
 - CalculationContext: Context class for strategy management
 """
-from abc import ABC, abstractmethod
-from typing import Optional, Any, Dict, List
+from abc import ABC
+from typing import Optional, Any, List, ClassVar
 import logging
 
 from .interfaces import CrossCorrelationCalculator
 from .factory import CalculatorFactory
 from .models import (
-    CalculationConfig, MappabilityConfig, WorkerConfig,
-    AlgorithmType, ExecutionMode
+    CalculationConfig, MappabilityConfig,
+    CalculationTarget, ImplementationAlgorithm,
 )
 
 logger = logging.getLogger(__name__)
 
 
-class CalculationStrategy(ABC):
-    """Abstract base class for calculation strategies.
+# === Target Mixins ===
+# These mixins define "what to calculate" (NCC/MSCC/BOTH) and their properties
+# using ClassVar for zero-overhead property access.
 
-    Defines the interface that all algorithm strategies must implement.
-    Each strategy encapsulates the specific logic for creating and
-    configuring calculators for a particular algorithm.
+class CalculationTargetMixin(ABC):
+    """Abstract base class for calculation target mixins.
+
+    Defines the interface that target mixins must implement using ClassVar.
+    This approach provides compile-time type safety and zero runtime overhead.
+
+    Class Variables:
+        calculation_target: The specific target this mixin handles
+        requires_mappability: Whether this target requires mappability data
+        supports_skip_ncc: Whether this target supports skipping NCC calculation
     """
 
-    @abstractmethod
+    calculation_target: ClassVar[CalculationTarget]
+    requires_mappability: ClassVar[bool]
+    supports_skip_ncc: ClassVar[bool]
+
+
+class NCCMixin(CalculationTargetMixin):
+    """Mixin for NCC (Naive Cross-Correlation) target-specific logic.
+
+    NCC calculates basic cross-correlation without mappability correction.
+    This is the fastest calculation but may be affected by mappability bias.
+    """
+
+    calculation_target = CalculationTarget.NCC
+    requires_mappability = False  # NCC doesn't need mappability data
+    supports_skip_ncc = False     # Can't skip what we're calculating
+
+
+class MSCCMixin(CalculationTargetMixin):
+    """Mixin for MSCC (Mappability-Sensitive Cross-Correlation) target-specific logic.
+
+    MSCC calculates cross-correlation with mappability correction to address
+    the "phantom peak" problem caused by non-uniform mappability.
+    """
+
+    calculation_target = CalculationTarget.MSCC
+    requires_mappability = True   # MSCC requires mappability data
+    supports_skip_ncc = False     # MSCC-only mode, NCC already skipped
+
+
+class BothMixin(CalculationTargetMixin):
+    """Mixin for BOTH (NCC and MSCC) target-specific logic.
+
+    Calculates both NCC and MSCC for comparison and analysis.
+    This is the most comprehensive option but requires mappability data.
+    """
+
+    calculation_target = CalculationTarget.BOTH
+    requires_mappability = True   # MSCC component requires mappability
+    supports_skip_ncc = True      # Can skip NCC to get MSCC-only
+
+
+# === Strategy Base Class ===
+# This class combines target properties with implementation interface to create
+# the unified strategy abstraction.
+
+class CalculationStrategy(CalculationTargetMixin):
+    """Abstract base class for calculation strategies.
+
+    Combines target-specific properties (from CalculationTargetMixin) with
+    implementation-specific behavior to create a unified strategy interface.
+    Each strategy encapsulates the logic for creating and configuring
+    calculators for a particular target-implementation combination.
+
+    Class Variables:
+        implementation_algorithm: Which implementation algorithm to use
+    """
+
+    implementation_algorithm: ClassVar[ImplementationAlgorithm]
+
     def create_calculator(self,
                           config: CalculationConfig,
                           mappability_config: Optional[MappabilityConfig] = None,
@@ -50,36 +129,16 @@ class CalculationStrategy(ABC):
         Returns:
             Calculator instance implementing CrossCorrelationCalculator
         """
-        pass
+        return CalculatorFactory.create_calculator(
+            self.calculation_target,
+            self.implementation_algorithm,
+            config,
+            mappability_config,
+            logger_lock,
+            progress_hook
+        )
 
-    @abstractmethod
-    def get_algorithm_type(self) -> AlgorithmType:
-        """Get the algorithm type for this strategy.
-
-        Returns:
-            AlgorithmType enum value
-        """
-        pass
-
-    @abstractmethod
-    def requires_mappability(self) -> bool:
-        """Check if this strategy requires mappability data.
-
-        Returns:
-            True if mappability data is required
-        """
-        pass
-
-    @abstractmethod
-    def supports_skip_ncc(self) -> bool:
-        """Check if this strategy supports skipping NCC calculation.
-
-        Returns:
-            True if skip_ncc option is supported
-        """
-        pass
-
-    def validate_config(self, 
+    def validate_config(self,
                         config: CalculationConfig,
                         mappability_config: Optional[MappabilityConfig]) -> List[str]:
         """Validate configuration for this strategy.
@@ -93,119 +152,109 @@ class CalculationStrategy(ABC):
         """
         errors = []
 
-        if self.requires_mappability() and (not mappability_config or not mappability_config.is_enabled()):
-            errors.append(f"{self.get_algorithm_type().value} algorithm requires mappability configuration")
+        if self.requires_mappability and (not mappability_config or not mappability_config.is_enabled()):
+            errors.append(f"{self.calculation_target.value} target requires mappability configuration")
 
-        if config.skip_ncc and not self.supports_skip_ncc():
-            errors.append(f"{self.get_algorithm_type().value} algorithm does not support skip_ncc option")
+        if config.skip_ncc and not self.supports_skip_ncc:
+            errors.append(f"{self.calculation_target.value} target does not support skip_ncc option")
 
         return errors
 
 
-class BitArrayStrategy(CalculationStrategy):
-    """Strategy for BitArray algorithm.
+# === Implementation Mixins ===
+# These mixins define "how to calculate" by specifying the implementation algorithm.
+# They inherit from CalculationStrategy to get the unified interface.
 
-    Implements the creation and configuration logic specific to the
-    BitArray algorithm, which uses bit arrays for efficient memory usage
-    and supports both NCC and MSCC calculations.
+class BitArrayMixin(CalculationStrategy):
+    """Mixin for BitArray implementation-specific logic.
+
+    BitArray implementation uses memory-intensive but fast binary arrays.
+    It's optimized for speed but requires more memory (~250MB for human genome).
     """
 
-    def create_calculator(self,
-                          config: CalculationConfig,
-                          mappability_config: Optional[MappabilityConfig] = None,
-                          logger_lock: Optional[Any] = None,
-                          progress_hook: Optional[Any] = None) -> CrossCorrelationCalculator:
-        """Create BitArray calculator instance."""
-        return CalculatorFactory.create_calculator(
-            AlgorithmType.BITARRAY,
-            config,
-            mappability_config,
-            logger_lock,
-            progress_hook
-        )
-
-    def get_algorithm_type(self) -> AlgorithmType:
-        """Return BitArray algorithm type."""
-        return AlgorithmType.BITARRAY
-
-    def requires_mappability(self) -> bool:
-        """BitArray supports mappability data (optional)."""
-        return False  # Optional, not required
-
-    def supports_skip_ncc(self) -> bool:
-        """BitArray supports skipping NCC."""
-        return True
+    implementation_algorithm = ImplementationAlgorithm.BITARRAY
 
 
-class SuccessiveStrategy(CalculationStrategy):
-    """Strategy for Successive algorithm.
+class SuccessiveMixin(CalculationStrategy):
+    """Mixin for Successive implementation-specific logic.
 
-    Implements the creation and configuration logic specific to the
-    Successive algorithm, which is memory-efficient and suitable for
-    smaller datasets. Can use NCC when no mappability is provided,
-    or MSCC when mappability data is available.
+    Successive implementation uses memory-efficient algorithms.
+    It processes data sequentially with lower memory usage.
     """
 
-    def create_calculator(self,
-                          config: CalculationConfig,
-                          mappability_config: Optional[MappabilityConfig] = None,
-                          logger_lock: Optional[Any] = None,
-                          progress_hook: Optional[Any] = None) -> CrossCorrelationCalculator:
-        """Create Successive/NCC calculator instance."""
-        return CalculatorFactory.create_calculator(
-            AlgorithmType.SUCCESSIVE,
-            config,
-            mappability_config,
-            logger_lock,
-            progress_hook
-        )
-
-    def get_algorithm_type(self) -> AlgorithmType:
-        """Return Successive algorithm type."""
-        return AlgorithmType.SUCCESSIVE
-
-    def requires_mappability(self) -> bool:
-        """Successive supports mappability data (optional)."""
-        return False  # Optional, not required
-
-    def supports_skip_ncc(self) -> bool:
-        """Successive is NCC-only, cannot skip."""
-        return False
+    implementation_algorithm = ImplementationAlgorithm.SUCCESSIVE
 
 
-class MSCCStrategy(CalculationStrategy):
-    """Strategy for pure MSCC algorithm.
+# === Strategy Classes ===
+# These classes combine target and implementation mixins to create concrete strategies.
+# Each strategy is defined by exactly one target mixin and one implementation mixin.
+# The 'pass' statements demonstrate the power of the mixin architecture -
+# all functionality is inherited from the mixins.
 
-    Implements the creation and configuration logic specific to the
-    MSCC algorithm, which requires mappability data and calculates
-    mappability-sensitive cross-correlation.
+class NCCBitArrayStrategy(NCCMixin, BitArrayMixin):
+    """Strategy for NCC calculation using BitArray implementation.
+
+    Combines:
+    - NCCMixin: Provides NCC target-specific logic
+    - BitArrayMixin: Provides BitArray implementation logic
+    - CalculationStrategy: Abstract base class interface
     """
+    pass
 
-    def create_calculator(self,
-                          config: CalculationConfig,
-                          mappability_config: Optional[MappabilityConfig] = None,
-                          logger_lock: Optional[Any] = None,
-                          progress_hook: Optional[Any] = None) -> CrossCorrelationCalculator:
-        """Create MSCC calculator instance."""
-        return CalculatorFactory.create_calculator(
-            AlgorithmType.MSCC,
-            config,
-            mappability_config,
-            logger_lock,
-            progress_hook
-        )
 
-    def get_algorithm_type(self) -> AlgorithmType:
-        """Return MSCC algorithm type."""
-        return AlgorithmType.MSCC
+class MSCCBitArrayStrategy(MSCCMixin, BitArrayMixin):
+    """Strategy for MSCC calculation using BitArray implementation.
 
-    def requires_mappability(self) -> bool:
-        """MSCC requires mappability data."""
-        return True
+    Combines:
+    - MSCCMixin: Provides MSCC target-specific logic
+    - BitArrayMixin: Provides BitArray implementation logic
+    - CalculationStrategy: Abstract base class interface
+    """
+    pass
 
-    def supports_skip_ncc(self) -> bool:
-        """MSCC is mappability-only, NCC is always skipped."""
-        return False
+
+class BothBitArrayStrategy(BothMixin, BitArrayMixin):
+    """Strategy for both NCC and MSCC calculation using BitArray implementation.
+
+    Combines:
+    - BothMixin: Provides BOTH target-specific logic
+    - BitArrayMixin: Provides BitArray implementation logic
+    - CalculationStrategy: Abstract base class interface
+    """
+    pass
+
+
+class NCCSuccessiveStrategy(NCCMixin, SuccessiveMixin):
+    """Strategy for NCC calculation using Successive implementation.
+
+    Combines:
+    - NCCMixin: Provides NCC target-specific logic
+    - SuccessiveMixin: Provides Successive implementation logic
+    - CalculationStrategy: Abstract base class interface
+    """
+    pass
+
+
+class MSCCSuccessiveStrategy(MSCCMixin, SuccessiveMixin):
+    """Strategy for MSCC calculation using Successive implementation.
+
+    Combines:
+    - MSCCMixin: Provides MSCC target-specific logic
+    - SuccessiveMixin: Provides Successive implementation logic
+    - CalculationStrategy: Abstract base class interface
+    """
+    pass
+
+
+class BothSuccessiveStrategy(BothMixin, SuccessiveMixin):
+    """Strategy for both NCC and MSCC calculation using Successive implementation.
+
+    Combines:
+    - BothMixin: Provides BOTH target-specific logic
+    - SuccessiveMixin: Provides Successive implementation logic
+    - CalculationStrategy: Abstract base class interface
+    """
+    pass
 
 
 class CalculationContext:
@@ -227,11 +276,22 @@ class CalculationContext:
             strategy: Initial calculation strategy (can be None)
         """
         self._strategy = strategy
-        self._available_strategies = {
-            AlgorithmType.BITARRAY: BitArrayStrategy(),
-            AlgorithmType.SUCCESSIVE: SuccessiveStrategy(),
-            AlgorithmType.MSCC: MSCCStrategy(),
-            AlgorithmType.NAIVE_CC: SuccessiveStrategy()  # NCC uses Successive implementation
+
+        # Explicit combination strategy mapping
+        # This table provides O(1) lookup for all valid target-implementation combinations.
+        # Each entry maps a (target, implementation) tuple to its specific strategy instance.
+        # The table ensures that only supported combinations are available and provides
+        # type-safe strategy selection at runtime.
+        self._strategies = {
+            # NCC strategies
+            (CalculationTarget.NCC, ImplementationAlgorithm.BITARRAY): NCCBitArrayStrategy(),
+            (CalculationTarget.NCC, ImplementationAlgorithm.SUCCESSIVE): NCCSuccessiveStrategy(),
+            # MSCC strategies
+            (CalculationTarget.MSCC, ImplementationAlgorithm.BITARRAY): MSCCBitArrayStrategy(),
+            (CalculationTarget.MSCC, ImplementationAlgorithm.SUCCESSIVE): MSCCSuccessiveStrategy(),
+            # BOTH strategies
+            (CalculationTarget.BOTH, ImplementationAlgorithm.BITARRAY): BothBitArrayStrategy(),
+            (CalculationTarget.BOTH, ImplementationAlgorithm.SUCCESSIVE): BothSuccessiveStrategy(),
         }
 
     def set_strategy(self, strategy: CalculationStrategy) -> None:
@@ -241,22 +301,24 @@ class CalculationContext:
             strategy: New calculation strategy to use
         """
         self._strategy = strategy
-        logger.debug(f"Strategy changed to {strategy.get_algorithm_type().value}")
+        logger.debug(f"Strategy changed to {strategy.__class__.__name__}")
 
-    def set_strategy_by_algorithm(self, algorithm: AlgorithmType) -> None:
-        """Set strategy based on algorithm type.
+    def set_strategy_by_concepts(self, target: CalculationTarget, implementation: ImplementationAlgorithm) -> None:
+        """Set strategy based on calculation target and implementation algorithm.
 
         Args:
-            algorithm: Algorithm type to select strategy for
+            target: What to calculate
+            implementation: How to calculate
 
         Raises:
-            ValueError: If algorithm is not supported
+            ValueError: If combination is not supported
         """
-        if algorithm not in self._available_strategies:
-            raise ValueError(f"Unsupported algorithm: {algorithm}")
+        combination = (target, implementation)
+        if combination not in self._strategies:
+            raise ValueError(f"Unsupported combination: target={target.value}, implementation={implementation.value}")
 
-        self._strategy = self._available_strategies[algorithm]
-        logger.debug(f"Strategy set to {algorithm.value}")
+        self._strategy = self._strategies[combination]
+        logger.debug(f"Strategy set to target={target.value}, implementation={implementation.value}")
 
     def get_current_strategy(self) -> Optional[CalculationStrategy]:
         """Get the current calculation strategy.
@@ -291,7 +353,7 @@ class CalculationContext:
         # Validate configuration for current strategy
         errors = self._strategy.validate_config(config, mappability_config)
         if errors:
-            raise ValueError("Configuration validation failed:\n" + 
+            raise ValueError("Configuration validation failed:\n" +
                            "\n".join(f"  - {error}" for error in errors))
 
         return self._strategy.create_calculator(
@@ -310,7 +372,7 @@ class CalculationContext:
         if self._strategy is None:
             raise RuntimeError("No calculation strategy set")
 
-        return self._strategy.requires_mappability()
+        return self._strategy.requires_mappability
 
     def supports_skip_ncc(self) -> bool:
         """Check if current strategy supports skipping NCC.
@@ -324,7 +386,7 @@ class CalculationContext:
         if self._strategy is None:
             raise RuntimeError("No calculation strategy set")
 
-        return self._strategy.supports_skip_ncc()
+        return self._strategy.supports_skip_ncc
 
     @staticmethod
     def create_from_config(config: CalculationConfig) -> 'CalculationContext':
@@ -337,5 +399,11 @@ class CalculationContext:
             CalculationContext with appropriate strategy set
         """
         context = CalculationContext()
-        context.set_strategy_by_algorithm(config.algorithm)
+
+        # Use concept-based approach
+        if config.target is not None and config.implementation is not None:
+            context.set_strategy_by_concepts(config.target, config.implementation)
+        else:
+            raise ValueError("Configuration must specify both target and implementation")
+
         return context

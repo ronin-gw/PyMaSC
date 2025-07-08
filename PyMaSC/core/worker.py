@@ -21,7 +21,7 @@ from typing import Optional, Dict, Any, Protocol, runtime_checkable
 from pysam import AlignmentFile, AlignedSegment
 
 from PyMaSC.core.interfaces import CrossCorrelationCalculator
-from PyMaSC.core.models import WorkerConfig, CalculationConfig, AlgorithmType
+from PyMaSC.core.models import WorkerConfig, CalculationConfig, CalculationTarget, ImplementationAlgorithm
 from PyMaSC.utils.progress import ProgressHook
 from PyMaSC.utils.read_processing import ReadFilter, ReadProcessor as ReadProcessorUtil, create_standard_filter
 
@@ -329,7 +329,8 @@ class UnifiedWorker(BaseWorker):
 
         # Create primary calculator
         self._calculator = factory.create_calculator(
-            calc_config.algorithm,
+            calc_config.target,
+            calc_config.implementation,
             calc_config,
             map_config,
             self.logger_lock,
@@ -337,11 +338,12 @@ class UnifiedWorker(BaseWorker):
         )
 
         # For dual NCC/MSCC mode, create secondary NCC calculator
-        if (calc_config.algorithm == AlgorithmType.MSCC and
+        if (calc_config.target == CalculationTarget.BOTH and
             not calc_config.skip_ncc):
             # Create NCC calculator
             ncc_config = CalculationConfig(
-                algorithm=AlgorithmType.NAIVE_CC,
+                target=CalculationTarget.NCC,
+                implementation=ImplementationAlgorithm.SUCCESSIVE,
                 max_shift=calc_config.max_shift,
                 mapq_criteria=calc_config.mapq_criteria,
                 references=calc_config.references,
@@ -349,7 +351,8 @@ class UnifiedWorker(BaseWorker):
                 read_length=calc_config.read_length
             )
             self._secondary_calculator = factory.create_calculator(
-                AlgorithmType.NAIVE_CC,
+                CalculationTarget.NCC,
+                ImplementationAlgorithm.SUCCESSIVE,
                 ncc_config,
                 None,  # No mappability for NCC
                 self.logger_lock,
@@ -414,15 +417,16 @@ class UnifiedWorker(BaseWorker):
             result.ncc_bins = self._calculator.ref2ccbins.get(chrom)  # type: ignore[union-attr]
 
         # Collect MSCC results
-        algorithm = self.config.calculation_config.algorithm
+        target = self.config.calculation_config.target
+        implementation = self.config.calculation_config.implementation
         has_mappability = self.config.mappability_config and self.config.mappability_config.is_enabled()
 
-        if algorithm == AlgorithmType.MSCC:
+        if target == CalculationTarget.MSCC:
             # For pure MSCC, use standard ref2* attributes
             result.mscc_forward_sum = self._calculator.ref2forward_sum.get(chrom)  # type: ignore[union-attr]
             result.mscc_reverse_sum = self._calculator.ref2reverse_sum.get(chrom)  # type: ignore[union-attr]
             result.mscc_bins = self._calculator.ref2ccbins.get(chrom)  # type: ignore[union-attr]
-        elif algorithm == AlgorithmType.SUCCESSIVE and has_mappability:
+        elif implementation == ImplementationAlgorithm.SUCCESSIVE and has_mappability:
             # For SUCCESSIVE with mappability (CompositeCalculator), use mappable attributes
             if hasattr(self._calculator, 'ref2mappable_forward_sum'):
                 mappable_forward = self._calculator.ref2mappable_forward_sum  # type: ignore[union-attr]
@@ -523,9 +527,10 @@ def create_legacy_worker(worker_type: str, *args: Any, **kwargs: Any) -> BaseWor
 
     # Create appropriate configuration
     if worker_type == 'bitarray':
-        from PyMaSC.core.models import AlgorithmType
+        from PyMaSC.core.models import CalculationTarget, ImplementationAlgorithm
         calc_config = CalculationConfig(
-            algorithm=AlgorithmType.BITARRAY,
+            target=CalculationTarget.BOTH,
+            implementation=ImplementationAlgorithm.BITARRAY,
             max_shift=max_shift,
             mapq_criteria=mapq_criteria,
             references=references,
@@ -535,19 +540,23 @@ def create_legacy_worker(worker_type: str, *args: Any, **kwargs: Any) -> BaseWor
         )
     else:
         # Standard NCC/MSCC workers
-        from PyMaSC.core.models import AlgorithmType
+        from PyMaSC.core.models import CalculationTarget, ImplementationAlgorithm
         if worker_type == 'ncc':
-            algorithm = AlgorithmType.NAIVE_CC
+            target = CalculationTarget.NCC
+            implementation = ImplementationAlgorithm.SUCCESSIVE
             skip_ncc = False
         elif worker_type == 'mscc':
-            algorithm = AlgorithmType.MSCC
+            target = CalculationTarget.MSCC
+            implementation = ImplementationAlgorithm.SUCCESSIVE
             skip_ncc = True
         else:  # ncc_mscc
-            algorithm = AlgorithmType.MSCC
+            target = CalculationTarget.BOTH
+            implementation = ImplementationAlgorithm.SUCCESSIVE
             skip_ncc = False
 
         calc_config = CalculationConfig(
-            algorithm=algorithm,
+            target=target,
+            implementation=implementation,
             max_shift=max_shift,
             mapq_criteria=mapq_criteria,
             references=references,

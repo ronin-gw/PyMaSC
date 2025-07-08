@@ -13,7 +13,7 @@ from PyMaSC.services.calculation import (
 )
 from PyMaSC.services.io import InMemoryIOService
 from PyMaSC.services.workflow import create_workflow_service, WorkflowRequest
-from PyMaSC.core.models import CalculationConfig, AlgorithmType
+from PyMaSC.core.models import CalculationConfig, CalculationTarget, ImplementationAlgorithm
 
 
 class PerformanceTimer:
@@ -81,7 +81,8 @@ class TestServicePerformanceBenchmark:
         )
 
         config = CalculationConfig(
-            algorithm=AlgorithmType.BITARRAY,
+            target=CalculationTarget.NCC,
+            implementation=ImplementationAlgorithm.BITARRAY,
             max_shift=500,
             mapq_criteria=20,
             references=["chr1"],
@@ -118,7 +119,8 @@ class TestServicePerformanceBenchmark:
         )
 
         config = CalculationConfig(
-            algorithm=AlgorithmType.BITARRAY,
+            target=CalculationTarget.NCC,
+            implementation=ImplementationAlgorithm.BITARRAY,
             max_shift=500,
             mapq_criteria=20,
             references=["chr1"],
@@ -170,7 +172,8 @@ class TestServicePerformanceBenchmark:
 
         # Create request
         config = CalculationConfig(
-            algorithm=AlgorithmType.BITARRAY,
+            target=CalculationTarget.NCC,
+            implementation=ImplementationAlgorithm.BITARRAY,
             max_shift=500,
             mapq_criteria=20,
             references=chromosomes,
@@ -217,7 +220,8 @@ class TestServicePerformanceBenchmark:
         )
 
         config = CalculationConfig(
-            algorithm=AlgorithmType.BITARRAY,
+            target=CalculationTarget.NCC,
+            implementation=ImplementationAlgorithm.BITARRAY,
             max_shift=500,
             mapq_criteria=20,
             references=["chr1", "chr2"],
@@ -253,17 +257,19 @@ class TestServicePerformanceBenchmark:
             length=500000
         )
 
-        algorithms = [
-            AlgorithmType.NAIVE_CC,
-            AlgorithmType.BITARRAY,
-            AlgorithmType.SUCCESSIVE
+        # Test different target/implementation combinations
+        configurations = [
+            ("ncc_successive", CalculationTarget.NCC, ImplementationAlgorithm.SUCCESSIVE),
+            ("ncc_bitarray", CalculationTarget.NCC, ImplementationAlgorithm.BITARRAY),
+            ("ncc_successive_2", CalculationTarget.NCC, ImplementationAlgorithm.SUCCESSIVE)
         ]
 
         results = {}
 
-        for algorithm in algorithms:
+        for name, target, implementation in configurations:
             config = CalculationConfig(
-                algorithm=algorithm,
+                target=target,
+                implementation=implementation,
                 max_shift=300,
                 mapq_criteria=20,
                 references=["chr1"],
@@ -272,21 +278,21 @@ class TestServicePerformanceBenchmark:
 
             calc_service = create_calculation_service()
 
-            with PerformanceTimer(f"{algorithm.value} algorithm") as timer:
+            with PerformanceTimer(f"{name} configuration") as timer:
                 result = calc_service.calculate_chromosome(data, config)
 
-            results[algorithm.value] = timer.elapsed
+            results[name] = timer.elapsed
 
-            # Verify all algorithms produce results
+            # Verify all configurations produce results
             assert result is not None
             assert result.correlation_bins is not None
 
         # Print comparison
-        print("\nAlgorithm Performance Comparison:")
-        baseline = results.get('ncc', 1.0)
-        for algo, elapsed in results.items():
+        print("\nConfiguration Performance Comparison:")
+        baseline = results.get('ncc_successive', 1.0)
+        for config_name, elapsed in results.items():
             speedup = baseline / elapsed
-            print(f"  {algo}: {elapsed:.3f}s ({speedup:.2f}x vs NCC)")
+            print(f"  {config_name}: {elapsed:.3f}s ({speedup:.2f}x vs NCC)")
 
 
 class TestServiceMemoryEfficiency:

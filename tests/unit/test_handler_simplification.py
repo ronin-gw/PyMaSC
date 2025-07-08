@@ -20,7 +20,7 @@ from PyMaSC.handler.simplified import (
     create_simplified_handler
 )
 from PyMaSC.core.models import (
-    CalculationConfig, MappabilityConfig, AlgorithmType
+    CalculationConfig, MappabilityConfig, CalculationTarget, ImplementationAlgorithm
 )
 
 
@@ -67,7 +67,8 @@ class TestValidationService(unittest.TestCase):
         """Test calculation configuration validation."""
         # Valid config
         config = CalculationConfig(
-            algorithm=AlgorithmType.BITARRAY,
+            target=CalculationTarget.BOTH,
+            implementation=ImplementationAlgorithm.BITARRAY,
             max_shift=500,
             mapq_criteria=30,
             references=['chr1'],
@@ -86,7 +87,8 @@ class TestValidationService(unittest.TestCase):
     def test_validate_workflow_request(self):
         """Test complete workflow validation."""
         config = CalculationConfig(
-            algorithm=AlgorithmType.MSCC,
+            target=CalculationTarget.MSCC,
+            implementation=ImplementationAlgorithm.SUCCESSIVE,
             max_shift=500,
             mapq_criteria=30,
             references=['chr1'],
@@ -101,7 +103,7 @@ class TestValidationService(unittest.TestCase):
         )
 
         self.assertFalse(result.is_valid)
-        self.assertIn("mscc requires mappability configuration", result.errors[-1])
+        self.assertIn("mscc target requires mappability configuration", result.errors[-1])
 
 
 class TestMappabilityService(unittest.TestCase):
@@ -199,7 +201,8 @@ class TestSimplifiedHandler(unittest.TestCase):
 
         # Create config
         self.config = CalculationConfig(
-            algorithm=AlgorithmType.BITARRAY,
+            target=CalculationTarget.BOTH,
+            implementation=ImplementationAlgorithm.BITARRAY,
             max_shift=100,
             mapq_criteria=20,
             references=['chr1'],
@@ -270,8 +273,9 @@ class TestSimplifiedHandler(unittest.TestCase):
 
             handler.set_mappability_file("/test/mappability.bw", read_len=36)
 
-            # Algorithm should stay as BITARRAY (it's already mappability-aware)
-            self.assertEqual(handler.config.algorithm, AlgorithmType.BITARRAY)
+            # Target should stay as BOTH (it's already mappability-aware)
+            self.assertEqual(handler.config.target, CalculationTarget.BOTH)
+            self.assertEqual(handler.config.implementation, ImplementationAlgorithm.BITARRAY)
 
             # Check service was created
             self.assertEqual(handler.deps.mappability_service, mock_service)
@@ -279,9 +283,10 @@ class TestSimplifiedHandler(unittest.TestCase):
 
     def test_handler_set_mappability_naive_cc(self):
         """Test setting mappability with NAIVE_CC algorithm."""
-        # Create config with NAIVE_CC
+        # Create config with NCC target
         config = CalculationConfig(
-            algorithm=AlgorithmType.NAIVE_CC,
+            target=CalculationTarget.NCC,
+            implementation=ImplementationAlgorithm.SUCCESSIVE,
             max_shift=100,
             mapq_criteria=20,
             references=['chr1'],
@@ -300,8 +305,8 @@ class TestSimplifiedHandler(unittest.TestCase):
 
             handler.set_mappability_file("/test/mappability.bw", read_len=36)
 
-            # NAIVE_CC should be upgraded to MSCC
-            self.assertEqual(handler.config.algorithm, AlgorithmType.MSCC)
+            # NCC should be upgraded to MSCC
+            self.assertEqual(handler.config.target, CalculationTarget.MSCC)
 
 
 class TestHandlerBuilder(unittest.TestCase):
@@ -319,13 +324,15 @@ class TestHandlerBuilder(unittest.TestCase):
 
             handler = HandlerBuilder() \
                 .with_bam_file("/test/file.bam") \
-                .with_algorithm('bitarray') \
+                .with_target('both') \
+                .with_implementation('bitarray') \
                 .with_max_shift(200) \
                 .with_mapq_threshold(25) \
                 .build()
 
             self.assertEqual(handler.bam_path, "/test/file.bam")
-            self.assertEqual(handler.config.algorithm, AlgorithmType.BITARRAY)
+            self.assertEqual(handler.config.target, CalculationTarget.BOTH)
+            self.assertEqual(handler.config.implementation, ImplementationAlgorithm.BITARRAY)
             self.assertEqual(handler.config.max_shift, 200)
             self.assertEqual(handler.config.mapq_criteria, 25)
 
@@ -345,12 +352,13 @@ class TestHandlerBuilder(unittest.TestCase):
 
                 handler = HandlerBuilder() \
                     .with_bam_file("/test/file.bam") \
-                    .with_algorithm('ncc') \
+                    .with_target('ncc') \
+                    .with_implementation('successive') \
                     .with_mappability("/test/mappability.bw") \
                     .build()
 
-                # Algorithm should be upgraded to MSCC
-                self.assertEqual(handler.config.algorithm, AlgorithmType.MSCC)
+                # Target should be upgraded for mappability compatibility
+                self.assertEqual(handler.config.target, CalculationTarget.BOTH)
                 mock_map.assert_called_once()
 
     def test_builder_missing_bam(self):
@@ -378,7 +386,8 @@ class TestHandlerBuilder(unittest.TestCase):
             )
 
             self.assertEqual(handler.bam_path, "/test/file.bam")
-            self.assertEqual(handler.config.algorithm, AlgorithmType.SUCCESSIVE)
+            self.assertEqual(handler.config.target, CalculationTarget.BOTH)
+            self.assertEqual(handler.config.implementation, ImplementationAlgorithm.SUCCESSIVE)
 
 
 if __name__ == '__main__':

@@ -6,7 +6,8 @@ from multiprocessing import Queue, Lock
 
 from PyMaSC.core.worker import UnifiedWorker, StandardReadProcessor, DualReadProcessor
 from PyMaSC.core.models import (
-    WorkerConfig, CalculationConfig, MappabilityConfig, AlgorithmType
+    WorkerConfig, CalculationConfig, MappabilityConfig, 
+    CalculationTarget, ImplementationAlgorithm
 )
 from PyMaSC.core.worker_compat import (
     NaiveCCCalcWorker, MSCCCalcWorker, NCCandMSCCCalcWorker, BACalcWorker
@@ -25,7 +26,8 @@ class TestUnifiedWorker(unittest.TestCase):
 
         # Create basic configuration
         self.calc_config = CalculationConfig(
-            algorithm=AlgorithmType.NAIVE_CC,
+            target=CalculationTarget.NCC,
+            implementation=ImplementationAlgorithm.SUCCESSIVE,
             max_shift=200,
             mapq_criteria=20,
             references=["chr1", "chr2"],
@@ -63,7 +65,8 @@ class TestUnifiedWorker(unittest.TestCase):
         )
 
         calc_config = CalculationConfig(
-            algorithm=AlgorithmType.MSCC,
+            target=CalculationTarget.MSCC,
+            implementation=ImplementationAlgorithm.SUCCESSIVE,
             max_shift=200,
             mapq_criteria=20,
             references=["chr1", "chr2"],
@@ -229,7 +232,8 @@ class TestWorkerCompatibility(unittest.TestCase):
 
         self.assertIsNotNone(worker)
         self.assertIsNotNone(worker._unified_worker)
-        self.assertEqual(worker._unified_worker.config.calculation_config.algorithm, AlgorithmType.NAIVE_CC)
+        self.assertEqual(worker._unified_worker.config.calculation_config.target, CalculationTarget.NCC)
+        self.assertEqual(worker._unified_worker.config.calculation_config.implementation, ImplementationAlgorithm.SUCCESSIVE)
 
     def test_mscc_worker_compatibility(self):
         """Test MSCCCalcWorker compatibility wrapper."""
@@ -249,7 +253,8 @@ class TestWorkerCompatibility(unittest.TestCase):
 
         self.assertIsNotNone(worker)
         self.assertIsNotNone(worker._unified_worker)
-        self.assertEqual(worker._unified_worker.config.calculation_config.algorithm, AlgorithmType.MSCC)
+        self.assertEqual(worker._unified_worker.config.calculation_config.target, CalculationTarget.MSCC)
+        self.assertEqual(worker._unified_worker.config.calculation_config.implementation, ImplementationAlgorithm.SUCCESSIVE)
         self.assertTrue(worker._unified_worker.config.calculation_config.skip_ncc)
 
     def test_ncc_and_mscc_worker_compatibility(self):
@@ -270,7 +275,8 @@ class TestWorkerCompatibility(unittest.TestCase):
 
         self.assertIsNotNone(worker)
         self.assertIsNotNone(worker._unified_worker)
-        self.assertEqual(worker._unified_worker.config.calculation_config.algorithm, AlgorithmType.MSCC)
+        self.assertEqual(worker._unified_worker.config.calculation_config.target, CalculationTarget.BOTH)
+        self.assertEqual(worker._unified_worker.config.calculation_config.implementation, ImplementationAlgorithm.SUCCESSIVE)
         self.assertFalse(worker._unified_worker.config.calculation_config.skip_ncc)
 
     def test_ba_calc_worker_compatibility(self):
@@ -291,7 +297,8 @@ class TestWorkerCompatibility(unittest.TestCase):
 
         self.assertIsNotNone(worker)
         self.assertIsNotNone(worker._unified_worker)
-        self.assertEqual(worker._unified_worker.config.calculation_config.algorithm, AlgorithmType.BITARRAY)
+        self.assertEqual(worker._unified_worker.config.calculation_config.target, CalculationTarget.BOTH)
+        self.assertEqual(worker._unified_worker.config.calculation_config.implementation, ImplementationAlgorithm.BITARRAY)
         self.assertFalse(worker._unified_worker.config.calculation_config.skip_ncc)
 
 

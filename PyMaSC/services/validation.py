@@ -20,7 +20,7 @@ from pysam import AlignmentFile
 
 from PyMaSC.core.models import (
     CalculationConfig, MappabilityConfig, ExecutionConfig,
-    AlgorithmType
+    CalculationTarget, ImplementationAlgorithm
 )
 
 logger = logging.getLogger(__name__)
@@ -294,9 +294,11 @@ class StandardValidationService(ValidationService):
         """Validate calculation configuration."""
         result = ValidationResult(is_valid=True, errors=[], warnings=[])
 
-        # Validate algorithm
-        if config.algorithm not in AlgorithmType:
-            result.add_error(f"Invalid algorithm: {config.algorithm}")
+        # Validate target and implementation
+        if config.target not in CalculationTarget:
+            result.add_error(f"Invalid calculation target: {config.target}")
+        if config.implementation not in ImplementationAlgorithm:
+            result.add_error(f"Invalid implementation algorithm: {config.implementation}")
 
         # Validate max_shift
         if config.max_shift <= 0:
@@ -326,9 +328,9 @@ class StandardValidationService(ValidationService):
                     if ref not in bam_refs:
                         result.add_error(f"Reference '{ref}' not found in BAM file")
 
-        # Algorithm-specific validation
-        if config.algorithm == AlgorithmType.MSCC and config.skip_ncc:
-            result.add_warning("MSCC algorithm with skip_ncc may produce limited results")
+        # Target-specific validation
+        if config.target == CalculationTarget.MSCC and config.skip_ncc:
+            result.add_warning("MSCC target with skip_ncc may produce limited results")
 
         return result
 
@@ -361,9 +363,9 @@ class StandardValidationService(ValidationService):
         result.merge(config_result)
 
         # Validate mappability if needed
-        if calculation_config.algorithm == AlgorithmType.MSCC:
+        if calculation_config.target in [CalculationTarget.MSCC, CalculationTarget.BOTH]:
             if mappability_config is None:
-                result.add_error(f"{calculation_config.algorithm.value} requires mappability configuration")
+                result.add_error(f"{calculation_config.target.value} target requires mappability configuration")
             else:
                 if mappability_config.mappability_path is not None:
                     map_result = self.validate_mappability_file(str(mappability_config.mappability_path))

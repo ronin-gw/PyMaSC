@@ -16,7 +16,8 @@ from PyMaSC.services.workflow import (
     StandardWorkflowService, create_workflow_service
 )
 from PyMaSC.core.models import (
-    CalculationConfig, MappabilityConfig, ExecutionConfig, AlgorithmType
+    CalculationConfig, MappabilityConfig, ExecutionConfig, 
+    CalculationTarget, ImplementationAlgorithm
 )
 
 
@@ -37,7 +38,8 @@ class TestCalculationService(unittest.TestCase):
 
         # Create test configuration
         self.config = CalculationConfig(
-            algorithm=AlgorithmType.NAIVE_CC,
+            target=CalculationTarget.NCC,
+            implementation=ImplementationAlgorithm.SUCCESSIVE,
             max_shift=100,
             mapq_criteria=20,
             references=["chr1"],
@@ -243,7 +245,8 @@ class TestWorkflowService(unittest.TestCase):
             bam_path="/test/file.bam",
             output_prefix="/test/output",
             calculation_config=CalculationConfig(
-                algorithm=AlgorithmType.NAIVE_CC,
+                target=CalculationTarget.NCC,
+                implementation=ImplementationAlgorithm.SUCCESSIVE,
                 max_shift=100,
                 mapq_criteria=20
             ),
@@ -268,11 +271,11 @@ class TestWorkflowService(unittest.TestCase):
         errors = self.service.validate_request(self.request)
         self.assertIn("Max shift must be positive", errors)
 
-        # Algorithm requires mappability
+        # Target requires mappability
         self.request.calculation_config.max_shift = 100
-        self.request.calculation_config.algorithm = AlgorithmType.MSCC
+        self.request.calculation_config.target = CalculationTarget.MSCC
         errors = self.service.validate_request(self.request)
-        self.assertIn("mscc requires mappability configuration", errors)
+        self.assertIn("mscc target requires mappability configuration", errors)
 
     def test_execute_workflow_success(self):
         """Test successful workflow execution."""
@@ -427,7 +430,8 @@ class TestServiceIntegration(unittest.TestCase):
             bam_path="/test/file.bam",
             output_prefix="/test/output",
             calculation_config=CalculationConfig(
-                algorithm=AlgorithmType.NAIVE_CC,
+                target=CalculationTarget.NCC,
+                implementation=ImplementationAlgorithm.SUCCESSIVE,
                 max_shift=100,
                 mapq_criteria=20,
                 references=["chr1"],

@@ -18,7 +18,7 @@ from multiprocessing.synchronize import Lock
 from .interfaces import CrossCorrelationCalculator, CalculatorFactory as ICalculatorFactory
 from .models import (
     CalculationConfig, MappabilityConfig, WorkerConfig, 
-    AlgorithmType, ExecutionMode
+    CalculationTarget, ImplementationAlgorithm, ExecutionMode
 )
 
 # Import existing calculator implementations
@@ -198,16 +198,18 @@ class CalculatorFactory:
 
     @staticmethod
     def create_calculator(
-        algorithm: AlgorithmType,
+        target: CalculationTarget,
+        implementation: ImplementationAlgorithm,
         config: CalculationConfig,
         mappability_config: Optional[MappabilityConfig] = None,
         logger_lock: Optional[Lock] = None,
         progress_hook: Optional[Any] = None
     ) -> CrossCorrelationCalculator:
-        """Create a calculator instance for the specified algorithm.
+        """Create a calculator instance using new conceptual approach.
 
         Args:
-            algorithm: Algorithm type to create
+            target: What type of cross-correlation to calculate
+            implementation: How to implement the calculation
             config: Calculation configuration
             mappability_config: Optional mappability configuration
             logger_lock: Optional thread lock for logging
@@ -217,18 +219,55 @@ class CalculatorFactory:
             Calculator instance wrapped in adapter
 
         Raises:
-            ValueError: If algorithm is not supported or configuration is invalid
+            ValueError: If combination is not supported or configuration is invalid
         """
-        # Validate algorithm-specific requirements
-        if algorithm == AlgorithmType.MSCC:
+        # Validate target-specific requirements
+        if target in [CalculationTarget.MSCC, CalculationTarget.BOTH]:
             if not mappability_config or not mappability_config.is_enabled():
-                raise ValueError(f"{algorithm.value} algorithm requires mappability configuration")
+                raise ValueError(f"Target {target.value} requires mappability configuration")
 
-        # Create appropriate calculator based on algorithm
-        if algorithm == AlgorithmType.NAIVE_CC:
+        # Create appropriate calculator based on target and implementation combination
+        if target == CalculationTarget.NCC and implementation == ImplementationAlgorithm.SUCCESSIVE:
             return CalculatorFactory._create_ncc_calculator(config, logger_lock)
-
-        elif algorithm == AlgorithmType.SUCCESSIVE:
+            
+        elif target == CalculationTarget.NCC and implementation == ImplementationAlgorithm.BITARRAY:
+            # NCC only: BitArray without mappability requirement
+            return CalculatorFactory._create_bitarray_calculator(
+                config, mappability_config, logger_lock, progress_hook
+            )
+            
+        elif target == CalculationTarget.MSCC and implementation == ImplementationAlgorithm.SUCCESSIVE:
+            if mappability_config is None:
+                raise ValueError("MSCC algorithm requires mappability configuration")
+            return CalculatorFactory._create_mscc_calculator(
+                config, mappability_config, logger_lock
+            )
+            
+        elif target == CalculationTarget.MSCC and implementation == ImplementationAlgorithm.BITARRAY:
+            # MSCC only: BitArray with skip_ncc=True
+            modified_config = CalculationConfig(
+                target=config.target,
+                implementation=config.implementation,
+                max_shift=config.max_shift,
+                mapq_criteria=config.mapq_criteria,
+                skip_ncc=True,  # Force skip NCC for MSCC-only target
+                read_length=config.read_length,
+                references=config.references,
+                lengths=config.lengths,
+                esttype=config.esttype,
+                chromfilter=config.chromfilter
+            )
+            return CalculatorFactory._create_bitarray_calculator(
+                modified_config, mappability_config, logger_lock, progress_hook
+            )
+            
+        elif target == CalculationTarget.BOTH and implementation == ImplementationAlgorithm.BITARRAY:
+            # BOTH: Use original config
+            return CalculatorFactory._create_bitarray_calculator(
+                config, mappability_config, logger_lock, progress_hook
+            )
+            
+        elif target == CalculationTarget.BOTH and implementation == ImplementationAlgorithm.SUCCESSIVE:
             # SUCCESSIVE with mappability runs both NCC and MSCC (like original implementation)
             if mappability_config and mappability_config.is_enabled():
                 return CalculatorFactory._create_successive_with_mappability_calculator(
@@ -236,21 +275,9 @@ class CalculatorFactory:
                 )
             else:
                 return CalculatorFactory._create_ncc_calculator(config, logger_lock)
-
-        elif algorithm == AlgorithmType.MSCC:
-            if mappability_config is None:
-                raise ValueError("MSCC algorithm requires mappability configuration")
-            return CalculatorFactory._create_mscc_calculator(
-                config, mappability_config, logger_lock
-            )
-
-        elif algorithm == AlgorithmType.BITARRAY:
-            return CalculatorFactory._create_bitarray_calculator(
-                config, mappability_config, logger_lock, progress_hook
-            )
-
+                
         else:
-            raise ValueError(f"Unsupported algorithm: {algorithm}")
+            raise ValueError(f"Unsupported combination: target={target.value}, implementation={implementation.value}")
 
     @staticmethod
     def _create_ncc_calculator(
@@ -410,28 +437,12 @@ class WorkerFactory:
             )
 
         # Legacy worker creation for backward compatibility
-        calc_config = worker_config.calculation_config
-        map_config = worker_config.mappability_config
-
-        # Determine which worker class to use based on algorithm
-        if calc_config.algorithm == AlgorithmType.BITARRAY:
-            # Use unified worker with proper configuration
-            from PyMaSC.core.worker import UnifiedWorker
-            return UnifiedWorker(
-                worker_config,
-                order_queue,
-                report_queue,
-                logger_lock,
-                bam_path
-            )
-
-        else:
-            # Use unified worker for all other cases
-            from PyMaSC.core.worker import UnifiedWorker
-            return UnifiedWorker(
-                worker_config,
-                order_queue,
-                report_queue,
-                logger_lock,
-                bam_path
-            )
+        # Use unified worker for all target-implementation combinations
+        from PyMaSC.core.worker import UnifiedWorker
+        return UnifiedWorker(
+            worker_config,
+            order_queue,
+            report_queue,
+            logger_lock,
+            bam_path
+        )

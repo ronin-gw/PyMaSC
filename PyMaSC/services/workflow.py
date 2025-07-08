@@ -24,8 +24,8 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from multiprocessing import Pool
 
 from PyMaSC.core.models import (
-    CalculationConfig, MappabilityConfig, ExecutionConfig, AlgorithmType,
-    ExecutionMode
+    CalculationConfig, MappabilityConfig, ExecutionConfig, 
+    CalculationTarget, ImplementationAlgorithm, ExecutionMode
 )
 from PyMaSC.core.observer import ProgressEvent, ProgressEventType, ProgressSubject
 from PyMaSC.services.calculation import (
@@ -283,11 +283,11 @@ class StandardWorkflowService(WorkflowService, ProgressSubject):
         if request.calculation_config.mapq_criteria < 0:
             errors.append("MAPQ criteria must be non-negative")
 
-        # Validate algorithm-specific requirements
-        algorithm = request.calculation_config.algorithm
-        if algorithm == AlgorithmType.MSCC:
+        # Validate target-specific requirements
+        target = request.calculation_config.target
+        if target in [CalculationTarget.MSCC, CalculationTarget.BOTH]:
             if not request.mappability_config or not request.mappability_config.is_enabled():
-                errors.append(f"{algorithm.value} requires mappability configuration")
+                errors.append(f"{target.value} target requires mappability configuration")
 
         # Validate output formats
         valid_formats = {'table', 'stats', 'figure'}
@@ -462,9 +462,26 @@ def execute_workflow(bam_path: Union[str, os.PathLike[str]],
     Returns:
         Workflow execution result
     """
-    # Create configurations
+    # Create configurations based on algorithm string
+    # Map algorithm string to target/implementation combination
+    if algorithm.lower() == 'ncc':
+        target = CalculationTarget.NCC
+        implementation = ImplementationAlgorithm.SUCCESSIVE
+    elif algorithm.lower() == 'mscc':
+        target = CalculationTarget.MSCC
+        implementation = ImplementationAlgorithm.SUCCESSIVE
+    elif algorithm.lower() == 'bitarray':
+        target = CalculationTarget.BOTH
+        implementation = ImplementationAlgorithm.BITARRAY
+    elif algorithm.lower() == 'successive':
+        target = CalculationTarget.BOTH
+        implementation = ImplementationAlgorithm.SUCCESSIVE
+    else:
+        raise ValueError(f"Unknown algorithm: {algorithm}")
+        
     calc_config = CalculationConfig(
-        algorithm=AlgorithmType(algorithm),
+        target=target,
+        implementation=implementation,
         max_shift=max_shift,
         mapq_criteria=kwargs.get('mapq_criteria', 30),
         skip_ncc=kwargs.get('skip_ncc', False)

@@ -20,11 +20,6 @@ from pysam import AlignedSegment
 logger = logging.getLogger(__name__)
 
 
-class ReadUnsortedError(Exception):
-    """Exception raised when reads are not sorted as expected."""
-    pass
-
-
 @runtime_checkable
 class ReadCalculator(Protocol):
     """Protocol for objects that can receive reads."""

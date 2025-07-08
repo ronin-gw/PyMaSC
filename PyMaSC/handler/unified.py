@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 
 from PyMaSC.handler.base import NothingToCalc
 
-class InputUnseekable(Exception):  
+class InputUnseekable(Exception):
     """Exception raised when input stream cannot be rewound."""
     pass
 
@@ -72,7 +72,7 @@ class UnifiedCalcHandler:
         calc_context: Calculation context with current strategy
     """
 
-    def __init__(self, 
+    def __init__(self,
                  path: os.PathLike[str],
                  config: CalculationConfig,
                  execution_config: Optional[ExecutionConfig] = None,
@@ -124,7 +124,7 @@ class UnifiedCalcHandler:
         self.config.lengths = self.lengths
 
         # Check for index in multiprocess mode
-        if (self.execution_config.mode == ExecutionMode.MULTI_PROCESS and 
+        if (self.execution_config.mode == ExecutionMode.MULTI_PROCESS and
             not self.align_file.has_index()):
             logger.error("Need indexed alignment file for multi-processing. "
                         "Calculation will be executed by single process.")
@@ -157,7 +157,7 @@ class UnifiedCalcHandler:
         self._progress_observers: List['ProgressObserver'] = []
         self._progress_manager: Optional[ProgressManager] = None
 
-    def set_readlen(self, readlen: Optional[int] = None) -> None:
+    def set_or_estimate_readlen(self, readlen: Optional[int] = None) -> None:
         """Set or estimate read length.
 
         Args:
@@ -410,7 +410,7 @@ class UnifiedCalcHandler:
 
         # Mappable length handling for BitArray
         if hasattr(calculator, '_calculator') and hasattr(calculator._calculator, 'ref2mappable_len'):
-            mappable_len = {k: v for k, v in calculator._calculator.ref2mappable_len.items() 
+            mappable_len = {k: v for k, v in calculator._calculator.ref2mappable_len.items()
                            if v is not None}
             if mappable_len and self.mappability_handler:
                 self.ref2mappable_len = mappable_len

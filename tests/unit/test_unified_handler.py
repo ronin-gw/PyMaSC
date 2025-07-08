@@ -177,7 +177,7 @@ class TestUnifiedHandler:
                 config=calc_config
             )
 
-    def test_unified_handler_set_readlen(self):
+    def test_unified_handler_set_or_estimate_readlen(self):
         """Test read length setting."""
         from PyMaSC.handler.unified import UnifiedCalcHandler
 
@@ -187,7 +187,7 @@ class TestUnifiedHandler:
         handler.config = Mock(max_shift=500)
 
         # Manually set read length
-        UnifiedCalcHandler.set_readlen(handler, readlen=100)
+        UnifiedCalcHandler.set_or_estimate_readlen(handler, readlen=100)
         assert handler.read_len == 100
 
     @patch('pysam.AlignmentFile')

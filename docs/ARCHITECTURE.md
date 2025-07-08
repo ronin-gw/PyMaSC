@@ -53,9 +53,10 @@ handler = SimplifiedCalcHandler(
 
 ### 2. Factory Pattern
 ```python
-# Calculators created through factory
+# Calculators created through factory with new conceptual approach
 calculator = CalculatorFactory.create_calculator(
-    algorithm=AlgorithmType.BITARRAY,
+    target=CalculationTarget.BOTH,
+    implementation=ImplementationAlgorithm.BITARRAY,
     config=calculation_config,
     mappability_config=mappability_config
 )

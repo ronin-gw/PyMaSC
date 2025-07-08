@@ -16,7 +16,8 @@ from pathlib import Path
 
 from PyMaSC.core.worker import UnifiedWorker
 from PyMaSC.core.models import (
-    CalculationConfig, MappabilityConfig, WorkerConfig, AlgorithmType
+    CalculationConfig, MappabilityConfig, WorkerConfig, 
+    CalculationTarget, ImplementationAlgorithm
 )
 
 
@@ -96,7 +97,8 @@ class NaiveCCCalcWorker(LegacyWorkerBase):
     def _create_unified_worker(self) -> UnifiedWorker:
         """Create UnifiedWorker configured for NCC calculation."""
         calc_config = CalculationConfig(
-            algorithm=AlgorithmType.NAIVE_CC,
+            target=CalculationTarget.NCC,
+            implementation=ImplementationAlgorithm.SUCCESSIVE,
             max_shift=self._max_shift,
             mapq_criteria=self._mapq_criteria,
             references=self._references,
@@ -151,7 +153,8 @@ class MSCCCalcWorker(LegacyWorkerBase):
     def _create_unified_worker(self) -> UnifiedWorker:
         """Create UnifiedWorker configured for MSCC calculation."""
         calc_config = CalculationConfig(
-            algorithm=AlgorithmType.MSCC,
+            target=CalculationTarget.MSCC,
+            implementation=ImplementationAlgorithm.SUCCESSIVE,
             max_shift=self._max_shift,
             mapq_criteria=self._mapq_criteria,
             references=self._references,
@@ -206,7 +209,8 @@ class NCCandMSCCCalcWorker(LegacyWorkerBase):
     def _create_unified_worker(self) -> UnifiedWorker:
         """Create UnifiedWorker configured for both NCC and MSCC calculation."""
         calc_config = CalculationConfig(
-            algorithm=AlgorithmType.MSCC,
+            target=CalculationTarget.BOTH,
+            implementation=ImplementationAlgorithm.SUCCESSIVE,
             max_shift=self._max_shift,
             mapq_criteria=self._mapq_criteria,
             references=self._references,
@@ -261,7 +265,8 @@ class BACalcWorker(LegacyWorkerBase):
     def _create_unified_worker(self) -> UnifiedWorker:
         """Create UnifiedWorker configured for BitArray calculation."""
         calc_config = CalculationConfig(
-            algorithm=AlgorithmType.BITARRAY,
+            target=CalculationTarget.BOTH,
+            implementation=ImplementationAlgorithm.BITARRAY,
             max_shift=self._max_shift,
             mapq_criteria=self._mapq_criteria,
             references=self._references,

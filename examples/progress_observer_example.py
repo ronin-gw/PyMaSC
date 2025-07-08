@@ -25,7 +25,7 @@ from PyMaSC.core.observer import (
     AggregateProgressObserver
 )
 from PyMaSC.handler.unified import UnifiedCalcHandler
-from PyMaSC.core.models import CalculationConfig, AlgorithmType
+from PyMaSC.core.models import CalculationConfig, CalculationTarget, ImplementationAlgorithm
 
 
 def example_1_global_migration():
@@ -129,7 +129,8 @@ def example_5_handler_with_observers():
 
     # Create configuration
     config = CalculationConfig(
-        algorithm=AlgorithmType.SUCCESSIVE,
+        target=CalculationTarget.BOTH,
+        implementation=ImplementationAlgorithm.SUCCESSIVE,
         max_shift=200,
         mapq_criteria=20
     )

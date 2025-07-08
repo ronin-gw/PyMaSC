@@ -17,7 +17,7 @@ import tempfile
 import pysam
 from PyMaSC.core.ncc import NaiveCCCalculator
 from PyMaSC.handler.unified import UnifiedCalcHandler
-from PyMaSC.core.models import CalculationConfig, ExecutionConfig, AlgorithmType, ExecutionMode
+from PyMaSC.core.models import CalculationConfig, ExecutionConfig, CalculationTarget, ImplementationAlgorithm, ExecutionMode
 
 
 class TestENCODEDataValidation:
@@ -306,7 +306,8 @@ class TestIntegrationWorkflow:
         try:
             # Create configuration objects for UnifiedCalcHandler
             calc_config = CalculationConfig(
-                algorithm=AlgorithmType.SUCCESSIVE,  # Using successive algorithm
+                target=CalculationTarget.BOTH,  # Both NCC and MSCC
+                implementation=ImplementationAlgorithm.SUCCESSIVE,  # Using successive algorithm
                 max_shift=200,
                 mapq_criteria=10,
                 skip_ncc=False

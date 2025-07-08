@@ -16,7 +16,7 @@ from typing import Optional, Dict, List, Any
 from PyMaSC.handler.base import BaseCalcHandler
 from PyMaSC.core.models import (
     CalculationConfig, MappabilityConfig, ExecutionConfig, 
-    AlgorithmType, WorkerConfig, ExecutionMode
+    CalculationTarget, ImplementationAlgorithm, WorkerConfig, ExecutionMode
 )
 from PyMaSC.services.workflow import (
     WorkflowService, WorkflowRequest, WorkflowResult,
@@ -62,7 +62,21 @@ class ServiceBasedCalcHandler(BaseCalcHandler):
         """
         # Store parameters before parent init
         self.esttype = esttype
-        self.algorithm = AlgorithmType(algorithm)
+        # Map algorithm string to target/implementation combination
+        if algorithm.lower() == 'ncc':
+            self.target = CalculationTarget.NCC
+            self.implementation = ImplementationAlgorithm.SUCCESSIVE
+        elif algorithm.lower() == 'mscc':
+            self.target = CalculationTarget.MSCC
+            self.implementation = ImplementationAlgorithm.SUCCESSIVE
+        elif algorithm.lower() == 'bitarray':
+            self.target = CalculationTarget.BOTH
+            self.implementation = ImplementationAlgorithm.BITARRAY
+        elif algorithm.lower() == 'successive':
+            self.target = CalculationTarget.BOTH
+            self.implementation = ImplementationAlgorithm.SUCCESSIVE
+        else:
+            raise ValueError(f"Unknown algorithm: {algorithm}")
         self._chromfilter = chromfilter
 
         # Initialize parent (handles BAM file validation)
@@ -108,7 +122,8 @@ class ServiceBasedCalcHandler(BaseCalcHandler):
         """
         # Create calculation configuration
         calc_config = CalculationConfig(
-            algorithm=self.algorithm,
+            target=self.target,
+            implementation=self.implementation,
             max_shift=self.max_shift,
             mapq_criteria=self.mapq_criteria,
             references=self.references,

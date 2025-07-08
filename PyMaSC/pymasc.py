@@ -115,6 +115,7 @@ def main() -> None:
                 args.mappability_stats, args.process
             )
         except (BWIOError, JSONIOError):
+            # Error logs already generated in MappabilityHandler
             sys.exit(1)
 
         for handler in calc_handlers:
@@ -153,6 +154,7 @@ def prepare_output(reads: List[str], names: List[Optional[str]], outdir: str, su
     """
     #
     if not prepare_outdir(outdir, logger):
+        # Error logs already generated in prepare_outdir
         sys.exit(1)
 
     #
@@ -197,11 +199,10 @@ def make_handlers(args: argparse.Namespace) -> List[UnifiedCalcHandler]:
                 algorithm=AlgorithmType.SUCCESSIVE if args.successive else AlgorithmType.BITARRAY,
                 max_shift=args.max_shift,
                 mapq_criteria=args.mapq,
-                skip_ncc=args.skip_ncc
+                skip_ncc=args.skip_ncc,
+                esttype=args.readlen_estimator,
+                chromfilter=args.chromfilter
             )
-            # Store additional attributes for backward compatibility
-            calc_config.esttype = args.readlen_estimator  # type: ignore[attr-defined]
-            calc_config.chromfilter = args.chromfilter  # type: ignore[attr-defined]
 
             # Create execution configuration
             exec_config = ExecutionConfig(
@@ -256,7 +257,7 @@ def set_readlen(args: argparse.Namespace, calc_handlers: List[UnifiedCalcHandler
     readlens: List[int] = []
     for i, handler in enumerate(calc_handlers[:]):
         try:
-            handler.set_readlen(args.read_length)
+            handler.set_or_estimate_readlen(args.read_length)
         except ValueError:
             calc_handlers.pop(i)
             continue

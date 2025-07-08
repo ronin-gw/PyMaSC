@@ -46,6 +46,8 @@ class CalculationConfig:
         read_length: Read length (None for auto-detection)
         references: List of chromosome names to process
         lengths: List of chromosome lengths
+        esttype: Read length estimation type (mean, median, mode, min, max)
+        chromfilter: Chromosome filtering patterns (include/exclude rules)
     """
     algorithm: AlgorithmType
     max_shift: int
@@ -54,6 +56,8 @@ class CalculationConfig:
     read_length: Optional[int] = None
     references: List[str] = field(default_factory=list)
     lengths: List[int] = field(default_factory=list)
+    esttype: str = "MEDIAN"
+    chromfilter: Optional[List[Tuple[bool, List[str]]]] = None
 
     def __post_init__(self) -> None:
         """Validate configuration after initialization."""

@@ -134,7 +134,7 @@ def main() -> None:
         mappability_handler.close()
 
 
-def prepare_output(reads: List[str], names: List[Optional[str]], outdir: str, suffixes: Tuple[str, ...] = EXPECT_OUTFILE_SUFFIXES) -> List[str]:
+def prepare_output(reads: List[str], names: List[Optional[str]], outdir: str, suffixes: Tuple[str, ...] = EXPECT_OUTFILE_SUFFIXES) -> List[Path]:
     """Prepare output directory and generate output basenames.
 
     Creates output directory if needed and generates output basenames for each
@@ -147,7 +147,7 @@ def prepare_output(reads: List[str], names: List[Optional[str]], outdir: str, su
         suffixes: Expected output file suffixes to check for conflicts
 
     Returns:
-        List of output basenames (without extensions)
+        List of output basenames as Path objects (without extensions)
 
     Raises:
         SystemExit: If output directory cannot be created
@@ -158,16 +158,16 @@ def prepare_output(reads: List[str], names: List[Optional[str]], outdir: str, su
         sys.exit(1)
 
     #
-    basenames: List[str] = []
+    basenames: List[Path] = []
     for f, n in zip_longest(reads, names):
         if n is None:
-            output_basename = str(Path(outdir) / Path(f).stem)
+            output_basename = Path(outdir) / Path(f).stem
         else:
-            output_basename = str(Path(outdir) / n)
+            output_basename = Path(outdir) / n
 
         for suffix in suffixes:
-            expect_outfile = output_basename + suffix
-            if Path(expect_outfile).exists():
+            expect_outfile = Path(str(output_basename) + suffix)
+            if expect_outfile.exists():
                 logger.warning("Existing file '{}' will be overwritten.".format(expect_outfile))
         basenames.append(output_basename)
 
@@ -272,7 +272,7 @@ def set_readlen(args: argparse.Namespace, calc_handlers: List[UnifiedCalcHandler
     return max_readlen
 
 
-def run_calculation(args: argparse.Namespace, handler: UnifiedCalcHandler, output_basename: str) -> Optional[CCResult]:
+def run_calculation(args: argparse.Namespace, handler: UnifiedCalcHandler, output_basename: Path) -> Optional[CCResult]:
     """Execute cross-correlation calculation for a single file.
 
     Runs the main calculation workflow and creates a result handler
@@ -303,7 +303,7 @@ def run_calculation(args: argparse.Namespace, handler: UnifiedCalcHandler, outpu
         return None
 
 
-def output_results(args: argparse.Namespace, output_basename: str, result_handler: Optional[CCResult]) -> None:
+def output_results(args: argparse.Namespace, output_basename: Path, result_handler: Optional[CCResult]) -> None:
     """Generate all output files and plots from calculation results.
 
     Creates statistics files, data tables, and plots based on the
@@ -327,7 +327,7 @@ def output_results(args: argparse.Namespace, output_basename: str, result_handle
     if result_handler.calc_masc:
         output_mscc(output_basename, result_handler)
     if not args.skip_plots:
-        plotfile_path = output_basename + PLOTFILE_SUFFIX
+        plotfile_path = Path(str(output_basename) + PLOTFILE_SUFFIX)
         try:
             from PyMaSC.output.figure import plot_figures
         except ImportError:

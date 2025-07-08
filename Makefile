@@ -2,7 +2,7 @@
 # This is a convenience wrapper for common development tasks
 # For C source generation from Cython files, see Makefile.sources
 
-.PHONY: test test-quick test-all test-integration test-unit build install install-dev install-test install-plot install-requirements clean sources sources-parallel help
+.PHONY: test test-quick test-all test-integration test-unit build build-force rebuild install install-dev install-test install-plot install-requirements clean sources sources-parallel help
 
 # Default target
 help:
@@ -12,7 +12,9 @@ help:
 	@echo "  make test-unit     - Run unit tests verbosely"
 	@echo "  make test-integration - Run integration tests"
 	@echo "  make test-all      - Run all tests verbosely"
-	@echo "  make build         - Build Cython extensions in-place"
+	@echo "  make build         - Build Cython extensions in-place (incremental)"
+	@echo "  make build-force   - Force rebuild all Cython extensions"
+	@echo "  make rebuild       - Complete rebuild (clean + force build)"
 	@echo "  make install       - Install package in development mode"
 	@echo "  make install-dev   - Install with all development dependencies"
 	@echo "  make install-test  - Install with testing dependencies"
@@ -48,6 +50,13 @@ test-all:
 # Build Cython extensions in-place
 build:
 	python setup.py build_ext --inplace
+
+# Force rebuild all Cython extensions (for dependency changes)
+build-force:
+	python setup.py build_ext --inplace --force
+
+# Complete rebuild (clean + force build)
+rebuild: clean build-force
 
 # Install package in development mode
 install:

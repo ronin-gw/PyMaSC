@@ -25,7 +25,6 @@ classifiers = [
     "Environment :: Console",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: MacOS :: MacOS X",
     "Operating System :: POSIX",
     "Programming Language :: Cython",
@@ -61,8 +60,8 @@ dev = [
     "build",
     "twine",
     "mypy>=1.0.0",
-    "types-pysam",
-    "numpy-stubs",
+    "flake8",
+    "autopep8",
 ]
 
 [project.urls]
@@ -183,7 +182,7 @@ exclude = [
 [[tool.mypy.overrides]]
 module = [
     "PyMaSC.pymasc",
-    "PyMaSC.plot", 
+    "PyMaSC.plot",
     "PyMaSC.calcmappablelen",
     "PyMaSC.handler.result",
     "PyMaSC.handler.mappability",

@@ -14,7 +14,7 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Dict, Any, Tuple
+from typing import List, Optional, Dict, Any
 
 from pysam import AlignmentFile
 
@@ -389,8 +389,8 @@ class StandardValidationService(ValidationService):
 
         # Validate execution config if provided
         if execution_config:
-            if (execution_config.worker_count > 1 and 
-                bam_result.metadata is not None and 
+            if (execution_config.worker_count > 1 and
+                bam_result.metadata is not None and
                 not bam_result.metadata.get('has_index', False)):
                 result.add_warning("Multiprocessing requested but BAM file has no index")
 

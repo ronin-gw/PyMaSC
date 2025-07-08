@@ -1,18 +1,16 @@
 """Test MASC (Mappability-sensitive Analysis) handler functionality."""
 
 import pytest
-import tempfile
-import os
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
-from tests.utils.test_data_generator import MockBAMData, create_mock_reference_data
+from tests.utils.test_data_generator import create_mock_reference_data
 from PyMaSC.handler.unified import UnifiedCalcHandler
 from PyMaSC.core.models import CalculationConfig, ExecutionConfig, CalculationTarget, ImplementationAlgorithm, ExecutionMode
 from PyMaSC.handler.base import NothingToCalc
 
 
-def create_test_handler(path="test.bam", esttype="ncc", max_shift=200, mapq_criteria=20, 
-                       nworker=1, skip_ncc=False, chromfilter=None, 
+def create_test_handler(path="test.bam", esttype="ncc", max_shift=200, mapq_criteria=20,
+                       nworker=1, skip_ncc=False, chromfilter=None,
                        target=CalculationTarget.NCC, implementation=ImplementationAlgorithm.SUCCESSIVE):
     """Helper function to create UnifiedCalcHandler for testing."""
     calc_config = CalculationConfig(
@@ -194,7 +192,7 @@ class TestCCCalcHandlerConfiguration:
                 mapq_criteria=20,
                 skip_ncc=True
             )
-            assert handler.skip_ncc == True
+            assert handler.skip_ncc is True
 
         except Exception:
             pytest.skip("Handler requires specific setup")
@@ -270,7 +268,6 @@ class TestCCCalcHandlerReferenceHandling:
     @patch('pysam.AlignmentFile')
     def test_empty_references_handling(self, mock_alignment_file):
         """Test handling of empty reference list."""
-        from PyMaSC.handler.unified import UnifiedCalcHandler
 
         # Mock AlignmentFile with no valid references
         mock_bam = Mock()

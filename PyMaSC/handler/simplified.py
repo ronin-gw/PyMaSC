@@ -13,7 +13,7 @@ Key features:
 """
 import logging
 from dataclasses import dataclass
-from typing import Optional, List, Dict, Any
+from typing import Optional
 from pathlib import Path
 
 from PyMaSC.core.models import (
@@ -259,7 +259,7 @@ class HandlerBuilder:
         """Set calculation target."""
         self._target = CalculationTarget(target)
         return self
-        
+
     def with_implementation(self, implementation: str) -> 'HandlerBuilder':
         """Set implementation algorithm."""
         self._implementation = ImplementationAlgorithm(implementation)
@@ -423,7 +423,7 @@ def create_simplified_handler(bam_path: str,
         implementation = 'successive'
     else:
         raise ValueError(f"Unknown algorithm: {algorithm}")
-        
+
     builder = HandlerBuilder() \
         .with_bam_file(bam_path) \
         .with_target(target) \

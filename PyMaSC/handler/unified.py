@@ -14,8 +14,7 @@ from __future__ import annotations
 import logging
 import os
 from multiprocessing import Queue, Lock
-from pathlib import Path
-from typing import Optional, List, Dict, Any, Union, TYPE_CHECKING
+from typing import Optional, List, Dict, Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from PyMaSC.core.observer import ProgressObserver
@@ -23,23 +22,20 @@ if TYPE_CHECKING:
 import pysam
 
 from PyMaSC.core.strategy import CalculationContext
-from PyMaSC.core.factory import CalculatorFactory, WorkerFactory
-from PyMaSC.core.configuration import ConfigurationService
+from PyMaSC.core.factory import WorkerFactory
 from PyMaSC.core.models import (
     CalculationConfig, MappabilityConfig, ExecutionConfig,
     ExecutionMode, WorkerConfig
 )
+from PyMaSC.handler.base import NothingToCalc
 from PyMaSC.core.interfaces import CrossCorrelationCalculator
-
-from PyMaSC.utils.progress import ProgressBar, ProgressHook, MultiLineProgressManager
-from PyMaSC.utils.calc import filter_chroms, exec_worker_pool
 from PyMaSC.core.readlen import estimate_readlen
 from PyMaSC.core.progress_adapter import ProgressBarAdapter, ProgressManager, get_progress_manager
+from PyMaSC.utils.progress import ProgressBar, ProgressHook, MultiLineProgressManager
+from PyMaSC.utils.calc import filter_chroms, exec_worker_pool
 
 logger = logging.getLogger(__name__)
 
-
-from PyMaSC.handler.base import NothingToCalc
 
 class InputUnseekable(Exception):
     """Exception raised when input stream cannot be rewound."""

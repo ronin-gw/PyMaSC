@@ -6,7 +6,6 @@ were previously failing silently in parallel mode.
 """
 
 import pytest
-import os
 import tempfile
 import subprocess
 from pathlib import Path
@@ -90,7 +89,7 @@ class TestParallelProcessingConsistency:
                 '-m', str(test_data_paths['bigwig']),
                 '-o', temp_dir,
                 '-d', '300',
-                '-q', '10', 
+                '-q', '10',
                 '-r', '36',
                 '--skip-plots',
                 '-p', '2'  # Parallel mode
@@ -113,7 +112,7 @@ class TestParallelProcessingConsistency:
             # Critical MSCC metrics that were failing before the fix
             critical_mscc_metrics = [
                 'Minimum MSCC',
-                'MSCC at read length', 
+                'MSCC at read length',
                 'MSCC at estimated library length',
                 'Estimated MSCC NSC',
                 'Estimated MSCC RSC',
@@ -338,7 +337,7 @@ class TestParallelProcessingConsistency:
                 # Metrics that should NOT be nan in parallel mode (these were the actual bug)
                 critical_non_nan_metrics = [
                     'Minimum MSCC',
-                    'MSCC at read length', 
+                    'MSCC at read length',
                     'Estimated MSCC NSC',
                     'Estimated MSCC RSC',
                     'Estimated MSCC FWHM',
@@ -362,7 +361,7 @@ class TestParallelProcessingConsistency:
             print("✅ MSCC regression test passed - bug fix is working")
 
     @pytest.mark.successive
-    @pytest.mark.parallel 
+    @pytest.mark.parallel
     @pytest.mark.critical
     def test_successive_algorithm_single_vs_parallel_consistency(self, test_data_paths):
         """Test successive algorithm consistency between single and parallel modes.

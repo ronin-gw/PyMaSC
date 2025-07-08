@@ -1,8 +1,7 @@
 """Test observer pattern implementation for progress reporting."""
 
 import pytest
-from unittest.mock import Mock, patch, call
-from datetime import datetime
+from unittest.mock import Mock, patch
 import json
 import tempfile
 import os
@@ -14,7 +13,7 @@ from PyMaSC.core.observer import (
     AggregateProgressObserver
 )
 from PyMaSC.core.progress_adapter import (
-    ProgressBarAdapter, ProgressHookAdapter,
+    ProgressBarAdapter,
     LegacyProgressObserver, ProgressManager,
     get_progress_manager, reset_progress_manager
 )

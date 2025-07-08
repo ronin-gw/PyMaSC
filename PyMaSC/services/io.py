@@ -20,11 +20,11 @@ from pathlib import Path
 from typing import Iterator, List, Optional, Dict, Any, Tuple, Union
 
 import numpy as np
-from pysam import AlignmentFile, AlignedSegment
+from pysam import AlignmentFile
 
 from PyMaSC.reader.bigwig import BigWigReader
-from PyMaSC.services.calculation import ChromosomeData, CalculationResult, GenomeWideResult
-from PyMaSC.utils.output_utils import OutputPathManager, ensure_output_directory, TableWriter as UtilTableWriter
+from PyMaSC.services.calculation import ChromosomeData, GenomeWideResult
+from PyMaSC.utils.output_utils import OutputPathManager, TableWriter as UtilTableWriter
 from PyMaSC.utils.read_processing import create_standard_filter
 
 logger = logging.getLogger(__name__)
@@ -80,7 +80,7 @@ class IOService(ABC):
         pass
 
     @abstractmethod
-    def read_chromosome_data(self, 
+    def read_chromosome_data(self,
                            bam_path: Union[str, os.PathLike[str]],
                            chromosome: str,
                            mapq_threshold: int = 0) -> ChromosomeData:
@@ -186,7 +186,7 @@ class FileIOService(IOService):
             logger.error(f"Error reading BAM file {path}: {e}")
             raise IOError(f"Cannot read BAM file: {e}") from e
 
-    def read_chromosome_data(self, 
+    def read_chromosome_data(self,
                            bam_path: Union[str, os.PathLike[str]],
                            chromosome: str,
                            mapq_threshold: int = 0) -> ChromosomeData:
@@ -310,7 +310,7 @@ class FileIOService(IOService):
         path_str = os.fspath(path)
         # Prepare data for table writer
         data = []
-        headers = ['chromosome', 'forward_reads', 'reverse_reads', 
+        headers = ['chromosome', 'forward_reads', 'reverse_reads',
                   'max_correlation', 'peak_position']
 
         for chrom, chrom_result in result.chromosome_results.items():
@@ -424,8 +424,8 @@ class InMemoryIOService(IOService):
         self.bigwig_data: Dict[str, Any] = {}
         self.written_results: Dict[str, Any] = {}
 
-    def add_test_data(self, 
-                     bam_path: str, 
+    def add_test_data(self,
+                     bam_path: str,
                      chromosome: str,
                      forward_reads: List[Tuple[int, int]],
                      reverse_reads: List[Tuple[int, int]],
@@ -436,7 +436,7 @@ class InMemoryIOService(IOService):
             bam_path: Virtual BAM file path
             chromosome: Chromosome name
             forward_reads: List of (position, length) for forward reads
-            reverse_reads: List of (position, length) for reverse reads  
+            reverse_reads: List of (position, length) for reverse reads
             length: Chromosome length
         """
         if bam_path not in self.bam_data:
@@ -471,7 +471,7 @@ class InMemoryIOService(IOService):
         else:
             raise IOError(f"Test BAM file not found: {path_str}")
 
-    def read_chromosome_data(self, 
+    def read_chromosome_data(self,
                            bam_path: Union[str, os.PathLike[str]],
                            chromosome: str,
                            mapq_threshold: int = 0) -> ChromosomeData:

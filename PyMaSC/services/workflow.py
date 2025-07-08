@@ -17,14 +17,13 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import List, Optional, Dict, Any, Callable, Union
+from typing import List, Optional, Dict, Any, Union
 import os
 from pathlib import Path
-from concurrent.futures import ProcessPoolExecutor, as_completed
 from multiprocessing import Pool
 
 from PyMaSC.core.models import (
-    CalculationConfig, MappabilityConfig, ExecutionConfig, 
+    CalculationConfig, MappabilityConfig, ExecutionConfig,
     CalculationTarget, ImplementationAlgorithm, ExecutionMode
 )
 from PyMaSC.core.observer import ProgressEvent, ProgressEventType, ProgressSubject
@@ -478,7 +477,7 @@ def execute_workflow(bam_path: Union[str, os.PathLike[str]],
         implementation = ImplementationAlgorithm.SUCCESSIVE
     else:
         raise ValueError(f"Unknown algorithm: {algorithm}")
-        
+
     calc_config = CalculationConfig(
         target=target,
         implementation=implementation,

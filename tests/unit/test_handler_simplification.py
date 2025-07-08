@@ -2,25 +2,21 @@
 
 import unittest
 from unittest.mock import Mock, MagicMock, patch, mock_open
-import tempfile
 import json
-import numpy as np
-from pathlib import Path
 
 from PyMaSC.services.validation import (
-    ValidationService, StandardValidationService, ValidationResult,
-    create_validation_service
+    StandardValidationService, ValidationResult,
 )
 from PyMaSC.services.mappability import (
-    MappabilityService, BigWigMappabilityService, JSONMappabilityService,
-    MappabilityStats, create_mappability_service
+    BigWigMappabilityService, JSONMappabilityService,
+    create_mappability_service
 )
 from PyMaSC.handler.simplified import (
     SimplifiedCalcHandler, HandlerDependencies, HandlerBuilder,
     create_simplified_handler
 )
 from PyMaSC.core.models import (
-    CalculationConfig, MappabilityConfig, CalculationTarget, ImplementationAlgorithm
+    CalculationConfig, CalculationTarget, ImplementationAlgorithm
 )
 
 

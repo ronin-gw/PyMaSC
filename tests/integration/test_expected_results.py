@@ -5,7 +5,6 @@ cross-correlation results for regression testing.
 """
 
 import pytest
-import os
 import json
 import numpy as np
 from pathlib import Path
@@ -148,7 +147,7 @@ class TestCrossCorrelationBaseline:
             window_size = 25  # Smaller window for precision
 
             for fpos in forward_pos:
-                overlaps += np.sum((shifted_reverse >= fpos - window_size) & 
+                overlaps += np.sum((shifted_reverse >= fpos - window_size) &
                                  (shifted_reverse <= fpos + window_size))
 
             correlations[shift] = int(overlaps)  # Store as int for exact comparison
@@ -180,7 +179,7 @@ class TestCrossCorrelationBaseline:
             shifted_reverse = reverse_pos + shift
             overlaps = 0
             for fpos in forward_pos:
-                overlaps += np.sum((shifted_reverse >= fpos - 25) & 
+                overlaps += np.sum((shifted_reverse >= fpos - 25) &
                                  (shifted_reverse <= fpos + 25))
             return overlaps
 
@@ -235,14 +234,14 @@ class TestRegressionDetection:
 
         # Test small change detection
         small_diff = calculate_relative_difference(
-            baseline['correlations'], 
+            baseline['correlations'],
             current_small_change['correlations']
         )
         assert small_diff < 0.15, f"Small change detected as significant: {small_diff}"
 
         # Test large change detection
         large_diff = calculate_relative_difference(
-            baseline['correlations'], 
+            baseline['correlations'],
             current_large_change['correlations']
         )
         assert large_diff > 0.3, f"Large change not detected: {large_diff}"

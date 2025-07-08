@@ -18,7 +18,7 @@ with proper validation and helpful error messages.
 import argparse
 import logging
 from pathlib import Path
-from typing import Any, List, Optional, Sequence, Type, Union
+from typing import Any, Optional, Sequence, Type, Union
 
 import PyMaSC
 from PyMaSC.handler.result import NEAR_READLEN_ERR_CRITERION

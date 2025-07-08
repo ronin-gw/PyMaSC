@@ -17,7 +17,7 @@ import argparse
 import logging
 import os
 from pathlib import Path
-from typing import List, Optional, Dict, Any, Union
+from typing import List, Optional, Any, Union
 from dataclasses import replace
 
 from .models import (
@@ -330,13 +330,13 @@ class ConfigurationService:
                 target = CalculationTarget.BOTH
         else:
             target = CalculationTarget.NCC
-            
+
         # Determine implementation based on --successive flag
         if hasattr(args, 'successive') and args.successive:
             implementation = ImplementationAlgorithm.SUCCESSIVE
         else:
             implementation = ImplementationAlgorithm.BITARRAY
-            
+
         builder.with_target(target).with_implementation(implementation)
 
         # Core calculation parameters

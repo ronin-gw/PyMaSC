@@ -1,12 +1,10 @@
 """Test Naive Cross-Correlation (NCC) core algorithms."""
 
 import pytest
-import numpy as np
-from unittest.mock import Mock, patch
 
 from PyMaSC.core.ncc import NaiveCCCalculator, ReadUnsortedError
 from tests.utils.test_data_generator import (
-    create_mock_read_data, 
+    create_mock_read_data,
     create_mock_reference_data,
     create_expected_cc_result
 )

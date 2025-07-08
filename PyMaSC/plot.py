@@ -19,7 +19,7 @@ import os
 import sys
 import json
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from pysam import AlignmentFile
 

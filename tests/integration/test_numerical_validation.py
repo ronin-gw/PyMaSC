@@ -5,12 +5,8 @@ using actual genomic data provided by the user.
 """
 
 import pytest
-import os
-import json
 import numpy as np
 from pathlib import Path
-from unittest.mock import patch
-import tempfile
 
 # Import PyMaSC components for testing
 # BigWigFile import removed - using pyBigWig implementation
@@ -155,8 +151,8 @@ class TestCrossCorrelationNumerics:
 
         # Initialize calculator with real chromosome data
         calc = NaiveCCCalculator(
-            max_shift, 
-            encode_read_data['references'], 
+            max_shift,
+            encode_read_data['references'],
             encode_read_data['lengths']
         )
 
@@ -195,7 +191,7 @@ class TestCrossCorrelationNumerics:
             for fpos in forward_pos:
                 # Count reverse reads within a window around forward read
                 window_size = 50
-                overlaps += np.sum((shifted_reverse >= fpos - window_size) & 
+                overlaps += np.sum((shifted_reverse >= fpos - window_size) &
                                  (shifted_reverse <= fpos + window_size))
 
             correlations[shift] = overlaps

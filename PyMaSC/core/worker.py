@@ -23,7 +23,7 @@ from pysam import AlignmentFile, AlignedSegment
 from PyMaSC.core.interfaces import CrossCorrelationCalculator
 from PyMaSC.core.models import WorkerConfig, CalculationConfig, CalculationTarget, ImplementationAlgorithm
 from PyMaSC.utils.progress import ProgressHook
-from PyMaSC.utils.read_processing import ReadFilter, ReadProcessor as ReadProcessorUtil, create_standard_filter
+from PyMaSC.utils.read_processing import ReadProcessor as ReadProcessorUtil, create_standard_filter
 
 logger = logging.getLogger(__name__)
 

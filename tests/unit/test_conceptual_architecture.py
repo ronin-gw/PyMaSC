@@ -5,11 +5,9 @@ and implementation algorithms, ensuring backward compatibility while
 providing cleaner abstractions.
 """
 import pytest
-from unittest.mock import MagicMock
 
 from PyMaSC.core.models import (
-    CalculationConfig, CalculationTarget, ImplementationAlgorithm,
-    MappabilityConfig
+    CalculationConfig, CalculationTarget, ImplementationAlgorithm
 )
 from PyMaSC.core.strategy import (
     CalculationContext,

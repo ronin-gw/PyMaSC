@@ -5,10 +5,7 @@ compared to baseline 'golden' outputs generated from known test data.
 """
 
 import pytest
-import os
 import tempfile
-import shutil
-import json
 import subprocess
 from pathlib import Path
 import numpy as np
@@ -335,7 +332,7 @@ class TestGoldenOutputs:
             # Files to compare
             files_to_compare = [
                 'ENCFF000RMB-test_stats.tab',
-                'ENCFF000RMB-test_cc.tab', 
+                'ENCFF000RMB-test_cc.tab',
                 'ENCFF000RMB-test_mscc.tab',
                 'ENCFF000RMB-test_nreads.tab'
             ]
@@ -392,7 +389,7 @@ class TestGoldenOutputs:
 
                     # Use high precision comparison
                     np.testing.assert_almost_equal(
-                        float1, float2, 
+                        float1, float2,
                         decimal=15,
                         err_msg=f"{filename} Row {i+1}, Column {key}: {val1} vs {val2}"
                     )

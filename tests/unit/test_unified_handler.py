@@ -1,7 +1,7 @@
 """Test unified handler functionality."""
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
 from PyMaSC.core.models import (
     CalculationConfig, MappabilityConfig, ExecutionConfig,
@@ -229,7 +229,7 @@ class TestUnifiedHandler:
         )
 
         # Check backward compatible properties
-        assert handler.skip_ncc == True
+        assert handler.skip_ncc is True
         assert handler.max_shift == 250
         assert handler.mapq_criteria == 25
         assert handler.nworker == 2

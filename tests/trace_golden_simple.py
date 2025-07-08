@@ -3,7 +3,6 @@ Simple approach to trace PyMaSC golden calculation by modifying Python wrapper c
 """
 
 import os
-import sys
 import tempfile
 import subprocess
 from pathlib import Path
@@ -130,7 +129,7 @@ def run_traced_calculation():
             '-m', bigwig_file,
             '-o', temp_dir,
             '-d', '300',
-            '-q', '10', 
+            '-q', '10',
             '-r', '36'
         ]
 

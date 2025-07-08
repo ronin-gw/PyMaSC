@@ -11,14 +11,14 @@ Key factories:
 - CalculatorAdapter: Adapts existing calculators to new interface
 """
 import logging
-from typing import Optional, Any, Dict, List, Union
+from typing import Optional, Any, Dict
 from multiprocessing import Queue
 from multiprocessing.synchronize import Lock
 
-from .interfaces import CrossCorrelationCalculator, CalculatorFactory as ICalculatorFactory
+from .interfaces import CrossCorrelationCalculator
 from .models import (
-    CalculationConfig, MappabilityConfig, WorkerConfig, 
-    CalculationTarget, ImplementationAlgorithm, ExecutionMode
+    CalculationConfig, MappabilityConfig, WorkerConfig,
+    CalculationTarget, ImplementationAlgorithm
 )
 
 # Import existing calculator implementations
@@ -229,20 +229,20 @@ class CalculatorFactory:
         # Create appropriate calculator based on target and implementation combination
         if target == CalculationTarget.NCC and implementation == ImplementationAlgorithm.SUCCESSIVE:
             return CalculatorFactory._create_ncc_calculator(config, logger_lock)
-            
+
         elif target == CalculationTarget.NCC and implementation == ImplementationAlgorithm.BITARRAY:
             # NCC only: BitArray without mappability requirement
             return CalculatorFactory._create_bitarray_calculator(
                 config, mappability_config, logger_lock, progress_hook
             )
-            
+
         elif target == CalculationTarget.MSCC and implementation == ImplementationAlgorithm.SUCCESSIVE:
             if mappability_config is None:
                 raise ValueError("MSCC algorithm requires mappability configuration")
             return CalculatorFactory._create_mscc_calculator(
                 config, mappability_config, logger_lock
             )
-            
+
         elif target == CalculationTarget.MSCC and implementation == ImplementationAlgorithm.BITARRAY:
             # MSCC only: BitArray with skip_ncc=True
             modified_config = CalculationConfig(
@@ -260,13 +260,13 @@ class CalculatorFactory:
             return CalculatorFactory._create_bitarray_calculator(
                 modified_config, mappability_config, logger_lock, progress_hook
             )
-            
+
         elif target == CalculationTarget.BOTH and implementation == ImplementationAlgorithm.BITARRAY:
             # BOTH: Use original config
             return CalculatorFactory._create_bitarray_calculator(
                 config, mappability_config, logger_lock, progress_hook
             )
-            
+
         elif target == CalculationTarget.BOTH and implementation == ImplementationAlgorithm.SUCCESSIVE:
             # SUCCESSIVE with mappability runs both NCC and MSCC (like original implementation)
             if mappability_config and mappability_config.is_enabled():
@@ -275,7 +275,7 @@ class CalculatorFactory:
                 )
             else:
                 return CalculatorFactory._create_ncc_calculator(config, logger_lock)
-                
+
         else:
             raise ValueError(f"Unsupported combination: target={target.value}, implementation={implementation.value}")
 

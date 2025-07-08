@@ -15,7 +15,7 @@ import logging
 from abc import ABC, abstractmethod
 from multiprocessing import Queue, Lock
 from multiprocessing.synchronize import Lock as LockType
-from typing import Dict, List, Tuple, Optional, Any
+from typing import Dict, List, Optional, Any
 
 from pysam import AlignmentFile
 
@@ -52,7 +52,7 @@ class BaseCalcHandler(ABC):
         skip_ncc: Whether to skip NCC calculation
     """
 
-    def __init__(self, 
+    def __init__(self,
                  path: str,
                  mapq_criteria: int,
                  max_shift: int,

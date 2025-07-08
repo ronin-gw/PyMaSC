@@ -23,7 +23,7 @@ import json
 from multiprocessing import Process, Lock
 from multiprocessing.queues import Queue
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Optional, Union
 
 import numpy as np
 
@@ -153,7 +153,7 @@ class MappabilityHandler(MappableLengthCalculator):
 
         # Convert path to string for file access and parent class compatibility
         path_str = os.fspath(path)
-        
+
         if not os.access(path_str, os.R_OK):
             reason = "file is unreadable." if Path(path).is_file() else "no such file."
             logger.critical("Failed to open '{}': {}".format(path, reason))

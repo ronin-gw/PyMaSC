@@ -11,7 +11,7 @@ Key interfaces:
 - ResultCollector: Protocol for result collection and aggregation
 """
 from abc import ABC, abstractmethod
-from typing import Protocol, Dict, Any, Optional, Iterator, Tuple, TYPE_CHECKING
+from typing import Protocol, Dict, Any, Optional, Tuple, TYPE_CHECKING
 import numpy as np
 
 if TYPE_CHECKING:
@@ -158,10 +158,10 @@ class ResultCollector(Protocol):
     workers and aggregate them into final output data structures.
     """
 
-    def collect_chromosome_result(self, 
-                                  chrom: str, 
+    def collect_chromosome_result(self,
+                                  chrom: str,
                                   forward_sum: int,
-                                  reverse_sum: int, 
+                                  reverse_sum: int,
                                   ccbins: np.ndarray,
                                   mappable_data: Optional[Dict[str, Any]] = None) -> None:
         """Collect results for a single chromosome.
@@ -191,7 +191,7 @@ class CalculatorFactory(Protocol):
     based on configuration parameters.
     """
 
-    def create_calculator(self, 
+    def create_calculator(self,
                           algorithm: str,
                           config: 'CalculationConfig') -> CrossCorrelationCalculator:
         """Create a calculator instance for the specified algorithm.

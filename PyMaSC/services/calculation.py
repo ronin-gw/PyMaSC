@@ -14,11 +14,10 @@ Key features:
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple, Any, Protocol
+from typing import Dict, List, Optional, Tuple, Any
 
 import numpy as np
 
-from PyMaSC.core.interfaces import CrossCorrelationCalculator
 from PyMaSC.core.models import (
     CalculationConfig, MappabilityConfig, CalculationTarget, ImplementationAlgorithm
 )
@@ -85,7 +84,7 @@ class CalculationResult:
         )
 
 
-@dataclass  
+@dataclass
 class GenomeWideResult:
     """Aggregated result across all chromosomes.
 
@@ -98,7 +97,7 @@ class GenomeWideResult:
     mappable_fraction: Optional[float] = None
 
     @classmethod
-    def from_chromosome_results(cls, 
+    def from_chromosome_results(cls,
                                results: List[CalculationResult],
                                chromosome_lengths: Dict[str, int]) -> 'GenomeWideResult':
         """Create genome-wide result from chromosome results.
@@ -158,7 +157,7 @@ class CalculationService(ABC):
     """
 
     @abstractmethod
-    def calculate_chromosome(self, 
+    def calculate_chromosome(self,
                            data: ChromosomeData,
                            config: CalculationConfig,
                            mappability_config: Optional[MappabilityConfig] = None
@@ -206,7 +205,7 @@ class StandardCalculationService(CalculationService):
         """Initialize calculation service."""
         self._calculator_cache: Dict[Tuple[CalculationTarget, ImplementationAlgorithm, int, int, bool], Any] = {}
 
-    def calculate_chromosome(self, 
+    def calculate_chromosome(self,
                            data: ChromosomeData,
                            config: CalculationConfig,
                            mappability_config: Optional[MappabilityConfig] = None
@@ -216,7 +215,7 @@ class StandardCalculationService(CalculationService):
         Performs pure calculation without any I/O operations.
         """
         # Create or reuse calculator
-        cache_key = (config.target, config.implementation, config.max_shift, 
+        cache_key = (config.target, config.implementation, config.max_shift,
                     config.read_length or 50, config.skip_ncc)
 
         if cache_key not in self._calculator_cache:
@@ -315,7 +314,7 @@ class StandardCalculationService(CalculationService):
 
         # Build chromosome lengths dictionary
         chromosome_lengths = {
-            data.chromosome: data.length 
+            data.chromosome: data.length
             for data in chromosome_data
         }
 
@@ -339,7 +338,7 @@ class ParallelCalculationService(CalculationService):
         self.n_workers = n_workers
         self._standard_service = StandardCalculationService()
 
-    def calculate_chromosome(self, 
+    def calculate_chromosome(self,
                            data: ChromosomeData,
                            config: CalculationConfig,
                            mappability_config: Optional[MappabilityConfig] = None
@@ -367,7 +366,7 @@ class ParallelCalculationService(CalculationService):
 
 
 # Factory function for service creation
-def create_calculation_service(parallel: bool = False, 
+def create_calculation_service(parallel: bool = False,
                              n_workers: int = 1) -> CalculationService:
     """Create appropriate calculation service.
 

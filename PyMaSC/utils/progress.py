@@ -18,8 +18,7 @@ import sys
 import array
 import fcntl
 from termios import TIOCGWINSZ
-from typing import Any, Dict, TextIO, Union
-from multiprocessing.queues import Queue
+from typing import Any, TextIO, Union
 
 
 class ProgressBase(object):

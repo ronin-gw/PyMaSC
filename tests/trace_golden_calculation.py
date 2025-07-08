@@ -5,8 +5,6 @@ This script runs PyMaSC with instrumentation to capture intermediate calculation
 steps, which can then be used to create detailed unit tests.
 """
 
-import os
-import json
 import tempfile
 import subprocess
 from pathlib import Path
@@ -142,10 +140,10 @@ class TestGoldenCalculationSteps:
         assert calc.forward_sum > 0, "Should have processed forward reads"
 
     def test_reverse_read_processing(self):
-        """Test processing of reverse reads matches golden trace.""" 
+        """Test processing of reverse reads matches golden trace."""
         calc = NaiveCCCalculator(300, ["chr1"], [249250621])
 
-        # First 10 reverse reads from golden calculation  
+        # First 10 reverse reads from golden calculation
         reverse_reads = {reverse_reads[:10]}
 
         for ref, pos, readlen in reverse_reads:

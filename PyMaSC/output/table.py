@@ -19,7 +19,6 @@ from __future__ import annotations, print_function
 import logging
 from functools import partial
 import csv
-from itertools import chain
 from collections import defaultdict
 from copy import copy
 import os

@@ -13,7 +13,7 @@ Key components:
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Optional, List, Dict, Any, Union, TextIO
+from typing import Optional, List, Dict, Any, TextIO
 import logging
 from datetime import datetime
 import threading

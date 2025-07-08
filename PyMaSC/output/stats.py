@@ -16,7 +16,7 @@ from __future__ import annotations, print_function
 import logging
 import os
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Tuple, Union
+from typing import Any, Callable, Dict, Tuple, Union
 
 from PyMaSC.utils.output import catch_IOError
 

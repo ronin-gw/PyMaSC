@@ -1,8 +1,6 @@
 """Test BitArray core functionality that was previously problematic."""
 
 import pytest
-import numpy as np
-from unittest.mock import Mock, patch
 
 # Import the BitArray module that we fixed
 import PyMaSC.bacore.bitarray as bitarray_module
@@ -40,7 +38,7 @@ class TestBitArrayFunctionality:
         module_dict = dir(bitarray_module)
 
         # Should have some attributes beyond basic module attributes
-        significant_attrs = [attr for attr in module_dict 
+        significant_attrs = [attr for attr in module_dict
                            if not attr.startswith('_')]
 
         # Module should expose some functionality
@@ -100,7 +98,6 @@ class TestBitArraySymbolResolution:
         """Test that BitArray import is safe for concurrent access."""
         # This tests that our linking fix doesn't have race conditions
         import threading
-        import time
 
         errors = []
 
@@ -187,7 +184,7 @@ class TestBitArrayArchitectureCompatibility:
 
         # Use 'file' command to check architecture
         try:
-            result = subprocess.run(['file', module_file], 
+            result = subprocess.run(['file', module_file],
                                   capture_output=True, text=True)
 
             if result.returncode == 0:

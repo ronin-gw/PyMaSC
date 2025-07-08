@@ -1,12 +1,12 @@
 """Tests for unified worker architecture."""
 
 import unittest
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock
 from multiprocessing import Queue, Lock
 
 from PyMaSC.core.worker import UnifiedWorker, StandardReadProcessor, DualReadProcessor
 from PyMaSC.core.models import (
-    WorkerConfig, CalculationConfig, MappabilityConfig, 
+    WorkerConfig, CalculationConfig, MappabilityConfig,
     CalculationTarget, ImplementationAlgorithm
 )
 from PyMaSC.core.worker_compat import (

@@ -11,12 +11,12 @@ Key features:
 - Full backward compatibility
 """
 import logging
-from typing import Optional, Dict, List, Any
+from typing import Optional, List, Any
 
 from PyMaSC.handler.base import BaseCalcHandler
 from PyMaSC.core.models import (
-    CalculationConfig, MappabilityConfig, ExecutionConfig, 
-    CalculationTarget, ImplementationAlgorithm, WorkerConfig, ExecutionMode
+    CalculationConfig, MappabilityConfig, ExecutionConfig,
+    CalculationTarget, ImplementationAlgorithm, ExecutionMode
 )
 from PyMaSC.services.workflow import (
     WorkflowService, WorkflowRequest, WorkflowResult,
@@ -39,7 +39,7 @@ class ServiceBasedCalcHandler(BaseCalcHandler):
     maintaining compatibility with existing PyMaSC code.
     """
 
-    def __init__(self, 
+    def __init__(self,
                  path: str,
                  esttype: str,
                  max_shift: int,
@@ -210,7 +210,7 @@ class ServiceBasedCalcHandler(BaseCalcHandler):
                 self.ref2ccbins[chrom] = chrom_result.correlation_bins
 
             # MSCC results
-            if (chrom_result.mappable_forward_count is not None and 
+            if (chrom_result.mappable_forward_count is not None and
                 chrom_result.mappable_reverse_count is not None):
                 self.mappable_ref2forward_sum[chrom] = chrom_result.mappable_forward_count
                 self.mappable_ref2reverse_sum[chrom] = chrom_result.mappable_reverse_count

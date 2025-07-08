@@ -1,7 +1,6 @@
 """Test progress migration utilities."""
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 import tempfile
 import os
 
@@ -12,8 +11,7 @@ from PyMaSC.core.progress_migration import (
     auto_attach_observer
 )
 from PyMaSC.core.observer import (
-    ProgressObserver, ProgressEvent, ProgressEventType,
-    FileProgressObserver, TerminalProgressObserver
+    ProgressObserver, ProgressEventType, FileProgressObserver
 )
 from PyMaSC.core.progress_adapter import ProgressBarAdapter, ReadCountProgressBarAdapter
 
@@ -186,7 +184,7 @@ class TestProgressMigration:
 
             # Migration should be enabled
             import PyMaSC.core.progress_migration as pm
-            assert pm._migration_enabled == True
+            assert pm._migration_enabled is True
 
         finally:
             try:
@@ -316,7 +314,7 @@ class TestMigrationIntegration:
             # Check observer support
             assert hasattr(handler, 'attach_progress_observer')
             assert hasattr(handler, 'use_observer_progress')
-            assert handler.use_observer_progress == True
+            assert handler.use_observer_progress is True
 
             # Attach observer
             observer = Mock(spec=ProgressObserver)

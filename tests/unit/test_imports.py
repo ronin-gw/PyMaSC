@@ -1,6 +1,5 @@
+# flake8: noqa: F401
 """Test basic module imports to ensure all Cython extensions load correctly."""
-
-import pytest
 
 
 class TestBasicImports:

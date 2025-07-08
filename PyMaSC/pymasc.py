@@ -6,10 +6,9 @@ from __future__ import annotations
 
 import argparse
 import logging
-import os
 import sys
 from pathlib import Path
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple
 from itertools import zip_longest
 
 from PyMaSC import entrypoint, logging_version
@@ -22,7 +21,7 @@ from PyMaSC.handler.unified import InputUnseekable
 from PyMaSC.handler.base import NothingToCalc
 from PyMaSC.handler.unified import UnifiedCalcHandler
 from PyMaSC.core.models import (
-    CalculationConfig, ExecutionConfig, CalculationTarget, 
+    CalculationConfig, ExecutionConfig, CalculationTarget,
     ImplementationAlgorithm, ExecutionMode, MappabilityConfig
 )
 from PyMaSC.handler.result import CCResult, ReadsTooFew
@@ -200,7 +199,7 @@ def make_handlers(args: argparse.Namespace) -> List[UnifiedCalcHandler]:
             # Determine calculation target and implementation based on existing logic
             # Implementation: Use successive if --successive flag, otherwise BitArray (default)
             implementation = ImplementationAlgorithm.SUCCESSIVE if args.successive else ImplementationAlgorithm.BITARRAY
-            
+
             # Target: Auto-determine based on mappability presence (existing behavior)
             if hasattr(args, 'mappability') and args.mappability:
                 # Mappability provided: calculate both NCC and MSCC unless --skip-ncc
@@ -208,7 +207,7 @@ def make_handlers(args: argparse.Namespace) -> List[UnifiedCalcHandler]:
             else:
                 # No mappability: only NCC
                 target = CalculationTarget.NCC
-            
+
             # Create calculation configuration using new conceptual approach
             calc_config = CalculationConfig(
                 target=target,

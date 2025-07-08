@@ -11,7 +11,7 @@ Key model categories:
 - Validation utilities: Configuration validation and error handling
 """
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any, Union, Tuple
+from typing import Dict, List, Optional, Any, Tuple
 from pathlib import Path
 import numpy as np
 from enum import Enum

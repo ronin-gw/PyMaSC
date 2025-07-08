@@ -1,8 +1,7 @@
 """Test read length estimation functionality."""
 
 import pytest
-import numpy as np
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
 # Test the readlen module
 from tests.utils.test_data_generator import MockBAMData, create_mock_reference_data

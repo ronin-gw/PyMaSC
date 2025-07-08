@@ -5,10 +5,9 @@ supports the new observer pattern for progress reporting while maintaining
 full backward compatibility.
 """
 import logging
-from typing import Optional, Dict, Any, List
+from typing import Optional, Any, List
 
 from .readlen import estimate_readlen as _original_estimate_readlen
-from ..utils.progress import ReadCountProgressBar
 from .progress_adapter import ProgressManager, get_progress_manager
 from .observer import ProgressObserver
 
@@ -23,7 +22,7 @@ class ReadLengthEstimator:
     monitoring during read length estimation.
     """
 
-    def __init__(self, 
+    def __init__(self,
                  use_observer: bool = True,
                  progress_manager: Optional[ProgressManager] = None):
         """Initialize read length estimator.
@@ -56,9 +55,9 @@ class ReadLengthEstimator:
         if observer in self._observers:
             self._observers.remove(observer)
 
-    def estimate(self, 
-                 path: str, 
-                 esttype: str, 
+    def estimate(self,
+                 path: str,
+                 esttype: str,
                  mapq_criteria: int,
                  **kwargs: Any) -> int:
         """Estimate read length with optional observer notifications.
@@ -124,8 +123,8 @@ class ReadLengthEstimator:
             raise
 
 
-def estimate_readlen_enhanced(path: str, 
-                            esttype: str, 
+def estimate_readlen_enhanced(path: str,
+                            esttype: str,
                             mapq_criteria: int,
                             use_observer: bool = True,
                             progress_manager: Optional[ProgressManager] = None,
@@ -196,7 +195,7 @@ def enable_readlen_observers(enabled: bool = True) -> None:
         # Replace with enhanced version
         def _wrapper(path: str, esttype: str, mapq_criteria: int) -> int:
             return estimate_readlen_enhanced(
-                path, esttype, mapq_criteria, 
+                path, esttype, mapq_criteria,
                 use_observer=True
             )
 

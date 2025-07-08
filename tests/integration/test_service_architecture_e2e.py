@@ -7,15 +7,14 @@ import tempfile
 import os
 import json
 import numpy as np
-from pathlib import Path
 import pytest
 
 from PyMaSC.services.calculation import create_calculation_service
-from PyMaSC.services.io import create_io_service, InMemoryIOService
+from PyMaSC.services.io import InMemoryIOService
 from PyMaSC.services.validation import create_validation_service
 from PyMaSC.services.mappability import create_mappability_service
 from PyMaSC.services.workflow import create_workflow_service, WorkflowRequest
-from PyMaSC.handler.simplified import SimplifiedCalcHandler, HandlerBuilder
+from PyMaSC.handler.simplified import HandlerBuilder
 from PyMaSC.handler.service_adapter import ServiceBasedCalcHandler
 from PyMaSC.core.models import (
     CalculationConfig, MappabilityConfig, ExecutionConfig,

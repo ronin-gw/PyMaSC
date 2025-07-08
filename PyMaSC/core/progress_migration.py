@@ -8,10 +8,10 @@ import logging
 from typing import Optional, Type, Callable, Any, Dict, List
 from functools import wraps
 
-from PyMaSC.utils.progress import ProgressBar, ProgressHook, MultiLineProgressManager, ReadCountProgressBar
+from PyMaSC.utils.progress import ProgressBar, ReadCountProgressBar
 from .progress_adapter import (
     ProgressBarAdapter, ProgressHookAdapter, ReadCountProgressBarAdapter,
-    get_progress_manager, ProgressManager
+    get_progress_manager
 )
 from .observer import ProgressObserver, ProgressSubject
 
@@ -118,14 +118,14 @@ def _create_read_count_factory() -> Callable[..., Any]:
                     adapter.attach_observer(observer)
             return adapter
         else:
-            return _original_classes.get('ReadCountProgressBar', 
+            return _original_classes.get('ReadCountProgressBar',
                                         ReadCountProgressBar)(*args, **kwargs)
 
     factory._auto_attach_observers = []  # type: ignore[attr-defined]
     return factory
 
 
-def auto_attach_observer(observer: ProgressObserver, 
+def auto_attach_observer(observer: ProgressObserver,
                         progress_class: Optional[Type] = None) -> None:
     """Automatically attach an observer to all new progress instances.
 
@@ -144,7 +144,7 @@ def auto_attach_observer(observer: ProgressObserver,
             progress_module.ReadCountProgressBar._auto_attach_observers.append(observer)
 
 
-def with_progress_observer(observer_class: Type[ProgressObserver], 
+def with_progress_observer(observer_class: Type[ProgressObserver],
                           **observer_kwargs: Any) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Decorator to automatically attach observers to progress bars in a function.
 

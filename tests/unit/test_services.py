@@ -1,7 +1,7 @@
 """Tests for PyMaSC service layer architecture."""
 
 import unittest
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock, patch
 import numpy as np
 
 from PyMaSC.services.calculation import (
@@ -9,15 +9,14 @@ from PyMaSC.services.calculation import (
     StandardCalculationService, create_calculation_service
 )
 from PyMaSC.services.io import (
-    BAMFileInfo, InMemoryIOService, FileIOService, create_io_service
+    BAMFileInfo, InMemoryIOService, create_io_service
 )
 from PyMaSC.services.workflow import (
-    WorkflowRequest, WorkflowResult, WorkflowStatus,
+    WorkflowRequest, WorkflowStatus,
     StandardWorkflowService, create_workflow_service
 )
 from PyMaSC.core.models import (
-    CalculationConfig, MappabilityConfig, ExecutionConfig, 
-    CalculationTarget, ImplementationAlgorithm
+    CalculationConfig, CalculationTarget, ImplementationAlgorithm
 )
 
 
@@ -66,8 +65,8 @@ class TestCalculationService(unittest.TestCase):
             mock_calc.ref2reverse_sum = {"chr1": 3}
             mock_calc.ref2ccbins = {"chr1": np.array([0.1, 0.2, 0.3])}
             # Explicitly configure the mock to not have mappability attributes
-            mock_calc.configure_mock(spec=['ref2forward_sum', 'ref2reverse_sum', 'ref2ccbins', 
-                                           'feed_forward_read', 'feed_reverse_read', 
+            mock_calc.configure_mock(spec=['ref2forward_sum', 'ref2reverse_sum', 'ref2ccbins',
+                                           'feed_forward_read', 'feed_reverse_read',
                                            'finishup_calculation'])
             mock_factory.return_value = mock_calc
 
@@ -108,8 +107,8 @@ class TestCalculationService(unittest.TestCase):
                 "chr2": np.array([0.2, 0.3, 0.4])
             }
             # Explicitly configure the mock to not have mappability attributes
-            mock_calc.configure_mock(spec=['ref2forward_sum', 'ref2reverse_sum', 'ref2ccbins', 
-                                           'feed_forward_read', 'feed_reverse_read', 
+            mock_calc.configure_mock(spec=['ref2forward_sum', 'ref2reverse_sum', 'ref2ccbins',
+                                           'feed_forward_read', 'feed_reverse_read',
                                            'finishup_calculation'])
             mock_factory.return_value = mock_calc
 

@@ -2,9 +2,7 @@
 Instrumentation for tracing PyMaSC function calls during golden test execution.
 """
 
-import os
 import json
-import pickle
 import functools
 import numpy as np
 from pathlib import Path

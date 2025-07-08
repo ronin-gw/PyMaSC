@@ -6,7 +6,7 @@ result normalization. Eliminates duplicate calculation code.
 
 Key features:
 - NSC (Normalized Strand Coefficient) calculation
-- RSC (Relative Strand Coefficient) calculation  
+- RSC (Relative Strand Coefficient) calculation
 - Cross-correlation peak finding
 - Statistical result aggregation
 - Numerical stability utilities
@@ -15,7 +15,7 @@ This eliminates 50-65 lines of duplicate statistical code.
 """
 import logging
 import numpy as np
-from typing import Dict, List, Tuple, Optional, Any, Union
+from typing import Dict, List, Tuple, Optional, Any
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ class CrossCorrelationMetrics:
     """
 
     @staticmethod
-    def calculate_nsc(ccbins: np.ndarray, 
+    def calculate_nsc(ccbins: np.ndarray,
                      fragment_peak_pos: int,
                      read_length: int) -> float:
         """Calculate Normalized Strand Coefficient (NSC).

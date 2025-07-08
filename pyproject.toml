@@ -52,6 +52,7 @@ plot = [
 test = [
     "pytest>=6.0",
     "pytest-cov",
+    "pytest-xdist",
     "psutil>=5.8.0",
 ]
 dev = [
@@ -116,6 +117,8 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "--verbose --tb=short --strict-markers --disable-warnings -ra"
+# For parallel execution, use:
+# addopts = "--verbose --tb=short --strict-markers --disable-warnings -ra -n auto"
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests as integration tests",

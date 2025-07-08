@@ -2,7 +2,7 @@
 # This is a convenience wrapper for common development tasks
 # For C source generation from Cython files, see Makefile.sources
 
-.PHONY: test test-quick test-all test-integration test-unit build build-force rebuild install install-dev install-test install-plot install-requirements clean sources sources-parallel help
+.PHONY: test test-quick test-all test-integration test-unit test-parallel test-quick-parallel test-all-parallel test-integration-parallel test-unit-parallel test-workers build build-force rebuild install install-dev install-test install-plot install-requirements clean sources sources-parallel help
 
 # Default target
 help:
@@ -12,6 +12,14 @@ help:
 	@echo "  make test-unit     - Run unit tests verbosely"
 	@echo "  make test-integration - Run integration tests"
 	@echo "  make test-all      - Run all tests verbosely"
+	@echo ""
+	@echo "Parallel test commands (requires pytest-xdist):"
+	@echo "  make test-parallel - Run full test suite with coverage in parallel"
+	@echo "  make test-quick-parallel - Run unit tests only in parallel (fast)"
+	@echo "  make test-unit-parallel - Run unit tests verbosely in parallel"
+	@echo "  make test-integration-parallel - Run integration tests in parallel"
+	@echo "  make test-all-parallel - Run all tests verbosely in parallel"
+	@echo "  make test-workers WORKERS=N - Run tests with N parallel workers"
 	@echo "  make build         - Build Cython extensions in-place (incremental)"
 	@echo "  make build-force   - Force rebuild all Cython extensions"
 	@echo "  make rebuild       - Complete rebuild (clean + force build)"
@@ -46,6 +54,37 @@ test-integration:
 # Run all tests verbosely
 test-all:
 	python -m pytest tests/ -v
+
+# Parallel test commands (using pytest-xdist)
+# Run tests with coverage in parallel (auto-detect CPU count)
+test-parallel:
+	python -m pytest tests/ --verbose --tb=short --cov=PyMaSC --cov-report=term-missing --cov-report=html -n auto
+
+# Quick parallel test run (unit tests only, no coverage)
+test-quick-parallel:
+	python -m pytest tests/unit/ -v -n auto
+
+# Run unit tests verbosely in parallel
+test-unit-parallel:
+	python -m pytest tests/unit/ -v -n auto
+
+# Run integration tests in parallel
+test-integration-parallel:
+	python -m pytest tests/integration/ -v -n auto
+
+# Run all tests verbosely in parallel
+test-all-parallel:
+	python -m pytest tests/ -v -n auto
+
+# Run tests with custom number of workers
+# Usage: make test-workers WORKERS=4
+test-workers:
+	@if [ -z "$(WORKERS)" ]; then \
+		echo "Usage: make test-workers WORKERS=<number>"; \
+		echo "Example: make test-workers WORKERS=4"; \
+		exit 1; \
+	fi
+	python -m pytest tests/ -v -n $(WORKERS)
 
 # Build Cython extensions in-place
 build:

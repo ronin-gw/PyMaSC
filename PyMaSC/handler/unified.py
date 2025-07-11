@@ -465,7 +465,13 @@ class UnifiedCalcHandler:
             self._collect_calculator_results_legacy(calculator)
     
     def _collect_calculator_results_legacy(self, calculator: CrossCorrelationCalculator) -> None:
-        """Legacy calculator result collection method."""
+        """Legacy calculator result collection method.
+        
+        DEPRECATED: This method is kept for fallback compatibility only.
+        The new aggregation system should be used instead.
+        """
+        logger.warning("Using legacy result collection - consider investigating aggregation failure")
+        
         # Basic NCC results
         if not self.config.skip_ncc:
             self.ref2forward_sum = calculator.ref2forward_sum
@@ -495,7 +501,11 @@ class UnifiedCalcHandler:
         self._aggregate_mappable_results()
 
     def _aggregate_mappable_results(self) -> None:
-        """Aggregate per-reference mappable results into scalar attributes for result processing."""
+        """Aggregate per-reference mappable results into scalar attributes for result processing.
+        
+        DEPRECATED: This legacy aggregation logic is replaced by ResultAggregator.
+        Kept for fallback compatibility only.
+        """
         import numpy as np
 
         # Initialize all mappable attributes as None by default

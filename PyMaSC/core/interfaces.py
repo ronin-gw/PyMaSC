@@ -90,6 +90,30 @@ class CrossCorrelationCalculator(ABC):
         """Cross-correlation bins by chromosome."""
         pass
 
+    @property
+    def ref2mappable_forward_sum(self) -> Optional[Dict[str, int]]:
+        """Mappable forward read counts (optional, for MSCC/BitArray).
+        
+        Returns None for calculators that don't support mappability.
+        """
+        return None
+
+    @property
+    def ref2mappable_reverse_sum(self) -> Optional[Dict[str, int]]:
+        """Mappable reverse read counts (optional, for MSCC/BitArray).
+        
+        Returns None for calculators that don't support mappability.
+        """
+        return None
+
+    @property
+    def ref2mascbins(self) -> Optional[Dict[str, np.ndarray]]:
+        """MSCC bins (optional, for MSCC/BitArray).
+        
+        Returns None for calculators that don't support mappability.
+        """
+        return None
+
 
 class ReadProcessor(Protocol):
     """Protocol for read processing and filtering operations.

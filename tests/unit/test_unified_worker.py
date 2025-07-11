@@ -9,9 +9,7 @@ from PyMaSC.core.models import (
     WorkerConfig, CalculationConfig, MappabilityConfig,
     CalculationTarget, ImplementationAlgorithm
 )
-from PyMaSC.core.worker_compat import (
-    NaiveCCCalcWorker, MSCCCalcWorker, NCCandMSCCCalcWorker, BACalcWorker
-)
+# Worker compatibility classes have been removed
 
 
 class TestUnifiedWorker(unittest.TestCase):
@@ -203,103 +201,6 @@ class TestDualReadProcessor(unittest.TestCase):
 
         self.primary_calculator.feed_reverse_read.assert_called_once_with("chr1", 201, 50)
         self.secondary_calculator.feed_reverse_read.assert_called_once_with("chr1", 201, 50)
-
-
-class TestWorkerCompatibility(unittest.TestCase):
-    """Test cases for worker compatibility wrappers."""
-
-    def setUp(self):
-        """Set up test fixtures."""
-        self.order_queue = Queue()
-        self.report_queue = Queue()
-        self.logger_lock = Lock()
-        self.bam_path = "/test/path.bam"
-        self.references = ["chr1", "chr2"]
-        self.lengths = [100000, 90000]
-
-    def test_naive_cc_worker_compatibility(self):
-        """Test NaiveCCCalcWorker compatibility wrapper."""
-        worker = NaiveCCCalcWorker(
-            self.order_queue,
-            self.report_queue,
-            self.logger_lock,
-            self.bam_path,
-            mapq_criteria=20,
-            max_shift=200,
-            references=self.references,
-            lengths=self.lengths
-        )
-
-        self.assertIsNotNone(worker)
-        self.assertIsNotNone(worker._unified_worker)
-        self.assertEqual(worker._unified_worker.config.calculation_config.target, CalculationTarget.NCC)
-        self.assertEqual(worker._unified_worker.config.calculation_config.implementation, ImplementationAlgorithm.SUCCESSIVE)
-
-    def test_mscc_worker_compatibility(self):
-        """Test MSCCCalcWorker compatibility wrapper."""
-        worker = MSCCCalcWorker(
-            self.order_queue,
-            self.report_queue,
-            self.logger_lock,
-            self.bam_path,
-            mapq_criteria=20,
-            max_shift=200,
-            references=self.references,
-            lengths=self.lengths,
-            mappable_path="/test/mappability.bw",
-            read_len=50,
-            chrom2mappable_len={}
-        )
-
-        self.assertIsNotNone(worker)
-        self.assertIsNotNone(worker._unified_worker)
-        self.assertEqual(worker._unified_worker.config.calculation_config.target, CalculationTarget.MSCC)
-        self.assertEqual(worker._unified_worker.config.calculation_config.implementation, ImplementationAlgorithm.SUCCESSIVE)
-        self.assertTrue(worker._unified_worker.config.calculation_config.skip_ncc)
-
-    def test_ncc_and_mscc_worker_compatibility(self):
-        """Test NCCandMSCCCalcWorker compatibility wrapper."""
-        worker = NCCandMSCCCalcWorker(
-            self.order_queue,
-            self.report_queue,
-            self.logger_lock,
-            self.bam_path,
-            mapq_criteria=20,
-            max_shift=200,
-            references=self.references,
-            lengths=self.lengths,
-            mappable_path="/test/mappability.bw",
-            read_len=50,
-            chrom2mappable_len={}
-        )
-
-        self.assertIsNotNone(worker)
-        self.assertIsNotNone(worker._unified_worker)
-        self.assertEqual(worker._unified_worker.config.calculation_config.target, CalculationTarget.BOTH)
-        self.assertEqual(worker._unified_worker.config.calculation_config.implementation, ImplementationAlgorithm.SUCCESSIVE)
-        self.assertFalse(worker._unified_worker.config.calculation_config.skip_ncc)
-
-    def test_ba_calc_worker_compatibility(self):
-        """Test BACalcWorker compatibility wrapper."""
-        worker = BACalcWorker(
-            self.order_queue,
-            self.report_queue,
-            self.logger_lock,
-            self.bam_path,
-            mapq_criteria=20,
-            max_shift=200,
-            read_len=50,
-            references=self.references,
-            lengths=self.lengths,
-            mappability_handler=None,
-            skip_ncc=False
-        )
-
-        self.assertIsNotNone(worker)
-        self.assertIsNotNone(worker._unified_worker)
-        self.assertEqual(worker._unified_worker.config.calculation_config.target, CalculationTarget.BOTH)
-        self.assertEqual(worker._unified_worker.config.calculation_config.implementation, ImplementationAlgorithm.BITARRAY)
-        self.assertFalse(worker._unified_worker.config.calculation_config.skip_ncc)
 
 
 if __name__ == '__main__':

@@ -16,7 +16,7 @@ from PyMaSC.core.progress_coordinator import (
     SingleLineProgressReporter, MultiLineProgressReporter,
     ObserverProgressReporter, NullProgressReporter
 )
-from PyMaSC.utils.stats_utils import ResultAggregator
+# ResultAggregator functionality has been integrated into the main codebase
 from PyMaSC.handler.unified import UnifiedCalcHandler
 from PyMaSC.core.models import (
     CalculationConfig, ExecutionConfig, MappabilityConfig,
@@ -191,103 +191,7 @@ class TestProgressCoordinator(unittest.TestCase):
         self.assertFalse(is_progress)
 
 
-class TestResultAggregatorExtensions(unittest.TestCase):
-    """Test extended ResultAggregator functionality."""
-    
-    @unittest.skip("aggregate_mappable_results method not implemented yet")
-    def test_aggregate_mappable_results(self):
-        """Test aggregation of mappable results."""
-        # Test with valid data
-        mappable_forward = {
-            'chr1': np.array([10, 20, 30]),
-            'chr2': np.array([5, 10, 15])
-        }
-        mappable_reverse = {
-            'chr1': np.array([15, 25, 35]),
-            'chr2': np.array([8, 12, 18])
-        }
-        mappable_ccbins = {
-            'chr1': np.array([100, 200, 300]),
-            'chr2': np.array([50, 100, 150])
-        }
-        
-        result = ResultAggregator.aggregate_mappable_results(
-            mappable_forward, mappable_reverse, mappable_ccbins
-        )
-        
-        np.testing.assert_array_equal(
-            result['mappable_forward_sum'],
-            np.array([15, 30, 45])
-        )
-        np.testing.assert_array_equal(
-            result['mappable_reverse_sum'],
-            np.array([23, 37, 53])
-        )
-        np.testing.assert_array_equal(
-            result['mappable_ccbins'],
-            np.array([150, 300, 450])
-        )
-    
-    @unittest.skip("aggregate_mappable_results method not implemented yet")
-    def test_aggregate_mappable_results_with_none(self):
-        """Test aggregation with None values."""
-        mappable_forward = {
-            'chr1': np.array([10, 20, 30]),
-            'chr2': None
-        }
-        
-        result = ResultAggregator.aggregate_mappable_results(
-            mappable_forward, {}, {}
-        )
-        
-        np.testing.assert_array_equal(
-            result['mappable_forward_sum'],
-            np.array([10, 20, 30])
-        )
-        self.assertIsNone(result['mappable_reverse_sum'])
-        self.assertIsNone(result['mappable_ccbins'])
-    
-    @unittest.skip("collect_calculator_results method not implemented yet")
-    def test_collect_calculator_results(self):
-        """Test collecting results from calculator."""
-        # Mock calculator
-        mock_calc = Mock()
-        mock_calc.ref2forward_sum = {'chr1': 100}
-        mock_calc.ref2reverse_sum = {'chr1': 150}
-        mock_calc.ref2ccbins = {'chr1': np.array([1, 2, 3])}
-        # Ensure no mappability attributes
-        mock_calc.ref2mappable_forward_sum = None
-        # Ensure no _calculator attribute
-        if hasattr(mock_calc, '_calculator'):
-            del mock_calc._calculator
-        
-        results = ResultAggregator.collect_calculator_results(mock_calc)
-        
-        self.assertEqual(results['ref2forward_sum'], {'chr1': 100})
-        self.assertEqual(results['ref2reverse_sum'], {'chr1': 150})
-        self.assertIn('chr1', results['ref2ccbins'])
-    
-    @unittest.skip("collect_calculator_results method not implemented yet")
-    def test_collect_calculator_results_with_mappability(self):
-        """Test collecting results with mappability data."""
-        # Mock calculator with mappability
-        mock_calc = Mock()
-        mock_calc.ref2forward_sum = {'chr1': 100}
-        mock_calc.ref2reverse_sum = {'chr1': 150}
-        mock_calc.ref2ccbins = {'chr1': np.array([1, 2, 3])}
-        mock_calc.ref2mappable_forward_sum = {'chr1': 90}
-        mock_calc.ref2mappable_reverse_sum = {'chr1': 140}
-        mock_calc.ref2mascbins = {'chr1': np.array([2, 3, 4])}
-        # Mock the inner calculator
-        mock_calc._calculator = Mock()
-        mock_calc._calculator.ref2mappable_len = Mock()
-        mock_calc._calculator.ref2mappable_len.items.return_value = []
-        
-        results = ResultAggregator.collect_calculator_results(mock_calc)
-        
-        self.assertEqual(results['mappable_ref2forward_sum'], {'chr1': 90})
-        self.assertEqual(results['mappable_ref2reverse_sum'], {'chr1': 140})
-        self.assertIn('chr1', results['mappable_ref2ccbins'])
+# Deprecated test class removed - functionality has been integrated into ResultAggregator
 
 
 class TestUnifiedCalcHandler(unittest.TestCase):

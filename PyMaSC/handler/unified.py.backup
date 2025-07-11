@@ -35,11 +35,6 @@ from PyMaSC.core.readlen import estimate_readlen
 from PyMaSC.core.progress_adapter import ProgressBarAdapter, ProgressManager, get_progress_manager
 from PyMaSC.utils.calc import filter_chroms, exec_worker_pool
 
-# New aggregation system
-from PyMaSC.core.result_aggregator import (
-    ResultAggregator, AggregationConfig, AggregationMode, AggregationResult
-)
-
 logger = logging.getLogger(__name__)
 
 
@@ -163,16 +158,6 @@ class UnifiedCalcHandler:
         self.use_observer_progress = True
         self._progress_observers: List['ProgressObserver'] = []
         self._progress_coordinator: Optional[ProgressCoordinator] = None
-        
-        # Result aggregation system (dual implementation)
-        self._aggregation_config = AggregationConfig(
-            mode=AggregationMode.HYBRID,  # Use both legacy and new systems
-            enable_validation=True,
-            enable_logging=True,
-            fallback_to_legacy=True
-        )
-        self._result_aggregator = ResultAggregator(self._aggregation_config)
-        self._aggregation_result: Optional[AggregationResult] = None
 
     def set_or_estimate_readlen(self, readlen: Optional[int] = None) -> None:
         """Set or estimate read length.
@@ -353,7 +338,6 @@ class UnifiedCalcHandler:
     def _run_calculation_with_workers(self, workers: List[Any]) -> None:
         """Coordinate worker processes and collect results."""
         _chrom2finished = {c: False for c in self.references}
-        _worker_results = []  # Collect results for new aggregation system
 
         with exec_worker_pool(workers, self.references, self._order_queue):
             while True:
@@ -365,11 +349,6 @@ class UnifiedCalcHandler:
                 
                 # Result received
                 mappable_len, cc_stats, masc_stats = obj
-                
-                # Store for new aggregation system
-                _worker_results.append((chrom, (mappable_len, cc_stats, masc_stats)))
-                
-                # Legacy result processing
                 self._receive_results(chrom, mappable_len, cc_stats, masc_stats)
 
                 _chrom2finished[chrom] = True
@@ -382,39 +361,6 @@ class UnifiedCalcHandler:
 
         # Cleanup progress
         self._progress_coordinator.cleanup()
-        
-        # Apply new aggregation system for worker results
-        self._aggregate_worker_results(_worker_results)
-    
-    def _aggregate_worker_results(self, worker_results: List[Tuple[str, Any]]) -> None:
-        """Aggregate worker results using dual aggregation system."""
-        # New aggregation system
-        try:
-            self._aggregation_result = self._result_aggregator.aggregate_from_results(
-                worker_results=worker_results,
-                references=self.references,
-                lengths=self.lengths,
-                read_length=self.read_len or 0,  # Use 0 as fallback if not set
-                skip_ncc=self.config.skip_ncc
-            )
-            
-            # Apply aggregated results to legacy attributes (update existing ones)
-            legacy_attrs = self._aggregation_result.legacy_attributes
-            for attr_name, attr_value in legacy_attrs.items():
-                if attr_value is not None:  # Only update if we have data
-                    setattr(self, attr_name, attr_value)
-            
-            # Log aggregation success
-            if self._aggregation_result.validation_errors:
-                logger.warning(f"Worker aggregation validation errors: {self._aggregation_result.validation_errors}")
-            
-            logger.debug(f"New worker aggregation system succeeded: {self._aggregation_result.aggregation_mode}")
-            
-        except Exception as e:
-            logger.warning(f"New worker aggregation system failed, using legacy results: {e}")
-            # Legacy system already processed results via _receive_results()
-            # Just perform the final aggregation step
-            self._aggregate_mappable_results()
 
     def _receive_results(self, chrom: str, mappable_len: Optional[int],
                         cc_stats: tuple, masc_stats: tuple) -> None:
@@ -437,35 +383,7 @@ class UnifiedCalcHandler:
             self.mappable_ref2ccbins[chrom] = mccbins
 
     def _collect_calculator_results(self, calculator: CrossCorrelationCalculator) -> None:
-        """Collect results from calculator instance using dual aggregation system."""
-        # New aggregation system
-        try:
-            self._aggregation_result = self._result_aggregator.aggregate_from_calculator(
-                calculator=calculator,
-                references=self.references,
-                lengths=self.lengths,
-                read_length=self.read_len or 0,  # Use 0 as fallback if not set
-                skip_ncc=self.config.skip_ncc
-            )
-            
-            # Apply aggregated results to legacy attributes
-            legacy_attrs = self._aggregation_result.legacy_attributes
-            for attr_name, attr_value in legacy_attrs.items():
-                setattr(self, attr_name, attr_value)
-            
-            # Log aggregation success
-            if self._aggregation_result.validation_errors:
-                logger.warning(f"Aggregation validation errors: {self._aggregation_result.validation_errors}")
-            
-            logger.debug(f"New aggregation system succeeded: {self._aggregation_result.aggregation_mode}")
-            
-        except Exception as e:
-            logger.warning(f"New aggregation system failed, falling back to legacy: {e}")
-            # Fall back to legacy aggregation
-            self._collect_calculator_results_legacy(calculator)
-    
-    def _collect_calculator_results_legacy(self, calculator: CrossCorrelationCalculator) -> None:
-        """Legacy calculator result collection method."""
+        """Collect results from calculator instance."""
         # Basic NCC results
         if not self.config.skip_ncc:
             self.ref2forward_sum = calculator.ref2forward_sum

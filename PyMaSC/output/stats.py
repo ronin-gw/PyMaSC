@@ -18,6 +18,8 @@ import os
 from pathlib import Path
 from typing import Any, Callable, Dict, Tuple, Union
 
+import numpy as np
+
 from PyMaSC.utils.output import catch_IOError
 
 STATSFILE_SUFFIX = "_stats.tab"
@@ -59,7 +61,14 @@ def get_rl_item_from(attr: str) -> Callable[[Any], Union[str, Any]]:
     """
     def _func(ccstats: Any) -> Union[str, Any]:
         array = getattr(ccstats, attr, None)
-        return "nan" if array is None else array[ccstats.read_len - 1]
+        if array is None:
+            return "nan"
+        value = array[ccstats.read_len - 1]
+        # For certain attributes that should be integers, convert float to int
+        if attr in ["genomelen", "forward_sum", "reverse_sum"] and isinstance(value, (float, np.floating)):
+            if value == int(value):  # Only convert if it's a whole number
+                return int(value)
+        return value
     return _func
 
 

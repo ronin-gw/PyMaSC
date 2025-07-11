@@ -9,6 +9,9 @@ from PyMaSC.handler.mappability import MappabilityHandler
 from PyMaSC.utils.calc import moving_avr_filter
 from PyMaSC.utils.stats_utils import ArrayAggregator, StatisticalTestUtilities, CrossCorrelationMerger
 
+# New builder-based result construction
+from PyMaSC.core.result_builder import ResultBuilder, build_from_handler
+
 logger = logging.getLogger(__name__)
 
 # Quality Assessment Constants
@@ -999,4 +1002,137 @@ class CCResult(object):
             elif np.all(mappable_reverse_sum == 0):
                 logger.error("There is no reverse read.")
                 raise ReadsTooFew
+
+    # New builder-based result construction methods
+    @classmethod
+    def from_handler_with_builder(
+        cls,
+        handler,
+        mv_avr_filter_len: int = 15,
+        chi2_pval: float = 0.01,
+        filter_mask_len: int = 5,
+        min_calc_width: int = 10,
+        expected_library_len: int = None
+    ) -> 'CCResult':
+        """Create CCResult using the new builder system.
+        
+        This method provides an alternative to the traditional __init__ method,
+        using the type-safe builder pattern for result construction.
+        
+        Args:
+            handler: Calculation handler with results
+            mv_avr_filter_len: Moving average filter length
+            chi2_pval: Chi-squared p-value threshold
+            filter_mask_len: Filter mask length around read length
+            min_calc_width: Minimum width for background calculation
+            expected_library_len: Expected fragment length
+            
+        Returns:
+            CCResult instance constructed via builder pattern
+        """
+        try:
+            # Use new builder system
+            built_result = build_from_handler(
+                handler=handler,
+                mv_avr_filter_len=mv_avr_filter_len,
+                expected_fragment_length=expected_library_len,
+                chi2_pval=chi2_pval,
+                filter_mask_len=filter_mask_len,
+                min_calc_width=min_calc_width
+            )
+            
+            # Convert to CCResult format
+            return cls._from_built_result(
+                built_result, mv_avr_filter_len, chi2_pval, filter_mask_len,
+                min_calc_width, expected_library_len
+            )
+            
+        except Exception as e:
+            logger.warning(f"Builder system failed, falling back to legacy: {e}")
+            # Fall back to legacy construction
+            return cls(
+                mv_avr_filter_len=mv_avr_filter_len,
+                chi2_pval=chi2_pval,
+                filter_mask_len=filter_mask_len,
+                min_calc_width=min_calc_width,
+                expected_library_len=expected_library_len,
+                handler=handler
+            )
+    
+    @classmethod
+    def _from_built_result(
+        cls,
+        built_result,
+        mv_avr_filter_len: int,
+        chi2_pval: float,
+        filter_mask_len: int,
+        min_calc_width: int,
+        expected_library_len: int = None
+    ) -> 'CCResult':
+        """Convert BuiltResult to CCResult format."""
+        # Extract legacy-compatible data from built result
+        container = built_result.container
+        
+        # Create CCResult using legacy initialization but with builder data
+        instance = cls.__new__(cls)
+        
+        # Set configuration parameters
+        instance.mv_avr_filter_len = mv_avr_filter_len
+        instance.chi2_p_thresh = chi2_pval
+        instance.expected_library_len = expected_library_len
+        instance.filter_mask_len = max(filter_mask_len, 0)
+        instance.min_calc_width = max(min_calc_width, 0)
+        
+        # Extract data from container
+        instance.read_len = container.read_length
+        instance.references = container.references
+        instance.skip_ncc = container.skip_ncc
+        instance.calc_masc = container.has_mappability
+        
+        # Convert container data to legacy format
+        instance.ref2genomelen = {
+            result.chromosome: result.length
+            for result in container.chromosome_results.values()
+        }
+        
+        ncc_data = container.get_ncc_data()
+        if ncc_data:
+            instance.ref2forward_sum = {
+                chrom: data.forward_sum for chrom, data in ncc_data.items()
+            }
+            instance.ref2reverse_sum = {
+                chrom: data.reverse_sum for chrom, data in ncc_data.items()
+            }
+        
+        mscc_data = container.get_mscc_data()
+        if mscc_data:
+            instance.mappable_ref2forward_sum = {
+                chrom: data.forward_sum for chrom, data in mscc_data.items()
+            }
+            instance.mappable_ref2reverse_sum = {
+                chrom: data.reverse_sum for chrom, data in mscc_data.items()
+            }
+            instance.ref2mappable_len = {
+                chrom: data.mappable_len for chrom, data in mscc_data.items()
+            }
+        
+        # Create per-chromosome statistics using builder results
+        instance.ref2stats = {}
+        for chrom in instance.references:
+            chrom_stats = built_result.chromosome_statistics.get(chrom, {})
+            
+            # Create PyMaSCStats for this chromosome
+            # This is a simplified version - full implementation would need
+            # to convert StatisticsResult back to PyMaSCStats format
+            instance.ref2stats[chrom] = chrom_stats
+        
+        # Create whole-genome statistics from aggregate data
+        aggregate_stats = built_result.aggregate_statistics
+        instance.whole = aggregate_stats  # Simplified - needs proper conversion
+        
+        # Additional initialization that matches legacy behavior
+        instance.ncc_upper = instance.ncc_lower = None
+        instance.mscc_upper = instance.mscc_lower = None
+        
+        return instance
 

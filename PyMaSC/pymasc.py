@@ -309,9 +309,14 @@ def run_calculation(args: argparse.Namespace, handler: UnifiedCalcHandler, outpu
         return None
 
     try:
-        return CCResult(
-            args.smooth_window, args.chi2_pval, args.mask_size, args.bg_avr_width,
-            args.library_length, handler
+        # Use new builder-based construction for better type safety and maintainability
+        return CCResult.from_handler_with_builder(
+            handler,
+            mv_avr_filter_len=args.smooth_window,
+            chi2_pval=args.chi2_pval,
+            filter_mask_len=args.mask_size,
+            min_calc_width=args.bg_avr_width,
+            expected_library_len=args.library_length
         )
     except ReadsTooFew:
         logger.warning("Faild to process {}. Skip this file.".format(handler.path))

@@ -1,6 +1,6 @@
 import logging
 from functools import wraps
-from typing import Union, Tuple
+from typing import Union, Tuple, List, Dict
 
 import numpy as np
 from scipy.stats import norm
@@ -1059,6 +1059,107 @@ class CCResult(object):
                 handler=handler
             )
     
+    @classmethod  
+    def from_file_data_with_builder(
+        cls,
+        mv_avr_filter_len: int,
+        chi2_pval: float,
+        filter_mask_len: int,
+        min_calc_width: int,
+        expected_library_len: int = None,
+        read_len: int = None,
+        references: List[str] = None,
+        ref2genomelen: Dict[str, int] = None,
+        ref2forward_sum: Dict[str, int] = None,
+        ref2reverse_sum: Dict[str, int] = None,
+        ref2cc: Dict[str, np.ndarray] = None,
+        ref2mappable_len: Dict[str, int] = None,
+        mappable_ref2forward_sum: Dict[str, np.ndarray] = None,
+        mappable_ref2reverse_sum: Dict[str, np.ndarray] = None,
+        ref2masc: Dict[str, np.ndarray] = None
+    ) -> 'CCResult':
+        """Create CCResult from file data using builder pattern.
+        
+        This method is designed for creating CCResult objects from data loaded
+        from files (e.g., in plot.py), using the new builder system for 
+        better type safety and maintainability.
+        
+        Args:
+            mv_avr_filter_len: Moving average filter length
+            chi2_pval: Chi-squared p-value threshold
+            filter_mask_len: Filter mask length around read length
+            min_calc_width: Minimum width for background calculation
+            expected_library_len: Expected fragment length
+            read_len: Read length in base pairs
+            references: List of chromosome names
+            ref2genomelen: Genome lengths by chromosome
+            ref2forward_sum: Forward read counts by chromosome
+            ref2reverse_sum: Reverse read counts by chromosome
+            ref2cc: Cross-correlation data by chromosome
+            ref2mappable_len: Mappable lengths by chromosome
+            mappable_ref2forward_sum: Mappable forward counts by chromosome
+            mappable_ref2reverse_sum: Mappable reverse counts by chromosome
+            ref2masc: MSCC data by chromosome
+            
+        Returns:
+            CCResult instance constructed via builder pattern
+        """
+        try:
+            # Use builder pattern for construction
+            from PyMaSC.core.result_builder import ResultBuilder
+            
+            builder = ResultBuilder()
+            
+            # Set basic parameters
+            if read_len and references:
+                chromosome_lengths = [ref2genomelen.get(ref, 1) for ref in references] if ref2genomelen else None
+                builder.with_basic_params(read_len, references, chromosome_lengths)
+            
+            # Add NCC data if available
+            if ref2forward_sum and ref2reverse_sum and ref2cc:
+                builder.with_ncc_data(ref2forward_sum, ref2reverse_sum, ref2cc, ref2genomelen)
+            
+            # Add MSCC data if available
+            if (mappable_ref2forward_sum and mappable_ref2reverse_sum and 
+                ref2masc and ref2mappable_len):
+                builder.with_mscc_data(
+                    mappable_ref2forward_sum, mappable_ref2reverse_sum, 
+                    ref2masc, ref2mappable_len
+                )
+            
+            # Configure and build
+            built_result = (builder
+                           .with_statistics_config(mv_avr_filter_len=mv_avr_filter_len)
+                           .with_fragment_length(expected=expected_library_len)
+                           .build())
+            
+            # Convert to CCResult format
+            return cls._from_built_result(
+                built_result, mv_avr_filter_len, chi2_pval, filter_mask_len,
+                min_calc_width, expected_library_len
+            )
+            
+        except Exception as e:
+            logger.warning(f"Builder system failed for file data, falling back to legacy: {e}")
+            # Fall back to legacy construction
+            return cls(
+                mv_avr_filter_len=mv_avr_filter_len,
+                chi2_pval=chi2_pval,
+                filter_mask_len=filter_mask_len,
+                min_calc_width=min_calc_width,
+                expected_library_len=expected_library_len,
+                read_len=read_len,
+                references=references,
+                ref2genomelen=ref2genomelen,
+                ref2forward_sum=ref2forward_sum,
+                ref2reverse_sum=ref2reverse_sum,
+                ref2cc=ref2cc,
+                ref2mappable_len=ref2mappable_len,
+                mappable_ref2forward_sum=mappable_ref2forward_sum,
+                mappable_ref2reverse_sum=mappable_ref2reverse_sum,
+                ref2masc=ref2masc
+            )
+
     @classmethod
     def _from_built_result(
         cls,

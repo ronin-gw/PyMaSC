@@ -147,10 +147,13 @@ def main() -> None:
     references = list(filter_chroms(references, args.chromfilter))
     checked_suffixes = _prepare_outputs(args)
 
-    #
-    ccr = CCResult(
-        args.smooth_window, args.chi2_pval, args.mask_size, args.bg_avr_width,
-        args.library_length,
+    # Use new builder-based construction for better type safety and maintainability
+    ccr = CCResult.from_file_data_with_builder(
+        mv_avr_filter_len=args.smooth_window,
+        chi2_pval=args.chi2_pval,
+        filter_mask_len=args.mask_size,
+        min_calc_width=args.bg_avr_width,
+        expected_library_len=args.library_length,
         read_len=read_len,
         references=references,
         ref2genomelen=ref2genomelen,

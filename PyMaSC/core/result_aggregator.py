@@ -259,10 +259,11 @@ class ResultAggregator:
             # Extract NCC data if available
             if (not skip_ncc and 
                 hasattr(calculator, 'ref2ccbins') and 
-                calculator.ref2ccbins.get(chrom) is not None):
+                chrom in calculator.ref2ccbins and
+                calculator.ref2ccbins[chrom] is not None):
                 ncc_data = NCCData(
-                    forward_sum=calculator.ref2forward_sum.get(chrom, 0),
-                    reverse_sum=calculator.ref2reverse_sum.get(chrom, 0),
+                    forward_sum=calculator.ref2forward_sum.get(chrom, 0) if hasattr(calculator.ref2forward_sum, 'get') else calculator.ref2forward_sum[chrom],
+                    reverse_sum=calculator.ref2reverse_sum.get(chrom, 0) if hasattr(calculator.ref2reverse_sum, 'get') else calculator.ref2reverse_sum[chrom],
                     ccbins=calculator.ref2ccbins[chrom],
                     genomelen=lengths[i]
                 )
@@ -270,12 +271,13 @@ class ResultAggregator:
             # Extract MSCC data if available
             if (hasattr(calculator, 'ref2mappable_forward_sum') and 
                 calculator.ref2mappable_forward_sum and
-                calculator.ref2mappable_forward_sum.get(chrom) is not None):
+                chrom in calculator.ref2mappable_forward_sum and
+                calculator.ref2mappable_forward_sum[chrom] is not None):
                 mscc_data = MSCCData(
                     forward_sum=calculator.ref2mappable_forward_sum[chrom],
-                    reverse_sum=calculator.ref2mappable_reverse_sum.get(chrom, np.array([])),
-                    ccbins=calculator.ref2mascbins.get(chrom, np.array([])),
-                    mappable_len=getattr(calculator, '_calculator', {}).get('ref2mappable_len', {}).get(chrom, None)
+                    reverse_sum=calculator.ref2mappable_reverse_sum[chrom] if chrom in calculator.ref2mappable_reverse_sum else np.array([]),
+                    ccbins=calculator.ref2mascbins[chrom] if chrom in calculator.ref2mascbins else np.array([]),
+                    mappable_len=calculator.ref2mappable_len[chrom] if hasattr(calculator, 'ref2mappable_len') and chrom in calculator.ref2mappable_len else None
                 )
             
             if ncc_data or mscc_data:

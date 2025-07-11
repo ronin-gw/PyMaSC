@@ -1030,34 +1030,18 @@ class CCResult(object):
         Returns:
             CCResult instance constructed via builder pattern
         """
-        try:
-            # Use new builder system
-            built_result = build_from_handler(
-                handler=handler,
-                mv_avr_filter_len=mv_avr_filter_len,
-                expected_fragment_length=expected_library_len,
-                chi2_pval=chi2_pval,
-                filter_mask_len=filter_mask_len,
-                min_calc_width=min_calc_width
-            )
-            
-            # Convert to CCResult format
-            return cls._from_built_result(
-                built_result, mv_avr_filter_len, chi2_pval, filter_mask_len,
-                min_calc_width, expected_library_len
-            )
-            
-        except Exception as e:
-            logger.warning(f"Builder system failed, falling back to legacy: {e}")
-            # Fall back to legacy construction
-            return cls(
-                mv_avr_filter_len=mv_avr_filter_len,
-                chi2_pval=chi2_pval,
-                filter_mask_len=filter_mask_len,
-                min_calc_width=min_calc_width,
-                expected_library_len=expected_library_len,
-                handler=handler
-            )
+        # NOTE: The builder system is currently incomplete and causes test failures.
+        # It creates dict objects instead of proper PyMaSCStats objects for ref2stats,
+        # leading to AttributeError in output modules.
+        # Until the builder system is properly implemented, we use the legacy system.
+        return cls(
+            mv_avr_filter_len=mv_avr_filter_len,
+            chi2_pval=chi2_pval,
+            filter_mask_len=filter_mask_len,
+            min_calc_width=min_calc_width,
+            expected_library_len=expected_library_len,
+            handler=handler
+        )
     
     @classmethod  
     def from_file_data_with_builder(
@@ -1229,7 +1213,41 @@ class CCResult(object):
         
         # Create whole-genome statistics from aggregate data
         aggregate_stats = built_result.aggregate_statistics
-        instance.whole = aggregate_stats  # Simplified - needs proper conversion
+        
+        # Extract data from aggregated statistics
+        total_reads = aggregate_stats.get('total_reads', {})
+        aggregated_cc = aggregate_stats.get('aggregated_cc', {})
+        
+        # Extract NCC and MSCC arrays from aggregated results
+        ncc = None
+        mscc = None
+        if isinstance(aggregated_cc, dict):
+            if 'cc' in aggregated_cc:
+                ncc = aggregated_cc['cc']
+            elif 'ncc' in aggregated_cc:
+                ncc = aggregated_cc['ncc']
+            elif 'mscc' in aggregated_cc:
+                mscc = aggregated_cc['mscc']
+        elif isinstance(aggregated_cc, np.ndarray):
+            ncc = aggregated_cc
+        
+        # Create PyMaSCStats object for whole-genome data
+        instance.whole = PyMaSCStats(
+            read_len=instance.read_len,
+            mv_avr_filter_len=mv_avr_filter_len,
+            expected_library_len=expected_library_len,
+            genomelen=aggregate_stats.get('genome_length', sum(instance.ref2genomelen.values())),
+            forward_sum=total_reads.get('forward', sum(instance.ref2forward_sum.values()) if instance.ref2forward_sum else 0),
+            reverse_sum=total_reads.get('reverse', sum(instance.ref2reverse_sum.values()) if instance.ref2reverse_sum else 0),
+            cc=ncc,
+            mappable_len=total_reads.get('mappable_len'),
+            mappable_forward_sum=total_reads.get('mappable_forward'),
+            mappable_reverse_sum=total_reads.get('mappable_reverse'),
+            masc=mscc,
+            filter_mask_len=filter_mask_len,
+            warning=True,
+            min_calc_width=min_calc_width
+        )
         
         # Additional initialization that matches legacy behavior
         instance.ncc_upper = instance.ncc_lower = None

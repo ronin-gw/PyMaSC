@@ -140,15 +140,8 @@ class UnifiedCalcHandler:
         # For backward compatibility, maintain align_file access
         self.align_file = None
 
-        # Initialize result storage
-        self.ref2forward_sum: Dict[str, int] = {}
-        self.ref2reverse_sum: Dict[str, int] = {}
-        self.ref2ccbins: Dict[str, Any] = {}
-
-        self.mappable_ref2forward_sum: Dict[str, Any] = {}
-        self.mappable_ref2reverse_sum: Dict[str, Any] = {}
-        self.mappable_ref2ccbins: Dict[str, Any] = {}
-        self.ref2mappable_len: Dict[str, Any] = {}
+        # Result storage through aggregator only
+        self._aggregation_result: Optional[AggregationResult] = None
 
         # Read length will be set later
         self.read_len: Optional[int] = None
@@ -366,11 +359,8 @@ class UnifiedCalcHandler:
                 # Result received
                 mappable_len, cc_stats, masc_stats = obj
                 
-                # Store for new aggregation system
+                # Store for aggregation system
                 _worker_results.append((chrom, (mappable_len, cc_stats, masc_stats)))
-                
-                # Legacy result processing
-                self._receive_results(chrom, mappable_len, cc_stats, masc_stats)
 
                 _chrom2finished[chrom] = True
                 if all(_chrom2finished.values()):
@@ -387,79 +377,39 @@ class UnifiedCalcHandler:
         self._aggregate_worker_results(_worker_results)
     
     def _aggregate_worker_results(self, worker_results: List[Tuple[str, Any]]) -> None:
-        """Aggregate worker results using dual aggregation system."""
-        # New aggregation system
-        try:
-            self._aggregation_result = self._result_aggregator.aggregate_from_results(
-                worker_results=worker_results,
-                references=self.references,
-                lengths=self.lengths,
-                read_length=self.read_len or 0,  # Use 0 as fallback if not set
-                skip_ncc=self.config.skip_ncc
-            )
-            
-            # Apply aggregated results to legacy attributes (update existing ones)
-            legacy_attrs = self._aggregation_result.legacy_attributes
-            for attr_name, attr_value in legacy_attrs.items():
-                if attr_value is not None:  # Only update if we have data
-                    setattr(self, attr_name, attr_value)
-            
-            # Log aggregation success
-            if self._aggregation_result.validation_errors:
-                logger.warning(f"Worker aggregation validation errors: {self._aggregation_result.validation_errors}")
-            
-            logger.debug(f"New worker aggregation system succeeded: {self._aggregation_result.aggregation_mode}")
-            
-        except Exception as e:
-            logger.error(f"Worker result aggregation failed: {e}")
-            raise
+        """Aggregate worker results using aggregation system."""
+        self._aggregation_result = self._result_aggregator.aggregate_from_results(
+            worker_results=worker_results,
+            references=self.references,
+            lengths=self.lengths,
+            read_length=self.read_len or 0,  # Use 0 as fallback if not set
+            skip_ncc=self.config.skip_ncc
+        )
+        
+        # Handle mappability lengths separately since they need special processing
+        for chrom, (mappable_len, _, _) in worker_results:
+            if mappable_len is not None and self.mappability_handler:
+                self.mappability_handler.chrom2mappable_len[chrom] = mappable_len
+                self.mappability_handler.chrom2is_called[chrom] = True
+        
+        # Log aggregation success
+        if self._aggregation_result.validation_errors:
+            logger.warning(f"Worker aggregation validation errors: {self._aggregation_result.validation_errors}")
 
-    def _receive_results(self, chrom: str, mappable_len: Optional[int],
-                        cc_stats: tuple, masc_stats: tuple) -> None:
-        """Process and store results from worker processes."""
-        f_sum, r_sum, ccbins = cc_stats
-        mf_sum, mr_sum, mccbins = masc_stats
-
-        if mappable_len is not None and self.mappability_handler:
-            self.mappability_handler.chrom2mappable_len[chrom] = mappable_len
-            self.mappability_handler.chrom2is_called[chrom] = True
-
-        if None not in (f_sum, r_sum, ccbins):
-            self.ref2forward_sum[chrom] = f_sum
-            self.ref2reverse_sum[chrom] = r_sum
-            self.ref2ccbins[chrom] = ccbins
-
-        if None not in (mf_sum, mr_sum, mccbins):
-            self.mappable_ref2forward_sum[chrom] = mf_sum
-            self.mappable_ref2reverse_sum[chrom] = mr_sum
-            self.mappable_ref2ccbins[chrom] = mccbins
 
     def _collect_calculator_results(self, calculator: CrossCorrelationCalculator) -> None:
-        """Collect results from calculator instance using dual aggregation system."""
-        # New aggregation system
-        try:
-            self._aggregation_result = self._result_aggregator.aggregate_from_calculator(
-                calculator=calculator,
-                references=self.references,
-                lengths=self.lengths,
-                read_length=self.read_len or 0,  # Use 0 as fallback if not set
-                skip_ncc=self.config.skip_ncc
-            )
-            
-            # Apply aggregated results to legacy attributes
-            legacy_attrs = self._aggregation_result.legacy_attributes
-            for attr_name, attr_value in legacy_attrs.items():
-                setattr(self, attr_name, attr_value)
-            
-            # Log aggregation success
-            if self._aggregation_result.validation_errors:
-                logger.warning(f"Aggregation validation errors: {self._aggregation_result.validation_errors}")
-            
-            logger.debug(f"New aggregation system succeeded: {self._aggregation_result.aggregation_mode}")
-            
-        except Exception as e:
-            logger.error(f"Result aggregation failed: {e}")
-            raise
+        """Collect results from calculator instance using aggregation system."""
+        self._aggregation_result = self._result_aggregator.aggregate_from_calculator(
+            calculator=calculator,
+            references=self.references,
+            lengths=self.lengths,
+            read_length=self.read_len or 0,  # Use 0 as fallback if not set
+            skip_ncc=self.config.skip_ncc
+        )
+        
+        # Log aggregation success
+        if self._aggregation_result.validation_errors:
+            logger.warning(f"Aggregation validation errors: {self._aggregation_result.validation_errors}")
 
     def _calc_unsolved_mappability(self) -> None:
         """Complete any remaining mappability calculations."""
@@ -469,7 +419,57 @@ class UnifiedCalcHandler:
                     self.mappability_handler.chrom2is_called.values()
                 )
                 self.mappability_handler.calc_mappability()
-            self.ref2mappable_len = self.mappability_handler.chrom2mappable_len
+            # Mappability lengths are now accessed through aggregation result
+
+    # Properties for accessing result data through aggregation result
+    @property
+    def ref2forward_sum(self) -> Dict[str, int]:
+        """Forward read counts by chromosome."""
+        if self._aggregation_result is None:
+            return {}
+        return self._aggregation_result.legacy_attributes.get('ref2forward_sum', {})
+
+    @property
+    def ref2reverse_sum(self) -> Dict[str, int]:
+        """Reverse read counts by chromosome."""
+        if self._aggregation_result is None:
+            return {}
+        return self._aggregation_result.legacy_attributes.get('ref2reverse_sum', {})
+
+    @property
+    def ref2ccbins(self) -> Dict[str, Any]:
+        """Cross-correlation bins by chromosome."""
+        if self._aggregation_result is None:
+            return {}
+        return self._aggregation_result.legacy_attributes.get('ref2ccbins', {})
+
+    @property
+    def mappable_ref2forward_sum(self) -> Dict[str, Any]:
+        """Mappable forward read counts by chromosome."""
+        if self._aggregation_result is None:
+            return {}
+        return self._aggregation_result.legacy_attributes.get('mappable_ref2forward_sum', {})
+
+    @property
+    def mappable_ref2reverse_sum(self) -> Dict[str, Any]:
+        """Mappable reverse read counts by chromosome."""
+        if self._aggregation_result is None:
+            return {}
+        return self._aggregation_result.legacy_attributes.get('mappable_ref2reverse_sum', {})
+
+    @property
+    def mappable_ref2ccbins(self) -> Dict[str, Any]:
+        """Mappable cross-correlation bins by chromosome."""
+        if self._aggregation_result is None:
+            return {}
+        return self._aggregation_result.legacy_attributes.get('mappable_ref2ccbins', {})
+
+    @property
+    def ref2mappable_len(self) -> Dict[str, Any]:
+        """Mappable lengths by chromosome."""
+        if self.mappability_handler:
+            return self.mappability_handler.chrom2mappable_len
+        return {}
 
     # Properties for backward compatibility
     @property

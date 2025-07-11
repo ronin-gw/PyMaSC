@@ -200,6 +200,7 @@ class TestCalculatorFactory:
             implementation=ImplementationAlgorithm.BITARRAY,
             max_shift=500,
             mapq_criteria=20,
+            read_length=50,  # Required for BitArray implementation
             references=["chr1"],
             lengths=[1000]
         )

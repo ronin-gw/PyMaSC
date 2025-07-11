@@ -104,9 +104,19 @@ def output_stats(outfile: os.PathLike[str], ccr: Any) -> None:
     with open(outfile_with_suffix, 'w') as f:
         print("{}\t{}".format("Name", basename), file=f)
         for row, attr in STAT_ATTR:
-            print("{}\t{}".format(row, getattr(ccr.whole, attr, False) or "nan"), file=f)
+            val = getattr(ccr.whole, attr, None)
+            if val is None or (isinstance(val, bool) and not val):
+                val = "nan"
+            print("{}\t{}".format(row, val), file=f)
         for row, attr in STAT_CC_ATTR:
-            print("{}\t{}".format(row, getattr(ccr.whole.cc, attr, False) or "nan"), file=f)
+            val = getattr(ccr.whole.cc, attr, None)
+            if val is None or (isinstance(val, bool) and not val):
+                val = "nan"
+            # Handle array values that may be VSN or other arrays
+            elif hasattr(val, '__len__') and not isinstance(val, str):
+                # Arrays should not reach here for simple attributes
+                val = "nan"  # Fallback to avoid ambiguous array evaluation
+            print("{}\t{}".format(row, val), file=f)
         for row, attr in STAT_MSCC_ATTR:  # type: ignore[assignment]
             if callable(attr):
                 print("{}\t{}".format(row, attr(ccr.whole.masc)), file=f)

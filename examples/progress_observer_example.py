@@ -13,18 +13,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from PyMaSC.core.progress_migration import (
-    enable_progress_migration, 
+    enable_progress_migration,
     ProgressMigrationContext,
     with_progress_observer,
-    enable_file_logging,
-    create_handler_with_observers
+    enable_file_logging
 )
-from PyMaSC.core.observer import (
-    TerminalProgressObserver,
-    FileProgressObserver,
-    AggregateProgressObserver
-)
-from PyMaSC.handler.unified import UnifiedCalcHandler
+from PyMaSC.core.observer import TerminalProgressObserver, AggregateProgressObserver
 from PyMaSC.core.models import CalculationConfig, CalculationTarget, ImplementationAlgorithm
 
 

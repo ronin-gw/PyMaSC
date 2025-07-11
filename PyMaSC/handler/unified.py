@@ -27,11 +27,12 @@ from PyMaSC.core.models import (
     CalculationConfig, MappabilityConfig, ExecutionConfig,
     ExecutionMode, WorkerConfig
 )
+from PyMaSC.core.bam_processor import BAMFileProcessor, BAMValidationError
+from PyMaSC.core.progress_coordinator import ProgressCoordinator, ProgressConfig, ProgressMode
 from PyMaSC.handler.base import NothingToCalc
 from PyMaSC.core.interfaces import CrossCorrelationCalculator
 from PyMaSC.core.readlen import estimate_readlen
 from PyMaSC.core.progress_adapter import ProgressBarAdapter, ProgressManager, get_progress_manager
-from PyMaSC.utils.progress import ProgressBar, ProgressHook, MultiLineProgressManager
 from PyMaSC.utils.calc import filter_chroms, exec_worker_pool
 
 logger = logging.getLogger(__name__)
@@ -52,10 +53,10 @@ class UnifiedCalcHandler:
 
     The handler coordinates:
     - Algorithm strategy selection
-    - BAM file processing and validation
+    - BAM file processing and validation (via BAMFileProcessor)
     - Calculator and worker creation via factories
     - Result collection and aggregation
-    - Progress reporting
+    - Progress reporting (via ProgressCoordinator)
 
     Attributes:
         path: Input BAM file path
@@ -66,6 +67,8 @@ class UnifiedCalcHandler:
         lengths: List of chromosome lengths
         read_len: Estimated or specified read length
         calc_context: Calculation context with current strategy
+        bam_processor: BAM file processor for file operations
+        bam_metadata: BAM file metadata
     """
 
     def __init__(self,
@@ -93,27 +96,29 @@ class UnifiedCalcHandler:
         # Initialize calculation context with appropriate strategy
         self.calc_context = CalculationContext.create_from_config(config)
 
-        # Open and validate BAM file
+        # Initialize BAM file processor
+        self.bam_processor = BAMFileProcessor(self.path)
+
+        # Validate BAM file and extract metadata
         try:
-            self.align_file = pysam.AlignmentFile(self.path)
-        except ValueError:
-            logger.error("File has no sequences defined.")
-            raise
+            chromfilter = getattr(config, 'chromfilter', None)
+            self.bam_metadata = self.bam_processor.validate_and_open(chromfilter)
+        except BAMValidationError as e:
+            if "no sequences defined" in str(e):
+                logger.error("File has no sequences defined.")
+                raise ValueError("File has no sequences defined.")
+            elif "No chromosomes match" in str(e):
+                logger.error("There is no targeted chromosomes.")
+                raise NothingToCalc
+            elif "no reference sequences" in str(e):
+                logger.error("There is no targeted chromosomes.")
+                raise NothingToCalc
+            else:
+                raise
 
-        # Filter chromosomes if specified
-        chromfilter = getattr(config, 'chromfilter', None)
-        target_references = filter_chroms(self.align_file.references, chromfilter)
-        if not target_references:
-            logger.error("There is no targeted chromosomes.")
-            raise NothingToCalc
-
-        # Build reference lists
-        self.references = []
-        self.lengths = []
-        for reference, length in zip(self.align_file.references, self.align_file.lengths):
-            if reference in target_references:
-                self.references.append(reference)
-                self.lengths.append(length)
+        # Extract filtered references and lengths
+        self.references = self.bam_metadata.filtered_references
+        self.lengths = self.bam_metadata.filtered_lengths
 
         # Update config with filtered references
         self.config.references = self.references
@@ -121,13 +126,14 @@ class UnifiedCalcHandler:
 
         # Check for index in multiprocess mode
         if (self.execution_config.mode == ExecutionMode.MULTI_PROCESS and
-            not self.align_file.has_index()):
-            logger.error("Need indexed alignment file for multi-processing. "
-                        "Calculation will be executed by single process.")
+            not self.bam_processor.check_multiprocess_compatibility()):
             self.execution_config.mode = ExecutionMode.SINGLE_PROCESS
             self.execution_config.worker_count = 1
         elif self.execution_config.mode == ExecutionMode.MULTI_PROCESS:
-            self.align_file.close()
+            self.bam_processor.close()
+
+        # For backward compatibility, maintain align_file access
+        self.align_file = None
 
         # Initialize result storage
         self.ref2forward_sum: Dict[str, int] = {}
@@ -148,10 +154,10 @@ class UnifiedCalcHandler:
         # Legacy attributes for backward compatibility
         self._esttype = getattr(config, 'esttype', 'mean')
 
-        # Observer pattern support
+        # Progress management
         self.use_observer_progress = True
         self._progress_observers: List['ProgressObserver'] = []
-        self._progress_manager: Optional[ProgressManager] = None
+        self._progress_coordinator: Optional[ProgressCoordinator] = None
 
     def set_or_estimate_readlen(self, readlen: Optional[int] = None) -> None:
         """Set or estimate read length.
@@ -193,27 +199,17 @@ class UnifiedCalcHandler:
         self.mappability_handler = mappability_handler
         if self.mappability_handler is not None:
             bw_chromsizes = self.mappability_handler.chromsizes
-        else:
-            return
+            # Use BAM processor to validate and reconcile chromosome sizes
+            updated_sizes = self.bam_processor.validate_chromosome_sizes(bw_chromsizes)
+            
+            # Update lengths based on validation results
+            for i, reference in enumerate(self.references):
+                if reference in updated_sizes:
+                    new_length = updated_sizes[reference]
+                    if new_length != self.lengths[i]:
+                        self.lengths[i] = new_length
+                        self.config.lengths[i] = new_length
 
-        for i, reference in enumerate(self.references):
-            if reference not in bw_chromsizes:
-                logger.debug(f"mappability for '{reference}' not found")
-                continue
-            self._compare_refsize(reference, bw_chromsizes[reference])
-
-    def _compare_refsize(self, reference: str, bw_chr_size: int) -> None:
-        """Compare and validate chromosome sizes between BAM and BigWig."""
-        i = self.references.index(reference)
-        bam_chr_size = self.lengths[i]
-        if bw_chr_size != bam_chr_size:
-            logger.warning(f"'{reference}' reference length mismatch: "
-                          f"SAM/BAM -> {bam_chr_size:,}, BigWig -> {bw_chr_size:,}")
-            if bam_chr_size < bw_chr_size:
-                logger.warning(f"Use longer length '{bw_chr_size:d}' for "
-                              f"'{reference}' anyway")
-                self.lengths[i] = bw_chr_size
-                self.config.lengths[i] = bw_chr_size
 
     def run_calcuration(self) -> None:
         """Execute cross-correlation calculation workflow.
@@ -221,11 +217,15 @@ class UnifiedCalcHandler:
         Note: Method name kept as 'calcuration' for backward compatibility
         """
         if self.execution_config.mode == ExecutionMode.MULTI_PROCESS:
-            # Disable single-line progress for multiprocess
-            ProgressBar.global_switch = False
-            ProgressHook.global_switch = True
+            # Setup progress coordinator for multiprocess
+            self._progress_coordinator = ProgressCoordinator.create_for_multiprocess()
             self._run_multiprocess_calculation()
         else:
+            # Setup progress coordinator for single process
+            self._progress_coordinator = ProgressCoordinator.create_for_single_process(
+                use_observer=self.use_observer_progress,
+                observers=self._progress_observers
+            )
             self._run_singleprocess_calculation()
 
     def _run_singleprocess_calculation(self) -> None:
@@ -236,25 +236,14 @@ class UnifiedCalcHandler:
             self.mappability_config
         )
 
-        # Create progress bar with observer support if enabled
-        use_observer = getattr(self, 'use_observer_progress', True)
-        if use_observer:
-            progress = ProgressBarAdapter()
-            # Get or create progress manager
-            progress_manager = getattr(self, '_progress_manager', None) or get_progress_manager()
-            # Attach any configured observers
-            if hasattr(self, '_progress_observers'):
-                for observer in self._progress_observers:
-                    progress._subject.attach(observer)
-        else:
-            progress = ProgressBar()  # type: ignore[assignment]
-
+        # Setup progress reporting
+        progress_reporter = self._progress_coordinator.setup_single_process()
+        
         ref2genomelen = dict(zip(self.references, self.lengths))
         current_chr = None
 
         # Reopen file if needed
-        if not hasattr(self, 'align_file') or self.align_file.closed:
-            self.align_file = pysam.AlignmentFile(self.path)
+        self.align_file = self.bam_processor.reopen()
 
         for read in self.align_file:
             chrom = read.reference_name
@@ -264,11 +253,11 @@ class UnifiedCalcHandler:
             # Update progress for new chromosome
             if chrom != current_chr:
                 if current_chr is not None:
-                    progress.clean()
+                    progress_reporter.finish_chromosome(current_chr)
                 current_chr = chrom
-                progress.set(chrom, ref2genomelen[chrom])
+                progress_reporter.start_chromosome(chrom, ref2genomelen[chrom])
 
-            progress.update(read.reference_start)
+            progress_reporter.update(chrom, read.reference_start)
 
             # Skip reads based on criteria
             if (read.is_read2 or read.mapping_quality < self.config.mapq_criteria or
@@ -287,8 +276,11 @@ class UnifiedCalcHandler:
                         chrom, read.reference_start + 1, query_length
                     )
 
-        progress.clean()
-        self.align_file.close()
+        # Finish last chromosome and cleanup progress
+        if current_chr is not None:
+            progress_reporter.finish_chromosome(current_chr)
+        progress_reporter.cleanup()
+        self.bam_processor.close()
 
         # Finalize calculation
         calculator.finishup_calculation()
@@ -302,6 +294,9 @@ class UnifiedCalcHandler:
         self._order_queue: Queue = Queue()
         self._report_queue: Queue = Queue()
         self._logger_lock = Lock()
+        
+        # Setup progress coordinator for multiprocess
+        self._progress_coordinator.setup_multiprocess(self._report_queue, self._logger_lock)
 
         # Create worker configuration
         # Handle None mappability_config by providing a default or skipping
@@ -343,28 +338,29 @@ class UnifiedCalcHandler:
     def _run_calculation_with_workers(self, workers: List[Any]) -> None:
         """Coordinate worker processes and collect results."""
         _chrom2finished = {c: False for c in self.references}
-        progress = MultiLineProgressManager()
 
         with exec_worker_pool(workers, self.references, self._order_queue):
             while True:
                 chrom, obj = self._report_queue.get()
-                if chrom is None:  # Progress update
-                    chrom, body = obj
-                    with self._logger_lock:
-                        progress.update(chrom, body)
-                else:
-                    # Result received
-                    mappable_len, cc_stats, masc_stats = obj
-                    self._receive_results(chrom, mappable_len, cc_stats, masc_stats)
+                
+                # Handle progress updates via coordinator
+                if self._progress_coordinator.handle_multiprocess_report(chrom, obj):
+                    continue  # This was a progress update, continue processing
+                
+                # Result received
+                mappable_len, cc_stats, masc_stats = obj
+                self._receive_results(chrom, mappable_len, cc_stats, masc_stats)
 
-                    _chrom2finished[chrom] = True
-                    if all(_chrom2finished.values()):
-                        break
+                _chrom2finished[chrom] = True
+                if all(_chrom2finished.values()):
+                    break
 
-                    with self._logger_lock:
-                        progress.erase(chrom)
+                # Finish progress for this chromosome
+                if self._progress_coordinator.get_reporter():
+                    self._progress_coordinator.get_reporter().finish_chromosome(chrom)
 
-        progress.clean()
+        # Cleanup progress
+        self._progress_coordinator.cleanup()
 
     def _receive_results(self, chrom: str, mappable_len: Optional[int],
                         cc_stats: tuple, masc_stats: tuple) -> None:

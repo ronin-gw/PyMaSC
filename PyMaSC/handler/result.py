@@ -317,18 +317,52 @@ class CCResult(object):
         Returns:
             CCResult instance constructed via builder pattern
         """
-        # NOTE: The builder system is currently incomplete and causes test failures.
-        # It creates dict objects instead of proper PyMaSCStats objects for ref2stats,
-        # leading to AttributeError in output modules.
-        # Until the builder system is properly implemented, we use the legacy system.
-        return cls(
-            mv_avr_filter_len=mv_avr_filter_len,
-            chi2_pval=chi2_pval,
-            filter_mask_len=filter_mask_len,
-            min_calc_width=min_calc_width,
-            expected_library_len=expected_library_len,
-            handler=handler
-        )
+        # Check if handler has MSCC data - if so, use legacy system for now
+        # Builder system doesn't yet handle MSCC aggregation properly
+        has_mscc = (hasattr(handler, 'mappable_ref2ccbins') and 
+                   handler.mappable_ref2ccbins and 
+                   any(v is not None for v in handler.mappable_ref2ccbins.values()))
+        
+        if has_mscc:
+            logger.debug("MSCC data detected, using legacy construction")
+            return cls(
+                mv_avr_filter_len=mv_avr_filter_len,
+                chi2_pval=chi2_pval,
+                filter_mask_len=filter_mask_len,
+                min_calc_width=min_calc_width,
+                expected_library_len=expected_library_len,
+                handler=handler
+            )
+        
+        # Try to use the builder system for NCC-only data
+        try:
+            from PyMaSC.core.result_builder import build_from_handler
+            
+            built_result = build_from_handler(
+                handler=handler,
+                mv_avr_filter_len=mv_avr_filter_len,
+                expected_fragment_length=expected_library_len,
+                chi2_pval=chi2_pval,
+                filter_mask_len=filter_mask_len,
+                min_calc_width=min_calc_width
+            )
+            
+            return cls._from_built_result(
+                built_result, mv_avr_filter_len, chi2_pval, 
+                filter_mask_len, min_calc_width, expected_library_len
+            )
+            
+        except Exception as e:
+            logger.warning(f"Builder system failed, falling back to legacy: {e}")
+            # Fall back to legacy construction
+            return cls(
+                mv_avr_filter_len=mv_avr_filter_len,
+                chi2_pval=chi2_pval,
+                filter_mask_len=filter_mask_len,
+                min_calc_width=min_calc_width,
+                expected_library_len=expected_library_len,
+                handler=handler
+            )
     
     @classmethod  
     def from_file_data_with_builder(
@@ -475,6 +509,9 @@ class CCResult(object):
             instance.ref2reverse_sum = {
                 chrom: data.reverse_sum for chrom, data in ncc_data.items()
             }
+        else:
+            instance.ref2forward_sum = {}
+            instance.ref2reverse_sum = {}
         
         mscc_data = container.get_mscc_data()
         if mscc_data:
@@ -487,50 +524,78 @@ class CCResult(object):
             instance.ref2mappable_len = {
                 chrom: data.mappable_len for chrom, data in mscc_data.items()
             }
+        else:
+            instance.mappable_ref2forward_sum = {}
+            instance.mappable_ref2reverse_sum = {}
+            instance.ref2mappable_len = {}
         
-        # Create per-chromosome statistics using builder results
+        # Create per-chromosome PyMaSCStats objects from builder results
         instance.ref2stats = {}
         for chrom in instance.references:
-            chrom_stats = built_result.chromosome_statistics.get(chrom, {})
+            # Get data for this chromosome from container
+            chrom_result = container.chromosome_results.get(chrom)
             
-            # Create PyMaSCStats for this chromosome
-            # This is a simplified version - full implementation would need
-            # to convert StatisticsResult back to PyMaSCStats format
-            instance.ref2stats[chrom] = chrom_stats
+            # Extract NCC and MSCC data for this chromosome (may be None)
+            chrom_ncc_data = chrom_result.ncc_data if chrom_result else None
+            chrom_mscc_data = chrom_result.mscc_data if chrom_result else None
+            
+            # Create PyMaSCStats for this chromosome using the unified statistics module
+            # Extract raw data to pass to PyMaSCStats
+            ncc_array = chrom_ncc_data.ccbins if chrom_ncc_data else None
+            mscc_array = chrom_mscc_data.ccbins if chrom_mscc_data else None
+            
+            # Always create an entry for each chromosome, even if no data
+            instance.ref2stats[chrom] = PyMaSCStats(
+                read_len=instance.read_len,
+                mv_avr_filter_len=mv_avr_filter_len,
+                expected_library_len=expected_library_len,
+                genomelen=instance.ref2genomelen.get(chrom, 1),
+                forward_sum=instance.ref2forward_sum.get(chrom, 0),
+                reverse_sum=instance.ref2reverse_sum.get(chrom, 0),
+                cc=ncc_array,
+                mappable_len=instance.ref2mappable_len.get(chrom),
+                mappable_forward_sum=instance.mappable_ref2forward_sum.get(chrom),
+                mappable_reverse_sum=instance.mappable_ref2reverse_sum.get(chrom),
+                masc=mscc_array,
+                filter_mask_len=filter_mask_len,
+                warning=False,  # Avoid duplicate warnings at chromosome level
+                min_calc_width=min_calc_width
+            )
         
         # Create whole-genome statistics from aggregate data
         aggregate_stats = built_result.aggregate_statistics
         
-        # Extract data from aggregated statistics
-        total_reads = aggregate_stats.get('total_reads', {})
-        aggregated_cc = aggregate_stats.get('aggregated_cc', {})
+        # Extract aggregated correlation arrays
+        aggregated_cc = aggregate_stats.get('aggregated_cc', np.array([]))
         
-        # Extract NCC and MSCC arrays from aggregated results
-        ncc = None
-        mscc = None
-        if isinstance(aggregated_cc, dict):
-            if 'cc' in aggregated_cc:
-                ncc = aggregated_cc['cc']
-            elif 'ncc' in aggregated_cc:
-                ncc = aggregated_cc['ncc']
-            elif 'mscc' in aggregated_cc:
-                mscc = aggregated_cc['mscc']
-        elif isinstance(aggregated_cc, np.ndarray):
-            ncc = aggregated_cc
+        # For now, use NCC aggregation only (MSCC aggregation can be added later)
+        ncc_array = aggregated_cc if isinstance(aggregated_cc, np.ndarray) else None
+        mscc_array = None  # TODO: Add MSCC aggregation support
+        
+        # Calculate aggregated mappability data if available
+        mappable_len_sum = None
+        mappable_forward_sum = None
+        mappable_reverse_sum = None
+        
+        if instance.calc_masc and mscc_data:
+            from PyMaSC.utils.stats_utils import ArrayAggregator
+            mappable_len_sum = ArrayAggregator.safe_array_sum(instance.ref2mappable_len.values())
+            mappable_forward_sum = ArrayAggregator.safe_array_sum(instance.mappable_ref2forward_sum.values())
+            mappable_reverse_sum = ArrayAggregator.safe_array_sum(instance.mappable_ref2reverse_sum.values())
         
         # Create PyMaSCStats object for whole-genome data
         instance.whole = PyMaSCStats(
             read_len=instance.read_len,
             mv_avr_filter_len=mv_avr_filter_len,
             expected_library_len=expected_library_len,
-            genomelen=aggregate_stats.get('genome_length', sum(instance.ref2genomelen.values())),
-            forward_sum=total_reads.get('forward', sum(instance.ref2forward_sum.values()) if instance.ref2forward_sum else 0),
-            reverse_sum=total_reads.get('reverse', sum(instance.ref2reverse_sum.values()) if instance.ref2reverse_sum else 0),
-            cc=ncc,
-            mappable_len=total_reads.get('mappable_len'),
-            mappable_forward_sum=total_reads.get('mappable_forward'),
-            mappable_reverse_sum=total_reads.get('mappable_reverse'),
-            masc=mscc,
+            genomelen=sum(instance.ref2genomelen.values()),
+            forward_sum=sum(instance.ref2forward_sum.values()),
+            reverse_sum=sum(instance.ref2reverse_sum.values()),
+            cc=ncc_array,
+            mappable_len=mappable_len_sum,
+            mappable_forward_sum=mappable_forward_sum,
+            mappable_reverse_sum=mappable_reverse_sum,
+            masc=mscc_array,
             filter_mask_len=filter_mask_len,
             warning=True,
             min_calc_width=min_calc_width

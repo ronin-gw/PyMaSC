@@ -188,18 +188,9 @@ class BaseCorrelationStats(ABC):
             self.avr_cc = moving_avr_filter(self.cc, self.mv_avr_filter_len)
         
         max_i = library_len - 1
-        
-        # Add bounds checking
-        if max_i < 0 or max_i >= len(self.avr_cc):
-            if self.output_warnings:
-                self.error(f"Library length {library_len} is out of bounds for FWHM calculation")
-            return False
-        
-        cc_max = self.avr_cc[max_i]
-        if cc_max <= self.cc_min:
-            if self.output_warnings:
-                self.error("Peak value is not above background for FWHM calculation")
-            return False
+        assert max_i >= 0  # Original implementation check
+        cc_max = self.avr_cc[max_i - 1]  # Original implementation uses max_i - 1  
+        assert cc_max > self.cc_min  # Original implementation check
         
         target = self.cc_min + (cc_max - self.cc_min) / 2
         
@@ -233,7 +224,7 @@ class BaseCorrelationStats(ABC):
         logger.debug((forward_shift, backward_shift))
         
         if forward_failed and backward_failed:
-            self.error("Failed to calculate the full width at half maximum.")
+            self.error("Failed to calcurate the full width at half maximum.")
             return False
         elif forward_failed:
             self.warning("Use twice width of the half width at half maximum in the backward side")

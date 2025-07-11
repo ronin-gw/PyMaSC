@@ -13,7 +13,8 @@ from unittest.mock import patch, MagicMock
 import logging
 
 from PyMaSC.utils.stats_utils import AdvancedStatisticsCalculator, npcalc_with_logging_warn, CrossCorrelationMerger, ArrayAggregator, StatisticalTestUtilities
-from PyMaSC.handler.result import CCStats, CCResult, NEAR_ZERO_MIN_CALC_LEN, NEAR_READLEN_ERR_CRITERION, MERGED_CC_CONFIDENCE_INTERVAL
+from PyMaSC.core.ccresult import CCStats, CCResult
+from PyMaSC.core.constants import NEAR_ZERO_MIN_CALC_LEN, NEAR_READLEN_ERR_CRITERION, MERGED_CC_CONFIDENCE_INTERVAL
 
 
 class TestExtractedStatisticalFunctions(unittest.TestCase):

@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any, Optional, Sequence, Type, Union
 
 import PyMaSC
-from PyMaSC.handler.result import NEAR_READLEN_ERR_CRITERION
+from PyMaSC.core.constants import NEAR_READLEN_ERR_CRITERION
 
 READLEN_ESTIMATION_TYPES = ("MEAN", "MEDIAN", "MODE", "MIN", "MAX")
 EPILOG = (" \nVisit PyMaSC web site for more information and to get human genome "

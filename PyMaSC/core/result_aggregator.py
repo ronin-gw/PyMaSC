@@ -26,6 +26,9 @@ from PyMaSC.core.result_container import (
 from PyMaSC.core.interfaces import CrossCorrelationCalculator
 from PyMaSC.utils.stats_utils import ArrayAggregator
 
+# Import WorkerResult for the aggregate method
+from PyMaSC.core.worker import WorkerResult
+
 logger = logging.getLogger(__name__)
 
 
@@ -80,8 +83,11 @@ class ResultAggregator:
         aggregator = ResultAggregator(config)
         result = aggregator.aggregate_from_calculator(calculator, references, lengths)
         
-        # Multi-process aggregation
+        # Multi-process aggregation (legacy format)
         result = aggregator.aggregate_from_results(worker_results)
+        
+        # Multi-process aggregation (WorkerResult objects)
+        result = aggregator.aggregate(worker_results, references, lengths, read_length)
         
         # Legacy compatibility
         handler_attrs = result.legacy_attributes
@@ -234,6 +240,59 @@ class ResultAggregator:
                 )
             else:
                 raise
+    
+    def aggregate(
+        self,
+        worker_results: List[WorkerResult],
+        references: List[str],
+        lengths: List[int],
+        read_length: int,
+        skip_ncc: bool = False
+    ) -> AggregationResult:
+        """Aggregate results from WorkerResult objects.
+        
+        This method provides a modern interface for aggregating results from
+        the new WorkerResult dataclass format, converting them internally to
+        the legacy format for existing aggregation logic.
+        
+        Args:
+            worker_results: List of WorkerResult objects
+            references: List of chromosome names
+            lengths: List of chromosome lengths
+            read_length: Read length in base pairs
+            skip_ncc: Whether NCC calculation was skipped
+            
+        Returns:
+            AggregationResult with aggregated data
+        """
+        # Convert WorkerResult objects to legacy format
+        legacy_worker_results = []
+        
+        for result in worker_results:
+            # Convert to legacy tuple format: (chromosome, (mappable_len, cc_stats, masc_stats))
+            cc_stats = None
+            masc_stats = None
+            
+            # Build NCC stats if available
+            if (result.ncc_forward_sum is not None and 
+                result.ncc_reverse_sum is not None and 
+                result.ncc_bins is not None):
+                cc_stats = (result.ncc_forward_sum, result.ncc_reverse_sum, result.ncc_bins)
+            
+            # Build MSCC stats if available
+            if (result.mscc_forward_sum is not None and 
+                result.mscc_reverse_sum is not None and 
+                result.mscc_bins is not None):
+                masc_stats = (result.mscc_forward_sum, result.mscc_reverse_sum, result.mscc_bins)
+            
+            # Create legacy tuple
+            legacy_tuple = (result.mappable_length, cc_stats, masc_stats)
+            legacy_worker_results.append((result.chromosome, legacy_tuple))
+        
+        # Use existing aggregation logic
+        return self.aggregate_from_results(
+            legacy_worker_results, references, lengths, read_length, skip_ncc
+        )
     
     def _create_container_from_calculator(
         self,
@@ -581,5 +640,20 @@ def aggregate_worker_results(
     """Convenience function to aggregate worker results."""
     aggregator = ResultAggregator(config)
     return aggregator.aggregate_from_results(
+        worker_results, references, lengths, read_length, skip_ncc
+    )
+
+
+def aggregate_from_worker_results(
+    worker_results: List[WorkerResult],
+    references: List[str],
+    lengths: List[int],
+    read_length: int,
+    skip_ncc: bool = False,
+    config: Optional[AggregationConfig] = None
+) -> AggregationResult:
+    """Convenience function to aggregate from WorkerResult objects."""
+    aggregator = ResultAggregator(config)
+    return aggregator.aggregate(
         worker_results, references, lengths, read_length, skip_ncc
     )

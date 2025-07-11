@@ -1,3 +1,9 @@
+"""Cross-correlation result aggregation and analysis.
+
+This module contains the main CCResult class that aggregates per-chromosome
+cross-correlation results into genome-wide statistics. It was moved from
+handler.result as part of the architectural refactoring.
+"""
 import logging
 from functools import wraps
 from typing import Union, Tuple, List, Dict
@@ -15,54 +21,23 @@ from PyMaSC.core.result_builder import ResultBuilder, build_from_handler
 # New unified statistics module
 from PyMaSC.core.statistics import NCCStats, MSCCStats, UnifiedStats
 
+# Core constants and exceptions
+from PyMaSC.core.constants import (
+    NEAR_READLEN_ERR_CRITERION, 
+    MERGED_CC_CONFIDENCE_INTERVAL, 
+    NEAR_ZERO_MIN_CALC_LEN
+)
+from PyMaSC.core.exceptions import ReadsTooFew
+
 logger = logging.getLogger(__name__)
 
-# Quality Assessment Constants
-NEAR_READLEN_ERR_CRITERION = 5
-"""int: Distance threshold for detecting phantom peak contamination.
-
-When the estimated fragment length is within this many base pairs of the
-read length, it suggests potential phantom peak contamination. This triggers
-warnings to alert users about potential quality issues in the data.
-"""
-
-MERGED_CC_CONFIDENCE_INTERVAL = 0.99
-"""float: Confidence level for merged cross-correlation intervals.
-
-This sets the confidence level (99%) for calculating confidence intervals
-when merging cross-correlation results from multiple chromosomes using
-Fisher z-transformation. Higher values provide wider, more conservative
-confidence intervals.
-"""
-
-NEAR_ZERO_MIN_CALC_LEN = 10
-"""int: Number of positions to examine at the beginning of correlation profile.
-
-Used to detect potential issues with minimum correlation calculation.
-If the median of the first NEAR_ZERO_MIN_CALC_LEN positions is smaller
-than the calculated minimum, it suggests the shift size may be too small.
-"""
-
-
-
-
-# The npcalc_with_logging_warn decorator is now imported from the unified statistics module
-
-
-
-
-# Backward compatibility alias for CCStats
+# Backward compatibility aliases
 # The original CCStats class has been replaced with the new unified statistics module
 CCStats = NCCStats
-
 
 # Backward compatibility alias for PyMaSCStats
 # The original PyMaSCStats class has been replaced with the new unified statistics module
 PyMaSCStats = UnifiedStats
-
-
-class ReadsTooFew(IndexError):
-    pass
 
 
 class CCResult(object):
@@ -86,8 +61,8 @@ class CCResult(object):
     
     Mathematical Background:
     - Fisher z-transformation: z = arctanh(r) for correlation merging
-    - Confidence intervals: CI = tanh(z ± z_α/2 * SE)
-    - Chi-squared test: χ² = (O - E)² / E for read balance
+    - Confidence intervals: CI = tanh(z +/- z_alpha/2 * SE)
+    - Chi-squared test: chi^2 = (O - E)^2 / E for read balance
     - Weighted averaging by effective genome length
     
     Quality Assessment:
@@ -578,7 +553,6 @@ class CCResult(object):
         mappable_reverse_sum = None
         
         if instance.calc_masc and mscc_data:
-            from PyMaSC.utils.stats_utils import ArrayAggregator
             mappable_len_sum = ArrayAggregator.safe_array_sum(instance.ref2mappable_len.values())
             mappable_forward_sum = ArrayAggregator.safe_array_sum(instance.mappable_ref2forward_sum.values())
             mappable_reverse_sum = ArrayAggregator.safe_array_sum(instance.mappable_ref2reverse_sum.values())
@@ -606,4 +580,3 @@ class CCResult(object):
         instance.mscc_upper = instance.mscc_lower = None
         
         return instance
-

@@ -31,7 +31,7 @@ from PyMaSC.pymasc import prepare_output, PLOTFILE_SUFFIX
 from PyMaSC.output.stats import load_stats, output_stats, STATSFILE_SUFFIX
 from PyMaSC.output.table import (load_cc, load_masc, load_nreads_table, output_cc, output_mscc,
                                  CCOUTPUT_SUFFIX, MSCCOUTPUT_SUFFIX, NREADOUTPUT_SUFFIX)
-from PyMaSC.handler.result import CCResult
+from PyMaSC.core.ccresult import CCResult
 from PyMaSC.output.figure import plot_figures
 
 logger = logging.getLogger(__name__)

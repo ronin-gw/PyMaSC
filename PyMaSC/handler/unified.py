@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 import os
 from multiprocessing import Queue, Lock
-from typing import Optional, List, Dict, Any, TYPE_CHECKING
+from typing import Optional, List, Dict, Tuple, Union, Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from PyMaSC.core.observer import ProgressObserver
@@ -33,6 +33,7 @@ from PyMaSC.handler.base import NothingToCalc
 from PyMaSC.core.interfaces import CrossCorrelationCalculator
 from PyMaSC.core.readlen import estimate_readlen
 from PyMaSC.core.progress_adapter import ProgressBarAdapter, ProgressManager, get_progress_manager
+from PyMaSC.core.worker import WorkerResult
 from PyMaSC.utils.calc import filter_chroms, exec_worker_pool
 
 # New aggregation system
@@ -156,7 +157,7 @@ class UnifiedCalcHandler:
         self.use_observer_progress = True
         self._progress_observers: List['ProgressObserver'] = []
         self._progress_coordinator: Optional[ProgressCoordinator] = None
-        
+
         # Result aggregation system (dual implementation)
         self._aggregation_config = AggregationConfig(
             mode=AggregationMode.HYBRID,  # Use both legacy and new systems
@@ -209,7 +210,7 @@ class UnifiedCalcHandler:
             bw_chromsizes = self.mappability_handler.chromsizes
             # Use BAM processor to validate and reconcile chromosome sizes
             updated_sizes = self.bam_processor.validate_chromosome_sizes(bw_chromsizes)
-            
+
             # Update lengths based on validation results
             for i, reference in enumerate(self.references):
                 if reference in updated_sizes:
@@ -246,7 +247,7 @@ class UnifiedCalcHandler:
 
         # Setup progress reporting
         progress_reporter = self._progress_coordinator.setup_single_process()
-        
+
         ref2genomelen = dict(zip(self.references, self.lengths))
         current_chr = None
 
@@ -299,10 +300,17 @@ class UnifiedCalcHandler:
 
     def _run_multiprocess_calculation(self) -> None:
         """Execute calculation using multiple processes."""
+
+        # Queue for distributing tasks to workers
         self._order_queue: Queue = Queue()
-        self._report_queue: Queue = Queue()
+        # IMPORTANT: `self._report_queue` receives both results and progress updates.
+        # - progress updates are handled by the progress coordinator
+        # - results are collected for aggregation
+        # If the 1st item is a string, it shoud be a chromosome and the 2nd item must be a `WorkerResult`.
+        # Otherwise, it's a progress report from a `ProgressHook` and that should be avoid here.
+        self._report_queue: Queue[Tuple[Optional[str], Union[WorkerResult, Tuple[str, int]]]] = Queue()
         self._logger_lock = Lock()
-        
+
         # Setup progress coordinator for multiprocess
         self._progress_coordinator.setup_multiprocess(self._report_queue, self._logger_lock)
 
@@ -351,16 +359,18 @@ class UnifiedCalcHandler:
         with exec_worker_pool(workers, self.references, self._order_queue):
             while True:
                 chrom, obj = self._report_queue.get()
-                
-                # Handle progress updates via coordinator
-                if self._progress_coordinator.handle_multiprocess_report(chrom, obj):
+
+                #
+                if chrom is None:
+                    assert not isinstance(obj, WorkerResult)
+                    chrom_text, pos = obj
+                    self._progress_coordinator.handle_multiprocess_report(chrom_text, pos)
                     continue  # This was a progress update, continue processing
-                
+
                 # Result received
-                mappable_len, cc_stats, masc_stats = obj
-                
+                assert isinstance(obj, WorkerResult)
                 # Store for aggregation system
-                _worker_results.append((chrom, (mappable_len, cc_stats, masc_stats)))
+                _worker_results.append(obj)
 
                 _chrom2finished[chrom] = True
                 if all(_chrom2finished.values()):
@@ -372,30 +382,30 @@ class UnifiedCalcHandler:
 
         # Cleanup progress
         self._progress_coordinator.cleanup()
-        
+
         # Apply new aggregation system for worker results
         self._aggregate_worker_results(_worker_results)
-    
-    def _aggregate_worker_results(self, worker_results: List[Tuple[str, Any]]) -> None:
+
+    def _aggregate_worker_results(self, worker_results: List[WorkerResult]) -> None:
         """Aggregate worker results using aggregation system."""
-        self._aggregation_result = self._result_aggregator.aggregate_from_results(
+        self._aggregation_result = self._result_aggregator.aggregate(
             worker_results=worker_results,
             references=self.references,
             lengths=self.lengths,
-            read_length=self.read_len or 0,  # Use 0 as fallback if not set
+            read_length=self.read_len,
             skip_ncc=self.config.skip_ncc
         )
-        
+
         # Handle mappability lengths separately since they need special processing
-        for chrom, (mappable_len, _, _) in worker_results:
-            if mappable_len is not None and self.mappability_handler:
-                self.mappability_handler.chrom2mappable_len[chrom] = mappable_len
+        for result in worker_results:
+            if result.mappable_length is not None and self.mappability_handler:
+                chrom = result.chromosome
+                self.mappability_handler.chrom2mappable_len[chrom] = result.mappable_length
                 self.mappability_handler.chrom2is_called[chrom] = True
-        
+
         # Log aggregation success
         if self._aggregation_result.validation_errors:
             logger.warning(f"Worker aggregation validation errors: {self._aggregation_result.validation_errors}")
-
 
     def _collect_calculator_results(self, calculator: CrossCorrelationCalculator) -> None:
         """Collect results from calculator instance using aggregation system."""
@@ -406,7 +416,7 @@ class UnifiedCalcHandler:
             read_length=self.read_len or 0,  # Use 0 as fallback if not set
             skip_ncc=self.config.skip_ncc
         )
-        
+
         # Log aggregation success
         if self._aggregation_result.validation_errors:
             logger.warning(f"Aggregation validation errors: {self._aggregation_result.validation_errors}")
@@ -421,55 +431,55 @@ class UnifiedCalcHandler:
                 self.mappability_handler.calc_mappability()
             # Mappability lengths are now accessed through aggregation result
 
-    # Properties for accessing result data through aggregation result
-    @property
-    def ref2forward_sum(self) -> Dict[str, int]:
-        """Forward read counts by chromosome."""
-        if self._aggregation_result is None:
-            return {}
-        return self._aggregation_result.legacy_attributes.get('ref2forward_sum', {})
+    # # Properties for accessing result data through aggregation result
+    # @property
+    # def ref2forward_sum(self) -> Dict[str, int]:
+    #     """Forward read counts by chromosome."""
+    #     if self._aggregation_result is None:
+    #         return {}
+    #     return self._aggregation_result.legacy_attributes.get('ref2forward_sum', {})
 
-    @property
-    def ref2reverse_sum(self) -> Dict[str, int]:
-        """Reverse read counts by chromosome."""
-        if self._aggregation_result is None:
-            return {}
-        return self._aggregation_result.legacy_attributes.get('ref2reverse_sum', {})
+    # @property
+    # def ref2reverse_sum(self) -> Dict[str, int]:
+    #     """Reverse read counts by chromosome."""
+    #     if self._aggregation_result is None:
+    #         return {}
+    #     return self._aggregation_result.legacy_attributes.get('ref2reverse_sum', {})
 
-    @property
-    def ref2ccbins(self) -> Dict[str, Any]:
-        """Cross-correlation bins by chromosome."""
-        if self._aggregation_result is None:
-            return {}
-        return self._aggregation_result.legacy_attributes.get('ref2ccbins', {})
+    # @property
+    # def ref2ccbins(self) -> Dict[str, Any]:
+    #     """Cross-correlation bins by chromosome."""
+    #     if self._aggregation_result is None:
+    #         return {}
+    #     return self._aggregation_result.legacy_attributes.get('ref2ccbins', {})
 
-    @property
-    def mappable_ref2forward_sum(self) -> Dict[str, Any]:
-        """Mappable forward read counts by chromosome."""
-        if self._aggregation_result is None:
-            return {}
-        return self._aggregation_result.legacy_attributes.get('mappable_ref2forward_sum', {})
+    # @property
+    # def mappable_ref2forward_sum(self) -> Dict[str, Any]:
+    #     """Mappable forward read counts by chromosome."""
+    #     if self._aggregation_result is None:
+    #         return {}
+    #     return self._aggregation_result.legacy_attributes.get('mappable_ref2forward_sum', {})
 
-    @property
-    def mappable_ref2reverse_sum(self) -> Dict[str, Any]:
-        """Mappable reverse read counts by chromosome."""
-        if self._aggregation_result is None:
-            return {}
-        return self._aggregation_result.legacy_attributes.get('mappable_ref2reverse_sum', {})
+    # @property
+    # def mappable_ref2reverse_sum(self) -> Dict[str, Any]:
+    #     """Mappable reverse read counts by chromosome."""
+    #     if self._aggregation_result is None:
+    #         return {}
+    #     return self._aggregation_result.legacy_attributes.get('mappable_ref2reverse_sum', {})
 
-    @property
-    def mappable_ref2ccbins(self) -> Dict[str, Any]:
-        """Mappable cross-correlation bins by chromosome."""
-        if self._aggregation_result is None:
-            return {}
-        return self._aggregation_result.legacy_attributes.get('mappable_ref2ccbins', {})
+    # @property
+    # def mappable_ref2ccbins(self) -> Dict[str, Any]:
+    #     """Mappable cross-correlation bins by chromosome."""
+    #     if self._aggregation_result is None:
+    #         return {}
+    #     return self._aggregation_result.legacy_attributes.get('mappable_ref2ccbins', {})
 
-    @property
-    def ref2mappable_len(self) -> Dict[str, Any]:
-        """Mappable lengths by chromosome."""
-        if self.mappability_handler:
-            return self.mappability_handler.chrom2mappable_len
-        return {}
+    # @property
+    # def ref2mappable_len(self) -> Dict[str, Any]:
+    #     """Mappable lengths by chromosome."""
+    #     if self.mappability_handler:
+    #         return self.mappability_handler.chrom2mappable_len
+    #     return {}
 
     # Properties for backward compatibility
     @property

@@ -74,16 +74,6 @@ class WorkerResult:
     mscc_bins: Optional[Any] = None
     metadata: Optional[Dict[str, Any]] = None
 
-    def to_legacy_format(self) -> tuple:
-        """Convert to legacy result format for backward compatibility.
-
-        Returns:
-            Tuple in legacy format: (chrom, (mappable_len, ncc_stats, mscc_stats))
-        """
-        ncc_stats = (self.ncc_forward_sum, self.ncc_reverse_sum, self.ncc_bins)
-        mscc_stats = (self.mscc_forward_sum, self.mscc_reverse_sum, self.mscc_bins)
-        return (self.chromosome, (self.mappable_length, ncc_stats, mscc_stats))
-
 
 class BaseWorker(Process, ABC):
     """Abstract base class for all calculation workers.
@@ -200,8 +190,7 @@ class BaseWorker(Process, ABC):
         Args:
             result: Result to report
         """
-        # Convert to legacy format for backward compatibility
-        self.report_queue.put(result.to_legacy_format())
+        self.report_queue.put((result.chromosome, result))
 
     @abstractmethod
     def _initialize(self) -> None:

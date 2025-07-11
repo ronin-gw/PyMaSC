@@ -37,7 +37,7 @@ class TestBasicImports:
         """Test importing business logic handlers."""
         import PyMaSC.handler.unified  # Use unified handler instead of legacy handlers
         import PyMaSC.handler.mappability
-        import PyMaSC.handler.result
+        import PyMaSC.core.ccresult  # Moved from handler.result
 
     def test_import_entry_points(self):
         """Test importing main entry point modules."""

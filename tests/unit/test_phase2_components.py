@@ -15,7 +15,7 @@ from PyMaSC.core.statistics_calculator import (
     StatisticsCalculator, StatisticsConfig, StatisticsResult
 )
 from PyMaSC.core.result_builder import ResultBuilder, build_from_handler
-from PyMaSC.handler.result import CCResult
+from PyMaSC.core.ccresult import CCResult
 # LegacyStatsAdapter not implemented yet
 
 

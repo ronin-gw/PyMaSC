@@ -17,8 +17,9 @@ globally disabled for non-interactive environments or when output is redirected.
 import sys
 import array
 import fcntl
+from multiprocessing import Queue
 from termios import TIOCGWINSZ
-from typing import Any, TextIO, Union
+from typing import Tuple, Optional, Any, TextIO, Union
 
 
 class ProgressBase(object):
@@ -49,7 +50,7 @@ class ProgressBar(ProgressBase):
         fmt: Format string for displaying the progress bar
         output: Output stream for progress display (default: stderr)
     """
-    def __init__(self, body: str = "<1II1>" * 12, prefix: str = '>', suffix: str = '<', output: TextIO = sys.stderr) -> None:
+    def __init__(self, body: str = "<1II1>" * 12, prefix: str = '>', suffix: str = '<', output: Union[TextIO, Queue] = sys.stderr) -> None:
         """Initialize progress bar with customizable appearance.
 
         Args:
@@ -107,7 +108,7 @@ class ProgressHook(ProgressBar):
         report_queue: Queue for sending progress updates to main process
         name: Identifier for this progress reporter
     """
-    def __init__(self, queue, body="<1II1>" * 12, prefix='>', suffix='<'):
+    def __init__(self, queue: "Queue[Tuple[Optional[str], Union[Any, Tuple[str, str]]]]", body="<1II1>" * 12, prefix='>', suffix='<'):
         super(ProgressHook, self).__init__(body, prefix, suffix, queue)
         self.name = None
 

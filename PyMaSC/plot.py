@@ -31,7 +31,7 @@ from PyMaSC.pymasc import prepare_output, PLOTFILE_SUFFIX
 from PyMaSC.output.stats import load_stats, output_stats, STATSFILE_SUFFIX
 from PyMaSC.output.table import (load_cc, load_masc, load_nreads_table, output_cc, output_mscc,
                                  CCOUTPUT_SUFFIX, MSCCOUTPUT_SUFFIX, NREADOUTPUT_SUFFIX)
-from PyMaSC.core.ccresult import CCResult
+from PyMaSC.core.statistics import StatisticsResult
 from PyMaSC.output.figure import plot_figures
 
 logger = logging.getLogger(__name__)
@@ -134,7 +134,7 @@ def main() -> None:
     1. Parse and validate command-line arguments
     2. Load statistics and data tables
     3. Filter chromosomes based on user criteria
-    4. Create CCResult object from loaded data
+    4. Create StatisticsResult object from loaded data
     5. Generate output files and plots
 
     The workflow recreates PyMaSC analysis results from pre-calculated
@@ -147,8 +147,8 @@ def main() -> None:
     references = list(filter_chroms(references, args.chromfilter))
     checked_suffixes = _prepare_outputs(args)
 
-    # Use new builder-based construction for better type safety and maintainability
-    ccr = CCResult.from_file_data_with_builder(
+    # Create StatisticsResult from file data using new unified statistics system
+    stats_result = StatisticsResult.from_file_data(
         mv_avr_filter_len=args.smooth_window,
         chi2_pval=args.chi2_pval,
         filter_mask_len=args.mask_size,
@@ -170,10 +170,10 @@ def main() -> None:
     for outputfunc, suffix in zip((output_stats, output_cc, output_mscc),
                                   (STATSFILE_SUFFIX, CCOUTPUT_SUFFIX, MSCCOUTPUT_SUFFIX)):
         if suffix in checked_suffixes:
-            outputfunc(str(args.outdir / args.name), ccr)
+            outputfunc(str(args.outdir / args.name), stats_result)
 
     #
-    plot_figures(str(args.outdir / (args.name + PLOTFILE_SUFFIX)), ccr)
+    plot_figures(str(args.outdir / (args.name + PLOTFILE_SUFFIX)), stats_result)
 
 
 def _prepare_stats(args: argparse.Namespace) -> int:

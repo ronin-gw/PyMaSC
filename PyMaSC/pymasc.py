@@ -24,7 +24,6 @@ from PyMaSC.core.models import (
     CalculationConfig, ExecutionConfig, CalculationTarget,
     ImplementationAlgorithm, ExecutionMode, MappabilityConfig
 )
-from PyMaSC.core.ccresult import CCResult
 from PyMaSC.core.statistics import StatisticsResult
 from PyMaSC.core.exceptions import ReadsTooFew
 from PyMaSC.core.ncc import ReadUnsortedError

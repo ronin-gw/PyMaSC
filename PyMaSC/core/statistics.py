@@ -872,3 +872,180 @@ class StatisticsResult:
             warning=True,
             min_calc_width=min_calc_width
         )
+    
+    @classmethod
+    def from_file_data(
+        cls,
+        mv_avr_filter_len: int,
+        chi2_pval: float,
+        filter_mask_len: int,
+        min_calc_width: int,
+        expected_library_len: Optional[int] = None,
+        read_len: Optional[int] = None,
+        references: Optional[List[str]] = None,
+        ref2genomelen: Optional[Dict[str, int]] = None,
+        ref2forward_sum: Optional[Dict[str, int]] = None,
+        ref2reverse_sum: Optional[Dict[str, int]] = None,
+        ref2cc: Optional[Dict[str, Any]] = None,
+        ref2mappable_len: Optional[Dict[str, int]] = None,
+        mappable_ref2forward_sum: Optional[Dict[str, Any]] = None,
+        mappable_ref2reverse_sum: Optional[Dict[str, Any]] = None,
+        ref2masc: Optional[Dict[str, Any]] = None
+    ) -> 'StatisticsResult':
+        """Create StatisticsResult from file data (for pymasc-plot).
+        
+        This method creates a StatisticsResult from data loaded from files,
+        replicating the functionality of CCResult.from_file_data_with_builder()
+        for the new StatisticsResult system.
+        
+        Args:
+            mv_avr_filter_len: Moving average filter length
+            chi2_pval: Chi-squared p-value threshold  
+            filter_mask_len: Filter mask length around read length
+            min_calc_width: Minimum width for background calculation
+            expected_library_len: Expected fragment length
+            read_len: Read length in base pairs
+            references: List of chromosome names
+            ref2genomelen: Genome lengths by chromosome
+            ref2forward_sum: Forward read counts by chromosome
+            ref2reverse_sum: Reverse read counts by chromosome
+            ref2cc: Cross-correlation data by chromosome
+            ref2mappable_len: Mappable lengths by chromosome
+            mappable_ref2forward_sum: Mappable forward counts by chromosome
+            mappable_ref2reverse_sum: Mappable reverse counts by chromosome
+            ref2masc: MSCC data by chromosome
+            
+        Returns:
+            StatisticsResult instance constructed from file data
+        """
+        if not read_len:
+            raise ValueError("Read length is required")
+        if not references:
+            raise ValueError("References list is required")
+        if not ref2genomelen:
+            raise ValueError("Genome lengths are required")
+            
+        # Determine skip_ncc and has_mappability
+        skip_ncc = not (ref2forward_sum and ref2reverse_sum and ref2cc)
+        has_mappability = bool(ref2mappable_len and ref2masc)
+        
+        if skip_ncc and not has_mappability:
+            raise ValueError("Either NCC or MSCC data must be provided")
+        
+        # Create per-chromosome stats
+        chromosome_stats: Dict[str, UnifiedStats] = {}
+        
+        for ref in references:
+            genomelen = ref2genomelen[ref]
+            
+            # NCC data
+            forward_sum = ref2forward_sum.get(ref) if ref2forward_sum else None
+            reverse_sum = ref2reverse_sum.get(ref) if ref2reverse_sum else None
+            cc = ref2cc.get(ref) if ref2cc else None
+            
+            # MSCC data  
+            mappable_len = ref2mappable_len.get(ref) if ref2mappable_len else None
+            mappable_forward_sum = mappable_ref2forward_sum.get(ref) if mappable_ref2forward_sum else None
+            mappable_reverse_sum = mappable_ref2reverse_sum.get(ref) if mappable_ref2reverse_sum else None
+            masc = ref2masc.get(ref) if ref2masc else None
+            
+            # Create UnifiedStats for this chromosome
+            chromosome_stats[ref] = UnifiedStats(
+                read_len=read_len,
+                mv_avr_filter_len=mv_avr_filter_len,
+                expected_library_len=expected_library_len,
+                genomelen=genomelen,
+                forward_sum=forward_sum or 0,
+                reverse_sum=reverse_sum or 0,
+                cc=cc,
+                mappable_len=mappable_len,
+                mappable_forward_sum=mappable_forward_sum,
+                mappable_reverse_sum=mappable_reverse_sum,
+                masc=masc,
+                filter_mask_len=filter_mask_len,
+                min_calc_width=min_calc_width
+            )
+        
+        # Calculate genome-wide statistics using Fisher z-transformation
+        from PyMaSC.utils.stats_utils import CrossCorrelationMerger, ArrayAggregator
+        
+        # Aggregate NCC statistics
+        merged_cc = None
+        if not skip_ncc:
+            merger = CrossCorrelationMerger(confidence_interval=0.95)
+            ncc_data = [(ref2genomelen[ref], chromosome_stats[ref].cc.cc)
+                       for ref in references if chromosome_stats[ref].cc and chromosome_stats[ref].cc.cc is not None]
+            if ncc_data:
+                genome_lengths, correlation_arrays = zip(*ncc_data)
+                merged_cc, _, _ = merger.merge_correlations(
+                    np.array(genome_lengths), correlation_arrays, read_len
+                )
+        
+        # Aggregate MSCC statistics
+        merged_mscc = None
+        if has_mappability:
+            merger = CrossCorrelationMerger(confidence_interval=0.95)
+            mscc_data = [(ref2mappable_len[ref], chromosome_stats[ref].masc.cc)
+                        for ref in references if chromosome_stats[ref].masc and chromosome_stats[ref].masc.cc is not None]
+            if mscc_data:
+                mappable_lengths, correlation_arrays = zip(*mscc_data)
+                merged_mscc, _, _ = merger.merge_correlations(
+                    np.array(mappable_lengths), correlation_arrays, read_len
+                )
+        
+        # Calculate totals for genome-wide stats
+        total_genomelen = sum(ref2genomelen.values())
+        total_forward = sum(ref2forward_sum.values()) if ref2forward_sum else 0
+        total_reverse = sum(ref2reverse_sum.values()) if ref2reverse_sum else 0
+        
+        total_mappable_len = None
+        total_mappable_forward = None
+        total_mappable_reverse = None
+        
+        if has_mappability:
+            total_mappable_len = ArrayAggregator.safe_array_sum(ref2mappable_len.values())
+            if mappable_ref2forward_sum:
+                total_mappable_forward = ArrayAggregator.safe_array_sum(mappable_ref2forward_sum.values())
+            if mappable_ref2reverse_sum:
+                total_mappable_reverse = ArrayAggregator.safe_array_sum(mappable_ref2reverse_sum.values())
+        
+        # Create genome-wide UnifiedStats
+        genome_wide_stats = UnifiedStats(
+            read_len=read_len,
+            mv_avr_filter_len=mv_avr_filter_len,
+            expected_library_len=expected_library_len,
+            genomelen=total_genomelen,
+            forward_sum=total_forward,
+            reverse_sum=total_reverse,
+            cc=merged_cc,
+            mappable_len=total_mappable_len,
+            mappable_forward_sum=total_mappable_forward,
+            mappable_reverse_sum=total_mappable_reverse,
+            masc=merged_mscc,
+            filter_mask_len=filter_mask_len,
+            warning=True,
+            min_calc_width=min_calc_width
+        )
+        
+        # Extract quality metrics
+        nsc = 0.0
+        rsc = 0.0
+        estimated_fragment_length = None
+        
+        if genome_wide_stats.cc:
+            nsc = getattr(genome_wide_stats.cc, 'nsc', 0.0) or 0.0
+            rsc = getattr(genome_wide_stats.cc, 'rsc', 0.0) or 0.0
+        
+        estimated_fragment_length = getattr(genome_wide_stats, 'est_lib_len', None)
+        
+        return cls(
+            chromosome_stats=chromosome_stats,
+            genome_wide_stats=genome_wide_stats,
+            references=references,
+            read_length=read_len,
+            skip_ncc=skip_ncc,
+            has_mappability=has_mappability,
+            nsc=nsc,
+            rsc=rsc,
+            estimated_fragment_length=estimated_fragment_length
+        )

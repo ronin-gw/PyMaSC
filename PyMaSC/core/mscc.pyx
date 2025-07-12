@@ -57,6 +57,7 @@ cdef class MSCCCalculator(object):
     cdef readonly:
         int64 max_shift
         dict ref2genomelen
+        dict ref2mappable_len
         int64 genomelen
         int64 read_len
         dict ref2forward_sum, ref2reverse_sum
@@ -106,6 +107,7 @@ cdef class MSCCCalculator(object):
         # {forward,reverse}_sum[d[0...i]] = Number of reads in Md
         self.ref2forward_sum = {ref: None for ref in references}
         self.ref2reverse_sum = {ref: None for ref in references}
+        self.ref2mappable_len = {ref: None for ref in references}
         #
         self.forward_read_len_sum = self.reverse_read_len_sum = 0
         # ccbins[d[1...i]] = Number of doubly mapped region in Md
@@ -466,3 +468,9 @@ cdef class MSCCCalculator(object):
             except StopIteration:
                 pass
         self._bwfeeder.calc_mappability()
+        
+        # Extract mappable length data from bwfeeder
+        if hasattr(self._bwfeeder, 'chrom2mappable_len'):
+            for ref in self.ref2mappable_len:
+                if ref in self._bwfeeder.chrom2mappable_len:
+                    self.ref2mappable_len[ref] = self._bwfeeder.chrom2mappable_len[ref]

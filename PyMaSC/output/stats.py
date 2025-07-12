@@ -94,8 +94,8 @@ logger = logging.getLogger(__name__)
 
 
 @catch_IOError(logger)
-def output_stats(outfile: os.PathLike[str], ccr: Any) -> None:
-    """Output comprehensive statistics to tab-delimited file.
+def output_stats(outfile: os.PathLike[str], stats_result: Any) -> None:
+    """Output comprehensive statistics to tab-delimited file using new StatisticsResult interface.
 
     Generates a complete statistics file containing all analysis metrics
     including read counts, cross-correlation values, quality metrics,
@@ -103,34 +103,58 @@ def output_stats(outfile: os.PathLike[str], ccr: Any) -> None:
 
     Args:
         outfile: Base output file path (suffix will be added)
-        ccr: CCResult object containing analysis results
+        stats_result: StatisticsResult object containing analysis results
     """
     outfile_path = Path(outfile)
     basename = outfile_path.name
     outfile_with_suffix = str(outfile_path) + STATSFILE_SUFFIX
     logger.info("Output '{}'".format(outfile_with_suffix))
 
+    def _get_safe_value(obj, attr, default="nan"):
+        """Get attribute value safely, handling None objects."""
+        if obj is None:
+            return default
+        val = getattr(obj, attr, None)
+        if val is None or (isinstance(val, bool) and not val):
+            return default
+        # Handle array values that may be VSN or other arrays
+        elif hasattr(val, '__len__') and not isinstance(val, str):
+            # Arrays should not reach here for simple attributes
+            return default  # Fallback to avoid ambiguous array evaluation
+        return val
+
     with open(outfile_with_suffix, 'w') as f:
         print("{}\t{}".format("Name", basename), file=f)
+        
+        # Extract basic attributes from genome-wide stats
+        genome_stats = stats_result.genome_wide_stats
         for row, attr in STAT_ATTR:
-            val = getattr(ccr.whole, attr, None)
-            if val is None or (isinstance(val, bool) and not val):
-                val = "nan"
+            val = _get_safe_value(genome_stats, attr)
             print("{}\t{}".format(row, val), file=f)
+        
+        # Extract CC attributes from genome-wide CC stats
+        cc_stats = genome_stats.cc if genome_stats else None
         for row, attr in STAT_CC_ATTR:
-            val = getattr(ccr.whole.cc, attr, None)
-            if val is None or (isinstance(val, bool) and not val):
-                val = "nan"
-            # Handle array values that may be VSN or other arrays
-            elif hasattr(val, '__len__') and not isinstance(val, str):
-                # Arrays should not reach here for simple attributes
-                val = "nan"  # Fallback to avoid ambiguous array evaluation
+            val = _get_safe_value(cc_stats, attr)
             print("{}\t{}".format(row, val), file=f)
+        
+        # Extract MSCC attributes from genome-wide MSCC stats
+        masc_stats = genome_stats.masc if genome_stats else None
         for row, attr in STAT_MSCC_ATTR:  # type: ignore[assignment]
             if callable(attr):
-                print("{}\t{}".format(row, attr(ccr.whole.masc)), file=f)
+                # Handle callable extractors (like get_rl_item_from)
+                if masc_stats is not None:
+                    try:
+                        val = attr(masc_stats)
+                    except Exception:
+                        val = "nan"
+                else:
+                    val = "nan"
             else:
-                print("{}\t{}".format(row, getattr(ccr.whole.masc, attr, False) or "nan"), file=f)
+                val = _get_safe_value(masc_stats, attr, "nan")
+                if val == False:  # Handle specific case where False should become "nan"
+                    val = "nan"
+            print("{}\t{}".format(row, val), file=f)
 
 
 @catch_IOError(logger)

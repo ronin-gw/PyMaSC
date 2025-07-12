@@ -474,12 +474,12 @@ class UnifiedCalcHandler:
     #         return {}
     #     return self._aggregation_result.legacy_attributes.get('mappable_ref2ccbins', {})
 
-    # @property
-    # def ref2mappable_len(self) -> Dict[str, Any]:
-    #     """Mappable lengths by chromosome."""
-    #     if self.mappability_handler:
-    #         return self.mappability_handler.chrom2mappable_len
-    #     return {}
+    @property
+    def ref2mappable_len(self) -> Dict[str, Any]:
+        """Mappable lengths by chromosome."""
+        if self.mappability_handler:
+            return self.mappability_handler.chrom2mappable_len
+        return {}
 
     # Properties for backward compatibility
     @property
@@ -546,3 +546,14 @@ class UnifiedCalcHandler:
             enabled: Whether to use observer pattern for progress
         """
         self.use_observer_progress = enabled
+
+    def get_aggregation_result(self) -> Optional['AggregationResult']:
+        """Get calculation results for new statistics system.
+        
+        Provides read-only access to aggregation results without exposing
+        internal implementation details. Only valid after run_calcuration() completes.
+        
+        Returns:
+            AggregationResult containing calculation data, or None if not available
+        """
+        return self._aggregation_result

@@ -24,7 +24,8 @@ Mathematical background:
 import logging
 from abc import ABC, abstractmethod
 from functools import wraps
-from typing import Union, Tuple, Optional, Dict, Any
+from typing import Union, Tuple, Optional, Dict, Any, List
+from dataclasses import dataclass
 
 import numpy as np
 from scipy.stats import norm
@@ -612,4 +613,262 @@ class UnifiedStats:
             mappable_ccbins[:max_shift + 1],
             totlen,
             totlen
+        )
+
+
+@dataclass
+class StatisticsResult:
+    """New statistics result class for clean architecture without compatibility layers.
+    
+    This class replaces CCResult and uses only the new statistics system from
+    statistics.py, eliminating legacy compatibility code entirely.
+    
+    Attributes:
+        chromosome_stats: Per-chromosome UnifiedStats objects
+        genome_wide_stats: Genome-wide aggregated UnifiedStats
+        references: List of chromosome names
+        read_length: Read length in base pairs
+        skip_ncc: Whether NCC calculation was skipped
+        has_mappability: Whether mappability data is available
+        nsc: Normalized Strand Coefficient (signal-to-noise ratio)
+        rsc: Relative Strand Coefficient (fragment-to-phantom peak ratio)
+        estimated_fragment_length: Estimated fragment length from correlation peak
+    """
+    chromosome_stats: Dict[str, UnifiedStats]
+    genome_wide_stats: UnifiedStats
+    references: List[str]
+    read_length: int
+    skip_ncc: bool
+    has_mappability: bool
+    nsc: float
+    rsc: float
+    estimated_fragment_length: Optional[int]
+    
+    @classmethod
+    def from_handler(
+        cls,
+        handler: Any,  # UnifiedCalcHandler
+        mv_avr_filter_len: int = 15,
+        expected_library_len: Optional[int] = None,
+        filter_mask_len: int = 5,
+        min_calc_width: int = 10
+    ) -> 'StatisticsResult':
+        """Create StatisticsResult from UnifiedCalcHandler using new statistics system.
+        
+        This method bypasses all legacy compatibility layers and uses only the
+        new container-based data access and UnifiedStats for calculations.
+        
+        Args:
+            handler: UnifiedCalcHandler with completed calculations
+            mv_avr_filter_len: Moving average filter length for peak detection
+            expected_library_len: Expected fragment length (optional)
+            filter_mask_len: Masking window around read length for phantom peak
+            min_calc_width: Minimum width for background correlation calculation
+            
+        Returns:
+            StatisticsResult with complete statistical analysis
+        """
+        # Get container-based results (no legacy attributes)
+        aggregation_result = handler.get_aggregation_result()
+        if aggregation_result is None:
+            raise ValueError("No calculation results available from handler")
+        
+        container = aggregation_result.container
+        if container is None:
+            raise ValueError("No container results available")
+        
+        # Calculate per-chromosome statistics using UnifiedStats
+        chromosome_stats = {}
+        for ref in handler.references:
+            chrom_result = container.chromosome_results.get(ref)
+            if chrom_result is None:
+                continue
+                
+            # Extract NCC data (raw ccbins, same as CCResult._init_from_handler)
+            ncc_data = chrom_result.ncc_data
+            genomelen = chrom_result.length if chrom_result else 1
+            forward_sum = ncc_data.forward_sum if ncc_data else 0
+            reverse_sum = ncc_data.reverse_sum if ncc_data else 0
+            ccbins = ncc_data.ccbins if ncc_data else None
+            
+            # Extract MSCC data (raw ccbins, same as CCResult._init_from_handler)
+            mscc_data = chrom_result.mscc_data
+            mappable_len = mscc_data.mappable_len if mscc_data else None
+            mappable_forward_sum = mscc_data.forward_sum if mscc_data else None
+            mappable_reverse_sum = mscc_data.reverse_sum if mscc_data else None
+            mappable_ccbins = mscc_data.ccbins if mscc_data else None
+            
+            # Create UnifiedStats for this chromosome (same parameters as CCResult._init_from_handler)
+            chromosome_stats[ref] = UnifiedStats(
+                read_len=handler.read_len,
+                mv_avr_filter_len=mv_avr_filter_len,
+                expected_library_len=expected_library_len,
+                genomelen=genomelen,
+                forward_sum=forward_sum,
+                reverse_sum=reverse_sum,
+                ccbins=ccbins,  # Raw ccbins, UnifiedStats will normalize internally
+                mappable_len=mappable_len,
+                mappable_forward_sum=mappable_forward_sum,
+                mappable_reverse_sum=mappable_reverse_sum,
+                mappable_ccbins=mappable_ccbins,  # Raw mappable ccbins
+                filter_mask_len=filter_mask_len,
+                min_calc_width=min_calc_width
+            )
+        
+        # Calculate genome-wide statistics
+        genome_wide_stats = StatisticsResult._calculate_genome_wide_stats(
+            container, handler, mv_avr_filter_len, 
+            expected_library_len, filter_mask_len, min_calc_width
+        )
+        
+        # Extract quality metrics
+        nsc = 0.0
+        rsc = 0.0
+        estimated_fragment_length = None
+        
+        if genome_wide_stats.cc:
+            nsc = getattr(genome_wide_stats.cc, 'nsc', 0.0) or 0.0
+            rsc = getattr(genome_wide_stats.cc, 'rsc', 0.0) or 0.0
+        
+        estimated_fragment_length = getattr(genome_wide_stats, 'est_lib_len', None)
+        
+        return cls(
+            chromosome_stats=chromosome_stats,
+            genome_wide_stats=genome_wide_stats,
+            references=handler.references,
+            read_length=handler.read_len,
+            skip_ncc=container.skip_ncc,
+            has_mappability=container.has_mappability,
+            nsc=nsc,
+            rsc=rsc,
+            estimated_fragment_length=estimated_fragment_length
+        )
+    
+    @staticmethod
+    def _calculate_genome_wide_stats(
+        container: Any,  # ResultContainer
+        handler: Any,    # UnifiedCalcHandler
+        mv_avr_filter_len: int,
+        expected_library_len: Optional[int],
+        filter_mask_len: int,
+        min_calc_width: int
+    ) -> UnifiedStats:
+        """Calculate genome-wide statistics from container data.
+        
+        Args:
+            container: ResultContainer with chromosome results
+            handler: UnifiedCalcHandler for metadata
+            mv_avr_filter_len: Moving average filter length
+            expected_library_len: Expected fragment length
+            filter_mask_len: Phantom peak masking window
+            min_calc_width: Background calculation width
+            
+        Returns:
+            UnifiedStats object with genome-wide statistics
+        """
+        # Get aggregated data from container
+        all_ncc_data = container.get_ncc_data()
+        all_mscc_data = container.get_mscc_data()
+        
+        # Calculate totals
+        total_genomelen = sum(handler.lengths)
+        total_forward = sum(data.forward_sum for data in all_ncc_data.values()) if all_ncc_data else 0
+        total_reverse = sum(data.reverse_sum for data in all_ncc_data.values()) if all_ncc_data else 0
+        
+        # Create per-chromosome UnifiedStats to calculate correlation arrays (same as CCResult)
+        ref2stats = {}
+        for ref in handler.references:
+            chrom_result = container.chromosome_results.get(ref)
+            if chrom_result is None:
+                continue
+                
+            # Extract data for this chromosome (raw ccbins, same as CCResult)
+            ncc_data = chrom_result.ncc_data
+            mscc_data = chrom_result.mscc_data
+            
+            ref2stats[ref] = UnifiedStats(
+                read_len=handler.read_len,
+                mv_avr_filter_len=mv_avr_filter_len,
+                expected_library_len=expected_library_len,
+                genomelen=chrom_result.length,
+                forward_sum=ncc_data.forward_sum if ncc_data else 0,
+                reverse_sum=ncc_data.reverse_sum if ncc_data else 0,
+                ccbins=ncc_data.ccbins if ncc_data else None,
+                mappable_len=mscc_data.mappable_len if mscc_data else None,
+                mappable_forward_sum=mscc_data.forward_sum if mscc_data else None,
+                mappable_reverse_sum=mscc_data.reverse_sum if mscc_data else None,
+                mappable_ccbins=mscc_data.ccbins if mscc_data else None,
+                filter_mask_len=filter_mask_len,
+                min_calc_width=min_calc_width
+            )
+
+        # Aggregate correlation arrays using Fisher z-transformation (same as CCResult lines 158-186)
+        merged_cc = None
+        if not container.skip_ncc:
+            # Extract computed correlation arrays from UnifiedStats objects (same as CCResult)
+            ncc_data = [(handler.lengths[i], ref2stats[ref].cc.cc)
+                       for i, ref in enumerate(handler.references) 
+                       if ref in ref2stats and ref2stats[ref].cc is not None]
+            if ncc_data:
+                genome_lengths, correlation_arrays = zip(*ncc_data)
+                from PyMaSC.core.constants import MERGED_CC_CONFIDENCE_INTERVAL
+                from PyMaSC.utils.stats_utils import CrossCorrelationMerger
+                merger = CrossCorrelationMerger(confidence_interval=MERGED_CC_CONFIDENCE_INTERVAL)
+                merged_cc, _, _ = merger.merge_correlations(
+                    np.array(genome_lengths), correlation_arrays, handler.read_len
+                )
+        
+        merged_mscc = None
+        if container.has_mappability:
+            # Extract computed MSCC arrays from UnifiedStats objects (same as CCResult)
+            # Need to get mappable lengths correctly
+            mscc_data = []
+            for ref in handler.references:
+                if ref in ref2stats and ref2stats[ref].masc is not None:
+                    chrom_result = container.chromosome_results.get(ref)
+                    if chrom_result and chrom_result.mscc_data and chrom_result.mscc_data.mappable_len is not None:
+                        # Use the final mappable length value (at read_len position)
+                        mappable_len_value = chrom_result.mscc_data.mappable_len[handler.read_len - 1] if len(chrom_result.mscc_data.mappable_len) > handler.read_len - 1 else chrom_result.mscc_data.mappable_len[-1]
+                        mscc_data.append((mappable_len_value, ref2stats[ref].masc.cc))
+            
+            if mscc_data:
+                mappable_lengths, correlation_arrays = zip(*mscc_data)
+                merger = CrossCorrelationMerger(confidence_interval=MERGED_CC_CONFIDENCE_INTERVAL)
+                merged_mscc, _, _ = merger.merge_correlations(
+                    np.array(mappable_lengths), correlation_arrays, handler.read_len
+                )
+        
+        # Aggregate mappability data
+        total_mappable_len = None
+        total_mappable_forward = None
+        total_mappable_reverse = None
+        
+        if all_mscc_data:
+            from PyMaSC.utils.stats_utils import ArrayAggregator
+            mappable_lens = [data.mappable_len for data in all_mscc_data.values() if data.mappable_len is not None]
+            mappable_forwards = [data.forward_sum for data in all_mscc_data.values() if data.forward_sum is not None]
+            mappable_reverses = [data.reverse_sum for data in all_mscc_data.values() if data.reverse_sum is not None]
+            
+            if mappable_lens:
+                total_mappable_len = ArrayAggregator.safe_array_sum(mappable_lens)
+            if mappable_forwards:
+                total_mappable_forward = ArrayAggregator.safe_array_sum(mappable_forwards)
+            if mappable_reverses:
+                total_mappable_reverse = ArrayAggregator.safe_array_sum(mappable_reverses)
+        
+        return UnifiedStats(
+            read_len=handler.read_len,
+            mv_avr_filter_len=mv_avr_filter_len,
+            expected_library_len=expected_library_len,
+            genomelen=total_genomelen,
+            forward_sum=total_forward,
+            reverse_sum=total_reverse,
+            cc=merged_cc,  # Pre-computed correlation array from Fisher z-transformation
+            mappable_len=total_mappable_len,
+            mappable_forward_sum=total_mappable_forward,
+            mappable_reverse_sum=total_mappable_reverse,
+            masc=merged_mscc,  # Pre-computed MSCC array from Fisher z-transformation
+            filter_mask_len=filter_mask_len,
+            warning=True,
+            min_calc_width=min_calc_width
         )

@@ -201,14 +201,14 @@ class ResultAggregator:
             # Parse worker results
             parsed_results = self._parse_worker_results(worker_results)
             
-            # Create container-based aggregation
-            container = self._create_container_from_worker_results(
-                parsed_results, references, lengths, read_length, skip_ncc
-            )
-            
-            # Create legacy attributes
+            # Create legacy attributes first (contains mappable_len data)
             legacy_attrs = self._create_legacy_attributes_from_worker_results(
                 parsed_results, references, lengths
+            )
+            
+            # Create container using legacy attributes (which contain proper mappable_len)
+            container = self._create_container_from_legacy_attributes(
+                legacy_attrs, references, lengths, read_length, skip_ncc
             )
             
             # Validation
@@ -332,11 +332,19 @@ class ResultAggregator:
                 calculator.ref2mappable_forward_sum and
                 chrom in calculator.ref2mappable_forward_sum and
                 calculator.ref2mappable_forward_sum[chrom] is not None):
+                # Get mappable_len from internal calculator if using adapter
+                mappable_len = None
+                if hasattr(calculator, '_calculator') and hasattr(calculator._calculator, 'ref2mappable_len'):
+                    if chrom in calculator._calculator.ref2mappable_len:
+                        mappable_len = calculator._calculator.ref2mappable_len[chrom]
+                elif hasattr(calculator, 'ref2mappable_len') and chrom in calculator.ref2mappable_len:
+                    mappable_len = calculator.ref2mappable_len[chrom]
+                
                 mscc_data = MSCCData(
                     forward_sum=calculator.ref2mappable_forward_sum[chrom],
                     reverse_sum=calculator.ref2mappable_reverse_sum[chrom] if chrom in calculator.ref2mappable_reverse_sum else np.array([]),
                     ccbins=calculator.ref2mascbins[chrom] if chrom in calculator.ref2mascbins else np.array([]),
-                    mappable_len=calculator.ref2mappable_len[chrom] if hasattr(calculator, 'ref2mappable_len') and chrom in calculator.ref2mappable_len else None
+                    mappable_len=mappable_len
                 )
             
             if ncc_data or mscc_data:
@@ -413,6 +421,11 @@ class ResultAggregator:
             if valid_ccbins:
                 aggregated['mappable_ccbins'] = np.sum(valid_ccbins, axis=0)
         
+        # IMPORTANT: Preserve ref2mappable_len for MSCC calculation
+        # Don't aggregate this - it's needed as per-chromosome arrays
+        if 'ref2mappable_len' in legacy_attrs:
+            aggregated['ref2mappable_len'] = legacy_attrs['ref2mappable_len']
+        
         return aggregated
     
     def _parse_worker_results(self, worker_results: List[Tuple[str, Any]]) -> Dict[str, Any]:
@@ -453,6 +466,22 @@ class ResultAggregator:
         
         return parsed
     
+    def _create_container_from_legacy_attributes(
+        self,
+        legacy_attrs: Dict[str, Any],
+        references: List[str],
+        lengths: List[int],
+        read_length: int,
+        skip_ncc: bool
+    ) -> ResultContainer:
+        """Create container from legacy attributes (which contain proper mappable_len data)."""
+        # Use legacy attributes directly as handler data - they contain the mappable_len
+        handler_data = legacy_attrs.copy()
+        handler_data['skip_ncc'] = skip_ncc
+        
+        from PyMaSC.core.result_container import create_from_handler_data
+        return create_from_handler_data(handler_data, read_length, references, lengths)
+    
     def _create_container_from_worker_results(
         self,
         parsed_results: Dict[str, Any],
@@ -487,7 +516,13 @@ class ResultAggregator:
         legacy_attrs = parsed_results.copy()
         
         # Add aggregated mappable results
-        legacy_attrs.update(self._aggregate_mappable_results_legacy(legacy_attrs))
+        aggregated = self._aggregate_mappable_results_legacy(legacy_attrs)
+        legacy_attrs.update(aggregated)
+        
+        # CRITICAL: Ensure ref2mappable_len is preserved from parsed_results
+        # This is essential for MSCC calculation in StatisticsResult
+        if 'ref2mappable_len' in parsed_results:
+            legacy_attrs['ref2mappable_len'] = parsed_results['ref2mappable_len']
         
         return legacy_attrs
     

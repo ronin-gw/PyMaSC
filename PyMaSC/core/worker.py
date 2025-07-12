@@ -392,6 +392,12 @@ class UnifiedWorker(BaseWorker):
             result.mappable_length = self._bwfeeder.chrom2mappable_len.get(chrom)
         elif hasattr(self._calculator, 'ref2mappable_len'):
             result.mappable_length = self._calculator.ref2mappable_len.get(chrom)  # type: ignore[union-attr]
+        elif hasattr(self._calculator, '_calculator') and hasattr(self._calculator._calculator, 'ref2mappable_len'):
+            # Try inner calculator (for CalculatorAdapter)
+            inner_calc = self._calculator._calculator
+            result.mappable_length = inner_calc.ref2mappable_len.get(chrom)
+        else:
+            result.mappable_length = None
 
         # Collect NCC results
         if self._secondary_calculator:

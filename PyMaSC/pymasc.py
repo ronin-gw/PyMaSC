@@ -25,6 +25,7 @@ from PyMaSC.core.models import (
     ImplementationAlgorithm, ExecutionMode, MappabilityConfig
 )
 from PyMaSC.core.ccresult import CCResult
+from PyMaSC.core.statistics import StatisticsResult
 from PyMaSC.core.exceptions import ReadsTooFew
 from PyMaSC.core.ncc import ReadUnsortedError
 from PyMaSC.output.stats import output_stats, STATSFILE_SUFFIX
@@ -288,11 +289,12 @@ def set_readlen(args: argparse.Namespace, calc_handlers: List[UnifiedCalcHandler
     return max_readlen
 
 
-def run_calculation(args: argparse.Namespace, handler: UnifiedCalcHandler, output_basename: Path) -> Optional[CCResult]:
-    """Execute cross-correlation calculation for a single file.
+def run_calculation(args: argparse.Namespace, handler: UnifiedCalcHandler, output_basename: Path) -> Optional[StatisticsResult]:
+    """Execute cross-correlation calculation for a single file using new statistics system.
 
     Runs the main calculation workflow and creates a result handler
-    with the computed cross-correlation data.
+    with the computed cross-correlation data using the new StatisticsResult
+    class and UnifiedStats system, bypassing legacy compatibility layers.
 
     Args:
         args: Parsed command-line arguments
@@ -300,7 +302,7 @@ def run_calculation(args: argparse.Namespace, handler: UnifiedCalcHandler, outpu
         output_basename: Base path for output files
 
     Returns:
-        CCResult object containing calculation results, or None if failed
+        StatisticsResult object containing calculation results, or None if failed
     """
     logger.info("Process {}".format(handler.path))
 
@@ -310,42 +312,39 @@ def run_calculation(args: argparse.Namespace, handler: UnifiedCalcHandler, outpu
         return None
 
     try:
-        # Use new builder-based construction for better type safety and maintainability
-        return CCResult.from_handler_with_builder(
+        # Use new statistics system with container-based data access
+        return StatisticsResult.from_handler(
             handler,
             mv_avr_filter_len=args.smooth_window,
-            chi2_pval=args.chi2_pval,
+            expected_library_len=args.library_length,
             filter_mask_len=args.mask_size,
-            min_calc_width=args.bg_avr_width,
-            expected_library_len=args.library_length
+            min_calc_width=args.bg_avr_width
         )
     except ReadsTooFew:
-        logger.warning("Faild to process {}. Skip this file.".format(handler.path))
+        logger.warning("Failed to process {}. Skip this file.".format(handler.path))
         return None
 
 
-def output_results(args: argparse.Namespace, output_basename: Path, result_handler: Optional[CCResult]) -> None:
-    """Generate all output files and plots from calculation results.
+def output_results(args: argparse.Namespace, output_basename: Path, result_handler: Optional[StatisticsResult]) -> None:
+    """Generate all output files and plots from calculation results using new statistics system.
 
     Creates statistics files, data tables, and plots based on the
-    calculation results and user-specified options.
+    calculation results using the new StatisticsResult interface directly.
+    All output modules have been updated to work with StatisticsResult.
 
     Args:
         args: Parsed command-line arguments
         output_basename: Base path for output files
-        result_handler: CCResult object containing calculation results
-
-    Note:
-        Plot generation may be skipped if matplotlib is not available
+        result_handler: StatisticsResult object containing calculation results
     """
     if result_handler is None:
         return
-
+    
     output_stats(output_basename, result_handler)
     output_nreads_table(output_basename, result_handler)
     if not result_handler.skip_ncc:
         output_cc(output_basename, result_handler)
-    if result_handler.calc_masc:
+    if result_handler.has_mappability:
         output_mscc(output_basename, result_handler)
     if not args.skip_plots:
         plotfile_path = Path(str(output_basename) + PLOTFILE_SUFFIX)

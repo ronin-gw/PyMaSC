@@ -171,6 +171,11 @@ class CompositeCalculator(CrossCorrelationCalculator):
         """MSCC bins from MSCC calculator."""
         return self._mscc_calculator.ref2ccbins  # type: ignore[no-any-return]
 
+    @property
+    def ref2mappable_len(self) -> Optional[Dict[str, Any]]:
+        """Mappable lengths from MSCC calculator."""
+        return self._mscc_calculator.ref2mappable_len  # type: ignore[no-any-return]
+
 
 # Strategy implementations moved into factory methods
 

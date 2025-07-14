@@ -219,12 +219,8 @@ class UnifiedCalcHandler:
                         self.lengths[i] = new_length
                         self.config.lengths[i] = new_length
 
-
-    def run_calcuration(self) -> None:
-        """Execute cross-correlation calculation workflow.
-
-        Note: Method name kept as 'calcuration' for backward compatibility
-        """
+    def run_calculation(self) -> None:
+        """Execute cross-correlation calculation workflow."""
         if self.execution_config.mode == ExecutionMode.MULTI_PROCESS:
             # Setup progress coordinator for multiprocess
             self._progress_coordinator = ProgressCoordinator.create_for_multiprocess()
@@ -549,10 +545,10 @@ class UnifiedCalcHandler:
 
     def get_aggregation_result(self) -> Optional['AggregationResult']:
         """Get calculation results for new statistics system.
-        
+
         Provides read-only access to aggregation results without exposing
-        internal implementation details. Only valid after run_calcuration() completes.
-        
+        internal implementation details. Only valid after run_calculation() completes.
+
         Returns:
             AggregationResult containing calculation data, or None if not available
         """

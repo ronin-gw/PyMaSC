@@ -306,7 +306,7 @@ def run_calculation(args: argparse.Namespace, handler: UnifiedCalcHandler, outpu
     logger.info("Process {}".format(handler.path))
 
     try:
-        handler.run_calcuration()
+        handler.run_calculation()
     except ReadUnsortedError:
         return None
 

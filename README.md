@@ -193,7 +193,7 @@ are acceptable. This option can be declared multiple times to re-include chromos
 specified in a just before -e/--exclude-chrom option. Note that this option is case-sensitive.
 
 #####  -e / --exclude-chrom [pattern ...]
-As same as the -i/--include-chrom option, specify chromosomes to exclude from calcuration.
+As same as the -i/--include-chrom option, specify chromosomes to exclude from calculation.
 This option can be declared multiple times to re-exclude chromosomes specified in
 a just before -i/--include-chrom option.
 

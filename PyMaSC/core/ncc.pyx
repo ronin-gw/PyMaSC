@@ -59,21 +59,21 @@ cdef class NaiveCCCalculator(object):
         ref2reverse_sum: Reverse read counts by chromosome
         ref2ccbins: Cross-correlation bins by chromosome
     """
-    # cdef readonly:
-    #     int64 max_shift
-    #     dict ref2genomelen
-    #     int64 genomelen
-    #     int64 forward_sum, reverse_sum
-    #     dict ref2forward_sum, ref2reverse_sum
-    #     int64 forward_read_len_sum, reverse_read_len_sum
-    #     dict ref2ccbins
-    # cdef:
-    #     char _chr[1024]
-    #     int64 _forward_buff_size, _forward_sum, _reverse_sum
-    #     np.ndarray _ccbins
-    #     list _forward_buff, _reverse_buff
-    #
-    #     int64 _fb_tail_pos, _last_pos, _last_forward_pos
+    cdef readonly:
+        int64 max_shift
+        dict ref2genomelen
+        int64 genomelen
+        int64 forward_sum, reverse_sum
+        dict ref2forward_sum, ref2reverse_sum
+        int64 forward_read_len_sum, reverse_read_len_sum
+        dict ref2ccbins
+        object logger_lock
+    cdef:
+        str _chr
+        int64 _forward_buff_size, _forward_sum, _reverse_sum
+        np.ndarray _ccbins
+        list _forward_buff, _reverse_buff, _solved_chr
+        int64 _fb_tail_pos, _last_pos, _last_forward_pos
 
     def __init__(self, int64 max_shift, references, lengths, logger_lock=None):
         """

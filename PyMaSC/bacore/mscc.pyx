@@ -27,10 +27,13 @@ from PyMaSC.reader.bigwig cimport BigWigFileIterator
 from PyMaSC.core.ncc import ReadUnsortedError
 from PyMaSC.utils.progress import ProgressBar
 
+from PyMaCS.core.interfaces.calculator import CrossCorrelationCalculator
+from PyMaSC.core.interfaces.result import NCCResult, MSCCResult, BothGenomeWideResult
+
 logger = logging.getLogger(__name__)
 
 
-cdef class CCBitArrayCalculator(object):
+cdef class CCBitArrayCalculator(CrossCorrelationCalculator):
     """High-performance MSCC calculator using bit array operations.
 
     Implements mappability-sensitive cross-correlation calculation using
@@ -58,11 +61,6 @@ cdef class CCBitArrayCalculator(object):
         ref2genomelen: Chromosome name to length mapping
         genomelen: Total genome length
         forward_sum, reverse_sum: Total read counts by strand
-        ref2forward_sum, ref2reverse_sum: Per-chromosome read counts
-        ref2mappable_forward_sum, ref2mappable_reverse_sum: Mappable read counts
-        ref2ccbins: Naive cross-correlation results per chromosome
-        ref2mascbins: MSCC results per chromosome
-        ref2mappable_len: Mappability statistics per chromosome
         skip_ncc: Whether to skip naive cross-correlation calculation
     """
     cdef public:
@@ -72,19 +70,20 @@ cdef class CCBitArrayCalculator(object):
     cdef readonly:
         int64 max_shift
         int64 read_len
+        bint skip_ncc
+        object logger_lock
+    cdef:
+        list references
         dict ref2genomelen
         int64 genomelen
         int64 forward_sum, reverse_sum
-        dict ref2forward_sum, ref2reverse_sum
-        dict ref2mappable_forward_sum,  ref2mappable_reverse_sum
         int64 forward_read_len_sum, reverse_read_len_sum
-        dict ref2ccbins, ref2mascbins, ref2mappable_len
-        bint skip_ncc
-    cdef:
+
         str _chr
         list _solved_chr
         bitarray _forward_array, _reverse_array
-        object _bwfeeder, logger_lock, _progress
+        object _bwfeeder, _progress
+        dict ref2ncc_result, ref2mscc_result
 
         int64 _last_pos, _last_forward_pos, _last_reverse_pos, _array_extend_size
         bint _buff_flashed, _allow_bitarray_progress
@@ -113,19 +112,14 @@ cdef class CCBitArrayCalculator(object):
 
         self.max_shift = max_shift
         self.read_len = read_len
+        self.references = references
         self.ref2genomelen = dict(zip(references, lengths))
         self.genomelen = sum(lengths)
         # stats
+        self.ref2ncc_result = {}
+        self.ref2mscc_result = {}
         self.forward_sum = self.reverse_sum = 0
-        self.ref2forward_sum = {ref: 0 for ref in references}
-        self.ref2reverse_sum = {ref: 0 for ref in references}
-        # {forward,reverse}_sum[d[0...i]] = Number of reads in Md
-        self.ref2mappable_forward_sum = {ref: None for ref in references}
-        self.ref2mappable_reverse_sum = {ref: None for ref in references}
         self.forward_read_len_sum = self.reverse_read_len_sum = 0
-        self.ref2ccbins = {ref: None for ref in references}
-        self.ref2mascbins = {ref: None for ref in references}
-        self.ref2mappable_len = {ref: None for ref in references}
 
         # internal buff
         self._chr = ''
@@ -203,9 +197,14 @@ cdef class CCBitArrayCalculator(object):
             reverse_sum = self._reverse_array.count()
             self.forward_sum += forward_sum
             self.reverse_sum += reverse_sum
-            self.ref2forward_sum[self._chr] = forward_sum
-            self.ref2reverse_sum[self._chr] = reverse_sum
-            ccbin = self.ref2ccbins[self._chr] = []
+
+            self.ref2ncc_result[self._chr] = NCCResult(
+                genomelen=self.ref2genomelen[self._chr],
+                forward_sum=forward_sum,
+                reverse_sum=reverse_sum,
+                ccbins=[]  # Assign later
+            )
+            ccbin = self.ref2ncc_result[self._chr].ccbins
 
         # mappability-sensitive cross-correlation
         try:
@@ -215,10 +214,19 @@ cdef class CCBitArrayCalculator(object):
                                "Skip calc mappability sensitive CC.".format(e.args[0]))
             mappability = None
         if mappability:
-            mappable_len = self.ref2mappable_len[self._chr] = [None] * self.read_len
-            mappable_forward_sum = self.ref2mappable_forward_sum[self._chr] = []
-            mappable_reverse_sum = self.ref2mappable_reverse_sum[self._chr] = []
-            mascbin = self.ref2mascbins[self._chr] = []
+            # Attributes will be assigned later
+            result = self.ref2mscc_result[self._chr] = MSCCResult(
+                genomelen=self.ref2genomelen[self._chr],
+                forward_sum=[],
+                reverse_sum=[],
+                ccbins=[],
+                mappable_len=[None] * self.read_len
+            )
+
+            mappable_len = result.mappable_len
+            mappable_forward_sum = result.forward_sum
+            mappable_reverse_sum = result.reverse_sum
+            mascbin = result.ccbins
 
             forward_mappability = mappability
             reverse_mappability = mappability.clone()
@@ -376,8 +384,10 @@ cdef class CCBitArrayCalculator(object):
         if not self._bwfeeder:
             return None
 
-        for chrom, dmlength in self.ref2mappable_len.items():
-            if dmlength is not None:
+        #
+        cdef np.ndarray zero_bins = np.zeros(self.max_shift + 1, dtype=np.int64)
+        for chrom in self.references:
+            if chrom in self.ref2mscc_result:
                 continue
 
             self._chr = chrom
@@ -386,7 +396,15 @@ cdef class CCBitArrayCalculator(object):
             except KeyError:
                 continue
 
-            mappable_len = self.ref2mappable_len[self._chr] = []
+            result = self.ref2mscc_result[self._chr] = MSCCResult(
+                genomelen=self.ref2genomelen[self._chr],
+                forward_sum=zero_bins.copy(),
+                reverse_sum=zero_bins.copy(),
+                ccbins=zero_bins.copy(),
+                mappable_len=[]
+            )
+
+            mappable_len = result.mappable_len
             forward_mappability = mappability
             reverse_mappability = mappability.clone()
 
@@ -394,3 +412,20 @@ cdef class CCBitArrayCalculator(object):
             for i in xrange(self.max_shift + 1):
                 mappable_len.append(forward_mappability.acount(reverse_mappability))
                 reverse_mappability.rshift(1, 0)
+
+    def get_result(self):
+        """Get the genome-wide NCC and MSCC calculation results.
+
+        Returns:
+            MSCCGenomeWideResult: Complete results for all chromosomes including
+                per-chromosome MSCCResult objects and genome-wide statistics.
+        """
+        return BothGenomeWideResult(
+            genomelen=self.genomelen,
+            forward_sum=self.forward_sum,
+            reverse_sum=self.reverse_sum,
+            chroms=self.ref2ncc_result.copy(),
+            mappable_chroms=self.ref2mscc_result.copy(),
+            forward_read_len_sum=self.forward_read_len_sum,
+            reverse_read_len_sum=self.reverse_read_len_sum
+        )

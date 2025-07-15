@@ -24,6 +24,8 @@ from cython cimport boundscheck, wraparound
 from .utils cimport int64_min
 
 import numpy as np
+from .interfaces.calculator import CrossCorrelationCalculator
+from .interfaces.result import NCCResult, NCCGenomeWideResult
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +40,7 @@ class ReadUnsortedError(IndexError):
     pass
 
 
-cdef class NaiveCCCalculator(object):
+cdef class NaiveCCCalculator(CrossCorrelationCalculator):
     """Cython implementation of naive cross-correlation calculation.
 
     This class implements the core NCC algorithm using Cython for performance.
@@ -53,22 +55,23 @@ cdef class NaiveCCCalculator(object):
         max_shift: Maximum shift distance for correlation calculation
         ref2genomelen: Dictionary mapping chromosome names to lengths
         genomelen: Total genome length
-        forward_sum: Total forward read count
-        reverse_sum: Total reverse read count
-        ref2forward_sum: Forward read counts by chromosome
-        ref2reverse_sum: Reverse read counts by chromosome
-        ref2ccbins: Cross-correlation bins by chromosome
+        logger_lock: Thread lock for logging (optional)
+
+    Note:
+        Result data (forward/reverse sums, NCCResult objects) are stored internally
+        and accessed via get_genome_wide_result() method.
     """
     cdef readonly:
         int64 max_shift
-        dict ref2genomelen
-        int64 genomelen
-        int64 forward_sum, reverse_sum
-        dict ref2forward_sum, ref2reverse_sum
-        int64 forward_read_len_sum, reverse_read_len_sum
-        dict ref2ccbins
         object logger_lock
     cdef:
+        # Result storage (internal)
+        int64 genomelen
+        dict ref2genomelen
+        int64 forward_sum, reverse_sum
+        dict ref2ncc_result
+        int64 forward_read_len_sum, reverse_read_len_sum
+        # Calculation state
         str _chr
         int64 _forward_buff_size, _forward_sum, _reverse_sum
         np.ndarray _ccbins
@@ -90,10 +93,8 @@ cdef class NaiveCCCalculator(object):
         self.genomelen = sum(lengths)
         # stats
         self.forward_sum = self.reverse_sum = 0
-        self.ref2forward_sum = {ref: 0 for ref in references}
-        self.ref2reverse_sum = {ref: 0 for ref in references}
         self.forward_read_len_sum = self.reverse_read_len_sum = 0
-        self.ref2ccbins = {ref: None for ref in references}
+        self.ref2ncc_result = {}
         # internal buff
         self._forward_buff_size = max_shift + 1
         self._chr = ''
@@ -129,16 +130,21 @@ cdef class NaiveCCCalculator(object):
         """Finalize cross-correlation calculation for current chromosome.
 
         Completes the sliding window calculation for the current chromosome
-        and stores the results in the appropriate cross-correlation bins.
+        and stores the results as an NCCResult object.
         Called when switching to a new chromosome or finishing calculation.
         """
         self._shift_with_update(self._forward_buff_size)
 
         self.forward_sum += self._forward_sum
         self.reverse_sum += self._reverse_sum
-        self.ref2forward_sum[self._chr] = self._forward_sum
-        self.ref2reverse_sum[self._chr] = self._reverse_sum
-        self.ref2ccbins[self._chr] = tuple(self._ccbins)
+
+        # Create NCCResult for this chromosome
+        self.ref2ncc_result[self._chr] = NCCResult(
+            genomelen=self.ref2genomelen[self._chr],
+            forward_sum=self._forward_sum,
+            reverse_sum=self._reverse_sum,
+            ccbins=np.array(self._ccbins, dtype=np.int64)
+        )
 
     cdef inline _check_pos(self, str chrom, int64 pos):
         """Validate read position and handle chromosome transitions.
@@ -294,3 +300,19 @@ cdef class NaiveCCCalculator(object):
         Called at the end of the analysis workflow.
         """
         self.flush()
+
+    def get_result(self):
+        """Get the genome-wide NCC calculation results.
+
+        Returns:
+            NCCGenomeWideResult: Complete results for all chromosomes including
+                per-chromosome NCCResult objects and genome-wide statistics.
+        """
+        return NCCGenomeWideResult(
+            genomelen=self.genomelen,
+            forward_sum=self.forward_sum,
+            reverse_sum=self.reverse_sum,
+            chroms=self.ref2ncc_result.copy(),
+            forward_read_len_sum=self.forward_read_len_sum,
+            reverse_read_len_sum=self.reverse_read_len_sum
+        )

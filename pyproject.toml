@@ -63,6 +63,7 @@ dev = [
     "mypy>=1.0.0",
     "flake8",
     "autopep8",
+    "typing-extensions>=4.0.0; python_version < '3.9'",
 ]
 
 [project.urls]

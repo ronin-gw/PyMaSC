@@ -296,7 +296,7 @@ def _build_extensions():
         # BitArray dependent modules
         _define_extension(
             name,
-            include_dirs=BITARRAY_INCLUDES,
+            include_dirs=BITARRAY_INCLUDES + NUMPY_INCLUDES,
             extra_link_args=BITARRAY_LINK_ARGS,
             extra_compile_args=EXTRA_BA_ARGS
         ) for name in (

@@ -47,7 +47,7 @@ class StoreLoggingLevel(argparse.Action):
     corresponding logging module constants for use in log level configuration.
     """
     def __call__(self, parser: argparse.ArgumentParser, namespace: argparse.Namespace, values: Union[str, Sequence[Any], None], option_string: Optional[str] = None) -> None:
-        setattr(namespace, self.dest, getattr(logging, values))  # type: ignore[arg-type]
+        setattr(namespace, self.dest, getattr(logging, values))
 
 
 class ForceNaturalNumber(argparse.Action):
@@ -57,7 +57,7 @@ class ForceNaturalNumber(argparse.Action):
     clear error messages for invalid values.
     """
     def __call__(self, parser: argparse.ArgumentParser, namespace: argparse.Namespace, values: Union[str, Sequence[Any], None], option_string: Optional[str] = None) -> None:
-        if values < 1:  # type: ignore[operator]
+        if values < 1:
             parser.error("argument {} must be > 0.".format('/'.join(self.option_strings)))
         setattr(namespace, self.dest, values)
 

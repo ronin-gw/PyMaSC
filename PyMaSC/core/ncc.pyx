@@ -24,7 +24,6 @@ from cython cimport boundscheck, wraparound
 from .utils cimport int64_min
 
 import numpy as np
-from .interfaces.calculator import CrossCorrelationCalculator
 from .interfaces.result import NCCResult, NCCGenomeWideResult
 
 logger = logging.getLogger(__name__)
@@ -40,7 +39,7 @@ class ReadUnsortedError(IndexError):
     pass
 
 
-cdef class NaiveCCCalculator(CrossCorrelationCalculator):
+cdef class NaiveCCCalculator(object):
     """Cython implementation of naive cross-correlation calculation.
 
     This class implements the core NCC algorithm using Cython for performance.
@@ -140,6 +139,8 @@ cdef class NaiveCCCalculator(CrossCorrelationCalculator):
 
         # Create NCCResult for this chromosome
         self.ref2ncc_result[self._chr] = NCCResult(
+            max_shift=self.max_shift,
+            read_len=self._forward_buff_size,
             genomelen=self.ref2genomelen[self._chr],
             forward_sum=self._forward_sum,
             reverse_sum=self._reverse_sum,
@@ -308,6 +309,9 @@ cdef class NaiveCCCalculator(CrossCorrelationCalculator):
             NCCGenomeWideResult: Complete results for all chromosomes including
                 per-chromosome NCCResult objects and genome-wide statistics.
         """
+        for result in self.ref2ncc_result.values():
+            result.calc_cc()
+
         return NCCGenomeWideResult(
             genomelen=self.genomelen,
             forward_sum=self.forward_sum,

@@ -17,6 +17,7 @@ where performance and memory efficiency are essential.
 """
 import logging
 
+cimport numpy as np
 from libc.stdint cimport int_fast64_t as int64
 from libc.string cimport strcmp, strcpy
 from cython cimport boundscheck, wraparound
@@ -24,16 +25,17 @@ from cython cimport boundscheck, wraparound
 from .bitarray cimport bit_index_t, bitarray
 from PyMaSC.reader.bigwig cimport BigWigFileIterator
 
+import numpy as np
+
 from PyMaSC.core.ncc import ReadUnsortedError
 from PyMaSC.utils.progress import ProgressBar
 
-from PyMaCS.core.interfaces.calculator import CrossCorrelationCalculator
 from PyMaSC.core.interfaces.result import NCCResult, MSCCResult, BothGenomeWideResult
 
 logger = logging.getLogger(__name__)
 
 
-cdef class CCBitArrayCalculator(CrossCorrelationCalculator):
+cdef class CCBitArrayCalculator(object):
     """High-performance MSCC calculator using bit array operations.
 
     Implements mappability-sensitive cross-correlation calculation using
@@ -199,6 +201,8 @@ cdef class CCBitArrayCalculator(CrossCorrelationCalculator):
             self.reverse_sum += reverse_sum
 
             self.ref2ncc_result[self._chr] = NCCResult(
+                max_shift=self.max_shift,
+                read_len=self.read_len,
                 genomelen=self.ref2genomelen[self._chr],
                 forward_sum=forward_sum,
                 reverse_sum=reverse_sum,
@@ -216,6 +220,8 @@ cdef class CCBitArrayCalculator(CrossCorrelationCalculator):
         if mappability:
             # Attributes will be assigned later
             result = self.ref2mscc_result[self._chr] = MSCCResult(
+                max_shift=self.max_shift,
+                read_len=self.read_len,
                 genomelen=self.ref2genomelen[self._chr],
                 forward_sum=[],
                 reverse_sum=[],
@@ -387,6 +393,16 @@ cdef class CCBitArrayCalculator(CrossCorrelationCalculator):
         #
         cdef np.ndarray zero_bins = np.zeros(self.max_shift + 1, dtype=np.int64)
         for chrom in self.references:
+            if chrom not in self.ref2ncc_result:
+                self.ref2ncc_result[chrom] = NCCResult(
+                    max_shift=self.max_shift,
+                    read_len=self.read_len,
+                    genomelen=self.ref2genomelen[chrom],
+                    forward_sum=0,
+                    reverse_sum=0,
+                    ccbins=zero_bins.copy()
+                )
+
             if chrom in self.ref2mscc_result:
                 continue
 
@@ -397,6 +413,8 @@ cdef class CCBitArrayCalculator(CrossCorrelationCalculator):
                 continue
 
             result = self.ref2mscc_result[self._chr] = MSCCResult(
+                max_shift=self.max_shift,
+                read_len=self.read_len,
                 genomelen=self.ref2genomelen[self._chr],
                 forward_sum=zero_bins.copy(),
                 reverse_sum=zero_bins.copy(),
@@ -420,6 +438,12 @@ cdef class CCBitArrayCalculator(CrossCorrelationCalculator):
             MSCCGenomeWideResult: Complete results for all chromosomes including
                 per-chromosome MSCCResult objects and genome-wide statistics.
         """
+        for result in self.ref2ncc_result.values():
+            result.calc_cc()
+
+        for result in self.ref2mscc_result.values():
+            result.calc_cc()
+
         return BothGenomeWideResult(
             genomelen=self.genomelen,
             forward_sum=self.forward_sum,

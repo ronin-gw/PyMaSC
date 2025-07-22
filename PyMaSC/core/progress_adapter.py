@@ -44,9 +44,9 @@ class ProgressBarAdapter(ProgressBar):
 
         # Force restore our methods that may have been overridden
         # Save the class method references
-        self.update = self.__class__.update.__get__(self, self.__class__)  # type: ignore[method-assign]
-        self.clean = self.__class__.clean.__get__(self, self.__class__)  # type: ignore[method-assign]
-        self.set = self.__class__.set.__get__(self, self.__class__)  # type: ignore[method-assign]
+        self.update = self.__class__.update.__get__(self, self.__class__)
+        self.clean = self.__class__.clean.__get__(self, self.__class__)
+        self.set = self.__class__.set.__get__(self, self.__class__)
 
     def attach_observer(self, observer: ProgressObserver) -> None:
         """Attach an observer to this progress bar.
@@ -64,7 +64,7 @@ class ProgressBarAdapter(ProgressBar):
         """
         self._subject.detach(observer)
 
-    def set(self, name: str, maxval: int) -> None:  # type: ignore[override]
+    def set(self, name: str, maxval: int) -> None:
         """Set up progress bar and notify start event.
 
         Args:
@@ -82,7 +82,7 @@ class ProgressBarAdapter(ProgressBar):
             message=f"Starting {name}"
         )
 
-    def update(self, val: int) -> None:  # type: ignore[override]
+    def update(self, val: int) -> None:
         """Update progress and notify observers.
 
         Args:
@@ -109,7 +109,7 @@ class ProgressBarAdapter(ProgressBar):
     def clean(self) -> None:
         """Clean up progress bar and notify completion."""
         # Clean the actual progress bar display if enabled
-        if self.global_switch and self._do_clean:  # type: ignore[truthy-function]
+        if self.global_switch and self._do_clean:
             try:
                 self._do_clean()
             except:
@@ -188,11 +188,11 @@ class LegacyProgressObserver(ProgressObserver):
     def _handle_progress_bar_event(self, event: ProgressEvent) -> None:
         """Handle event for ProgressBar."""
         if event.event_type == ProgressEventType.STARTED and event.total:
-            self.legacy_progress.set(event.source, event.total)  # type: ignore[union-attr]
+            self.legacy_progress.set(event.source, event.total)
             self._source_info[event.source] = {'total': event.total}
 
         elif event.event_type == ProgressEventType.UPDATED and event.current is not None:
-            self.legacy_progress.update(event.current)  # type: ignore[call-arg]
+            self.legacy_progress.update(event.current)
 
         elif event.event_type in (ProgressEventType.COMPLETED, ProgressEventType.FAILED):
             self.legacy_progress.clean()
@@ -214,7 +214,7 @@ class LegacyProgressObserver(ProgressObserver):
                 self._update_multiline_display(event.source)
 
         elif event.event_type in (ProgressEventType.COMPLETED, ProgressEventType.FAILED):
-            self.legacy_progress.erase(event.source)  # type: ignore[union-attr]
+            self.legacy_progress.erase(event.source)
             if event.source in self._source_info:
                 del self._source_info[event.source]
 
@@ -230,7 +230,7 @@ class LegacyProgressObserver(ProgressObserver):
         else:
             display = f"Processing... {current} items"
 
-        self.legacy_progress.update(source, display)  # type: ignore[call-arg,arg-type]
+        self.legacy_progress.update(source, display)
 
 
 class ProgressManager:
@@ -264,7 +264,7 @@ class ProgressManager:
         if observer_aware:
             progress_bar = ProgressBarAdapter()
             # Connect to central subject
-            progress_bar.attach_observer(self.subject)  # type: ignore[arg-type]
+            progress_bar.attach_observer(self.subject)
             return progress_bar
         else:
             return ProgressBar()

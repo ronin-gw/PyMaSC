@@ -28,13 +28,12 @@ from .utils cimport int64_min, int64_max
 import numpy as np
 from .ncc import ReadUnsortedError
 from .mappability import ContinueCalculation
-from .interfaces.calculator import CrossCorrelationCalculator
 from .interfaces.result import MSCCResult, MSCCGenomeWideResult
 
 logger = logging.getLogger(__name__)
 
 
-cdef class MSCCCalculator(CrossCorrelationCalculator):
+cdef class MSCCCalculator(object):
     """Cython implementation of Mappability-Sensitive Cross-Correlation.
 
     This class implements the MSCC algorithm using Cython for performance.
@@ -194,6 +193,8 @@ cdef class MSCCCalculator(CrossCorrelationCalculator):
 
         # Create MSCCResult for this chromosome
         self.ref2mscc_result[self._chr] = MSCCResult(
+            max_shift=self.max_shift,
+            read_len=self.read_len,
             genomelen=self.ref2genomelen[self._chr],
             forward_sum=self._forward_sum,
             reverse_sum=self._reverse_sum,
@@ -462,6 +463,8 @@ cdef class MSCCCalculator(CrossCorrelationCalculator):
         for ref in self.references:
             if ref not in self.ref2mscc_result:
                 self.ref2mscc_result[ref] = MSCCResult(
+                    max_shift=self.max_shift,
+                    read_len=self.read_len,
                     genomelen=self.ref2genomelen[ref],
                     forward_sum=zero_bins.copy(),
                     reverse_sum=zero_bins.copy(),
@@ -489,6 +492,9 @@ cdef class MSCCCalculator(CrossCorrelationCalculator):
             MSCCGenomeWideResult: Complete results for all chromosomes including
                 per-chromosome MSCCResult objects and genome-wide statistics.
         """
+        for result in self.ref2mscc_result.values():
+            result.calc_cc()
+
         return MSCCGenomeWideResult(
             genomelen=self.genomelen,
             chroms=self.ref2mscc_result.copy(),

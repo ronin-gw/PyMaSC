@@ -381,7 +381,7 @@ def _load_chrom_sizes(path: Union[str, os.PathLike[str]]) -> Dict[str, int]:
         ValueError: If file format is invalid
     """
     try:
-        with AlignmentFile(path) as f:  # type: ignore[arg-type]
+        with AlignmentFile(path) as f:
             return {r: l for r, l in zip(f.references, f.lengths)}
     except ValueError:
         ref2len: Dict[str, int] = {}

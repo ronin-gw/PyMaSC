@@ -30,7 +30,8 @@ from PyMaSC.core.models import (
 from PyMaSC.core.bam_processor import BAMFileProcessor, BAMValidationError
 from PyMaSC.core.progress_coordinator import ProgressCoordinator, ProgressConfig, ProgressMode
 from PyMaSC.handler.base import NothingToCalc
-from PyMaSC.core.interfaces import CrossCorrelationCalculator
+from PyMaSC.core.interfaces.calculator import CrossCorrelationCalculator
+from PyMaSC.core.interfaces.result import GenomeWideResult
 from PyMaSC.core.readlen import estimate_readlen
 from PyMaSC.core.progress_adapter import ProgressBarAdapter, ProgressManager, get_progress_manager
 from PyMaSC.core.worker import WorkerResult
@@ -219,21 +220,21 @@ class UnifiedCalcHandler:
                         self.lengths[i] = new_length
                         self.config.lengths[i] = new_length
 
-    def run_calculation(self) -> None:
+    def run_calculation(self) -> GenomeWideResult:
         """Execute cross-correlation calculation workflow."""
         if self.execution_config.mode == ExecutionMode.MULTI_PROCESS:
             # Setup progress coordinator for multiprocess
             self._progress_coordinator = ProgressCoordinator.create_for_multiprocess()
-            self._run_multiprocess_calculation()
+            return self._run_multiprocess_calculation()
         else:
             # Setup progress coordinator for single process
             self._progress_coordinator = ProgressCoordinator.create_for_single_process(
                 use_observer=self.use_observer_progress,
                 observers=self._progress_observers
             )
-            self._run_singleprocess_calculation()
+            return self._run_singleprocess_calculation()
 
-    def _run_singleprocess_calculation(self) -> None:
+    def _run_singleprocess_calculation(self) -> GenomeWideResult:
         """Execute calculation in single process mode."""
         # Create calculator using strategy
         calculator = self.calc_context.create_calculator(
@@ -289,10 +290,8 @@ class UnifiedCalcHandler:
 
         # Finalize calculation
         calculator.finishup_calculation()
-
-        # Collect results
-        self._collect_calculator_results(calculator)
         self._calc_unsolved_mappability()
+        return calculator.get_result()
 
     def _run_multiprocess_calculation(self) -> None:
         """Execute calculation using multiple processes."""
@@ -403,20 +402,6 @@ class UnifiedCalcHandler:
         if self._aggregation_result.validation_errors:
             logger.warning(f"Worker aggregation validation errors: {self._aggregation_result.validation_errors}")
 
-    def _collect_calculator_results(self, calculator: CrossCorrelationCalculator) -> None:
-        """Collect results from calculator instance using aggregation system."""
-        self._aggregation_result = self._result_aggregator.aggregate_from_calculator(
-            calculator=calculator,
-            references=self.references,
-            lengths=self.lengths,
-            read_length=self.read_len or 0,  # Use 0 as fallback if not set
-            skip_ncc=self.config.skip_ncc
-        )
-
-        # Log aggregation success
-        if self._aggregation_result.validation_errors:
-            logger.warning(f"Aggregation validation errors: {self._aggregation_result.validation_errors}")
-
     def _calc_unsolved_mappability(self) -> None:
         """Complete any remaining mappability calculations."""
         if self.mappability_handler is not None:
@@ -425,50 +410,6 @@ class UnifiedCalcHandler:
                     self.mappability_handler.chrom2is_called.values()
                 )
                 self.mappability_handler.calc_mappability()
-            # Mappability lengths are now accessed through aggregation result
-
-    # # Properties for accessing result data through aggregation result
-    # @property
-    # def ref2forward_sum(self) -> Dict[str, int]:
-    #     """Forward read counts by chromosome."""
-    #     if self._aggregation_result is None:
-    #         return {}
-    #     return self._aggregation_result.legacy_attributes.get('ref2forward_sum', {})
-
-    # @property
-    # def ref2reverse_sum(self) -> Dict[str, int]:
-    #     """Reverse read counts by chromosome."""
-    #     if self._aggregation_result is None:
-    #         return {}
-    #     return self._aggregation_result.legacy_attributes.get('ref2reverse_sum', {})
-
-    # @property
-    # def ref2ccbins(self) -> Dict[str, Any]:
-    #     """Cross-correlation bins by chromosome."""
-    #     if self._aggregation_result is None:
-    #         return {}
-    #     return self._aggregation_result.legacy_attributes.get('ref2ccbins', {})
-
-    # @property
-    # def mappable_ref2forward_sum(self) -> Dict[str, Any]:
-    #     """Mappable forward read counts by chromosome."""
-    #     if self._aggregation_result is None:
-    #         return {}
-    #     return self._aggregation_result.legacy_attributes.get('mappable_ref2forward_sum', {})
-
-    # @property
-    # def mappable_ref2reverse_sum(self) -> Dict[str, Any]:
-    #     """Mappable reverse read counts by chromosome."""
-    #     if self._aggregation_result is None:
-    #         return {}
-    #     return self._aggregation_result.legacy_attributes.get('mappable_ref2reverse_sum', {})
-
-    # @property
-    # def mappable_ref2ccbins(self) -> Dict[str, Any]:
-    #     """Mappable cross-correlation bins by chromosome."""
-    #     if self._aggregation_result is None:
-    #         return {}
-    #     return self._aggregation_result.legacy_attributes.get('mappable_ref2ccbins', {})
 
     @property
     def ref2mappable_len(self) -> Dict[str, Any]:

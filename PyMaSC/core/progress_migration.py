@@ -54,18 +54,18 @@ def _apply_migration_patches() -> None:
         _original_classes['ReadCountProgressBar'] = progress_module.ReadCountProgressBar
 
     # Replace with adapter factories
-    progress_module.ProgressBar = _create_progress_bar_factory()  # type: ignore[assignment,misc]
-    progress_module.ProgressHook = _create_progress_hook_factory()  # type: ignore[assignment,misc]
-    progress_module.ReadCountProgressBar = _create_read_count_factory()  # type: ignore[assignment,misc]
+    progress_module.ProgressBar = _create_progress_bar_factory()
+    progress_module.ProgressHook = _create_progress_hook_factory()
+    progress_module.ReadCountProgressBar = _create_read_count_factory()
 
 
 def _restore_original_classes() -> None:
     """Restore original progress classes."""
     if _original_classes:
         import PyMaSC.utils.progress as progress_module
-        progress_module.ProgressBar = _original_classes['ProgressBar']  # type: ignore[misc]
-        progress_module.ProgressHook = _original_classes['ProgressHook']  # type: ignore[misc]
-        progress_module.ReadCountProgressBar = _original_classes['ReadCountProgressBar']  # type: ignore[misc]
+        progress_module.ProgressBar = _original_classes['ProgressBar']
+        progress_module.ProgressHook = _original_classes['ProgressHook']
+        progress_module.ReadCountProgressBar = _original_classes['ReadCountProgressBar']
 
 
 def _create_progress_bar_factory() -> Callable[..., Any]:
@@ -82,7 +82,7 @@ def _create_progress_bar_factory() -> Callable[..., Any]:
         else:
             return _original_classes['ProgressBar'](*args, **kwargs)
 
-    factory._auto_attach_observers = []  # type: ignore[attr-defined]
+    factory._auto_attach_observers = []
     return factory
 
 
@@ -121,7 +121,7 @@ def _create_read_count_factory() -> Callable[..., Any]:
             return _original_classes.get('ReadCountProgressBar',
                                         ReadCountProgressBar)(*args, **kwargs)
 
-    factory._auto_attach_observers = []  # type: ignore[attr-defined]
+    factory._auto_attach_observers = []
     return factory
 
 

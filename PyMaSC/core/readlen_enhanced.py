@@ -73,7 +73,7 @@ class ReadLengthEstimator:
         """
         # If not using observers, just call original function
         if not self.use_observer:
-            return _original_estimate_readlen(path, esttype, mapq_criteria)  # type: ignore[no-any-return]
+            return _original_estimate_readlen(path, esttype, mapq_criteria)
 
         # Notify observers about start
         if self._progress_manager:
@@ -105,7 +105,7 @@ class ReadLengthEstimator:
                 if hasattr(observer, 'notify_complete'):
                     observer.notify_complete("read_length_estimation", result=result)
 
-            return result  # type: ignore[no-any-return]
+            return result
 
         except Exception as e:
             # Notify failure

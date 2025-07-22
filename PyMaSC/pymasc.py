@@ -20,11 +20,12 @@ from PyMaSC.handler.mappability import MappabilityHandler, BWIOError, JSONIOErro
 from PyMaSC.handler.unified import InputUnseekable
 from PyMaSC.handler.base import NothingToCalc
 from PyMaSC.handler.unified import UnifiedCalcHandler
+from PyMaSC.core.interfaces.stats import GenomeWideStats
 from PyMaSC.core.models import (
     CalculationConfig, ExecutionConfig, CalculationTarget,
     ImplementationAlgorithm, ExecutionMode, MappabilityConfig
 )
-from PyMaSC.core.statistics import StatisticsResult
+from PyMaSC.core.stats import make_genome_wide_stat
 from PyMaSC.core.exceptions import ReadsTooFew
 from PyMaSC.core.ncc import ReadUnsortedError
 from PyMaSC.output.stats import output_stats, STATSFILE_SUFFIX
@@ -128,8 +129,8 @@ def main() -> None:
     logger.info("Calculate cross-correlation between 0 to {} base shift"
                 "with reads MAOQ >= {}".format(args.max_shift, args.mapq))
     for handler, output_basename in zip(calc_handlers, basenames):
-        result_handler = run_calculation(args, handler, output_basename)
-        output_results(args, output_basename, result_handler)
+        result = run_calculation(args, handler, output_basename)
+        output_results(args, output_basename, result)
 
     #
     if mappability_handler:
@@ -288,7 +289,7 @@ def set_readlen(args: argparse.Namespace, calc_handlers: List[UnifiedCalcHandler
     return max_readlen
 
 
-def run_calculation(args: argparse.Namespace, handler: UnifiedCalcHandler, output_basename: Path) -> Optional[StatisticsResult]:
+def run_calculation(args: argparse.Namespace, handler: UnifiedCalcHandler, output_basename: Path) -> Optional[GenomeWideStats]:
     """Execute cross-correlation calculation for a single file using new statistics system.
 
     Runs the main calculation workflow and creates a result handler
@@ -306,25 +307,27 @@ def run_calculation(args: argparse.Namespace, handler: UnifiedCalcHandler, outpu
     logger.info("Process {}".format(handler.path))
 
     try:
-        handler.run_calculation()
+        result = handler.run_calculation()
     except ReadUnsortedError:
         return None
 
     try:
         # Use new statistics system with container-based data access
-        return StatisticsResult.from_handler(
-            handler,
+        return make_genome_wide_stat(
+            result,
+            read_len=handler.read_len,
             mv_avr_filter_len=args.smooth_window,
             expected_library_len=args.library_length,
             filter_mask_len=args.mask_size,
-            min_calc_width=args.bg_avr_width
+            min_calc_width=args.bg_avr_width,
+            output_warnings=True
         )
     except ReadsTooFew:
         logger.warning("Failed to process {}. Skip this file.".format(handler.path))
         return None
 
 
-def output_results(args: argparse.Namespace, output_basename: Path, result_handler: Optional[StatisticsResult]) -> None:
+def output_results(args: argparse.Namespace, output_basename: Path, result: Optional[GenomeWideStats]) -> None:
     """Generate all output files and plots from calculation results using new statistics system.
 
     Creates statistics files, data tables, and plots based on the
@@ -336,15 +339,15 @@ def output_results(args: argparse.Namespace, output_basename: Path, result_handl
         output_basename: Base path for output files
         result_handler: StatisticsResult object containing calculation results
     """
-    if result_handler is None:
+    if result is None:
         return
-    
-    output_stats(output_basename, result_handler)
-    output_nreads_table(output_basename, result_handler)
-    if not result_handler.skip_ncc:
-        output_cc(output_basename, result_handler)
-    if result_handler.has_mappability:
-        output_mscc(output_basename, result_handler)
+
+    output_stats(output_basename, result)
+    output_nreads_table(output_basename, result)
+    if result.whole_ncc_stats is not None:
+        output_cc(output_basename, result)
+    if result.whole_mscc_stats is not None:
+        output_mscc(output_basename, result)
     if not args.skip_plots:
         plotfile_path = Path(str(output_basename) + PLOTFILE_SUFFIX)
         try:
@@ -352,4 +355,4 @@ def output_results(args: argparse.Namespace, output_basename: Path, result_handl
         except ImportError:
             logger.error("Skip output plots '{}'".format(plotfile_path))
         else:
-            plot_figures(plotfile_path, result_handler)
+            plot_figures(plotfile_path, result)

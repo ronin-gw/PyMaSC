@@ -16,85 +16,79 @@ from __future__ import annotations, print_function
 import logging
 import os
 from pathlib import Path
-from typing import Any, Callable, Dict, Tuple, Union
-
-import numpy as np
+from typing import Any, Dict, Tuple, Union, TypeVar, Literal, Optional, TextIO
 
 from PyMaSC.utils.output import catch_IOError
-
-STATSFILE_SUFFIX = "_stats.tab"
-STAT_ATTR = (
-    ("Read length", "read_len"),
-    ("Expected library length", "library_len"),
-    ("Estimated library length", "est_lib_len")
-)
-STAT_CC_ATTR = (
-    ("Genome length", "genomelen"),
-    ("Forward reads", "forward_sum"),
-    ("Reverse reads", "reverse_sum"),
-    ("Minimum NCC", "cc_min"),
-    ("NCC at read length", "ccrl"),
-    ("NCC at expected library length", "ccfl"),
-    ("NCC at estimated library length", "est_ccfl"),
-    ("NSC", "nsc"),
-    ("RSC", "rsc"),
-    ("Estimated NSC", "est_nsc"),
-    ("Estimated RSC", "est_rsc"),
-    ("FWHM", "cc_width"),
-    ("VSN", "vsn"),
-    ("Estimated FWHM", "est_cc_width"),
-    ("Estimated VSN", "est_vsn")
-)
-
-
-def get_rl_item_from(attr: str) -> Callable[[Any], Union[str, Any]]:
-    """Create accessor function for read-length-indexed arrays.
-
-    Generates a function that extracts values from arrays at the read length
-    position, handling None values gracefully.
-
-    Args:
-        attr: Attribute name to access from CCStats objects
-
-    Returns:
-        Function that extracts read-length-indexed values
-    """
-    def _func(ccstats: Any) -> Union[str, Any]:
-        array = getattr(ccstats, attr, None)
-        if array is None:
-            return "nan"
-        value = array[ccstats.read_len - 1]
-        # For certain attributes that should be integers, convert float to int
-        if attr in ["genomelen", "forward_sum", "reverse_sum"] and isinstance(value, (float, np.floating)):
-            if value == int(value):  # Only convert if it's a whole number
-                return int(value)
-        return value
-    return _func
-
-
-STAT_MSCC_ATTR = (
-    ("DMP length", get_rl_item_from("genomelen")),
-    ("Forward reads in DMP", get_rl_item_from("forward_sum")),
-    ("Reverse reads in DMP", get_rl_item_from("reverse_sum")),
-    ("Minimum MSCC", "cc_min"),
-    ("MSCC at read length", "ccrl"),
-    ("MSCC at expected library length", "ccfl"),
-    ("MSCC at estimated library length", "est_ccfl"),
-    ("MSCC NSC", "nsc"),
-    ("MSCC RSC", "rsc"),
-    ("Estimated MSCC NSC", "est_nsc"),
-    ("Estimated MSCC RSC", "est_rsc"),
-    ("MSCC FWHM", "cc_width"),
-    ("MSCC VSN", get_rl_item_from("vsn")),
-    ("Estimated MSCC FWHM", "est_cc_width"),
-    ("Estimated MSCC VSN", get_rl_item_from("est_vsn"))
-)
+from PyMaSC.core.interfaces.stats import GenomeWideStats, CCStats
 
 logger = logging.getLogger(__name__)
 
+STATSFILE_SUFFIX = "_stats.tab"
+
+STAT_ATTR = (
+    "genomelen",
+    "forward_reads",
+    "reverse_reads",
+    "cc_min",
+    "ccrl"
+)
+
+QC_ATTR = (
+    "ccfl",
+    "nsc",
+    "rsc",
+    "fwhm",
+    "vsn"
+)
+
+NCC_LABELS = (
+    "Genome length",
+    "Forward reads",
+    "Reverse reads",
+    "Minimum NCC",
+    "NCC at read length",
+    "NCC at expected library length",
+    "NCC at estimated library length",
+    "NSC",
+    "RSC",
+    "Estimated NSC",
+    "Estimated RSC",
+    "FWHM",
+    "VSN",
+    "Estimated FWHM",
+    "Estimated VSN"
+)
+
+
+MSCC_LABELS = (
+    "DMP length",
+    "Forward reads in DMP",
+    "Reverse reads in DMP",
+    "Minimum MSCC",
+    "MSCC at read length",
+    "MSCC at expected library length",
+    "MSCC at estimated library length",
+    "MSCC NSC",
+    "MSCC RSC",
+    "Estimated MSCC NSC",
+    "Estimated MSCC RSC",
+    "MSCC FWHM",
+    "MSCC VSN",
+    "Estimated MSCC FWHM",
+    "Estimated MSCC VSN"
+)
+
+
+T = TypeVar('T')
+
+
+def _none2nan(value: T) -> Union[T, Literal["nan"]]:
+    """Convert None to 'nan' string for output."""
+    return "nan" if value is None else value
+
 
 @catch_IOError(logger)
-def output_stats(outfile: os.PathLike[str], stats_result: Any) -> None:
+def output_stats(outfile: os.PathLike[str], stats_result: GenomeWideStats) -> None:
     """Output comprehensive statistics to tab-delimited file using new StatisticsResult interface.
 
     Generates a complete statistics file containing all analysis metrics
@@ -110,66 +104,47 @@ def output_stats(outfile: os.PathLike[str], stats_result: Any) -> None:
     outfile_with_suffix = str(outfile_path) + STATSFILE_SUFFIX
     logger.info("Output '{}'".format(outfile_with_suffix))
 
-    def _get_safe_value(obj, attr, default="nan"):
-        """Get attribute value safely, handling None objects."""
-        if obj is None:
-            return default
-        val = getattr(obj, attr, None)
-        if val is None or (isinstance(val, bool) and not val):
-            return default
-        # Handle array values that may be VSN or other arrays
-        elif hasattr(val, '__len__') and not isinstance(val, str):
-            # Arrays should not reach here for simple attributes
-            return default  # Fallback to avoid ambiguous array evaluation
-        return val
-
     with open(outfile_with_suffix, 'w') as f:
-        print("{}\t{}".format("Name", basename), file=f)
-        
-        # Extract basic attributes from genome-wide stats
-        genome_stats = stats_result.genome_wide_stats
-        for row, attr in STAT_ATTR:
-            val = _get_safe_value(genome_stats, attr)
-            print("{}\t{}".format(row, val), file=f)
-        
-        # Extract CC attributes from genome-wide CC stats
-        cc_stats = genome_stats.cc if genome_stats else None
-        for row, attr in STAT_CC_ATTR:
-            val = _get_safe_value(cc_stats, attr)
-            print("{}\t{}".format(row, val), file=f)
-        
-        # Extract MSCC attributes from genome-wide MSCC stats
-        masc_stats = genome_stats.masc if genome_stats else None
-        for row, attr in STAT_MSCC_ATTR:  # type: ignore[assignment]
-            if callable(attr):
-                # Handle callable extractors (like get_rl_item_from)
-                if masc_stats is not None:
-                    try:
-                        val = attr(masc_stats)
-                    except Exception:
-                        val = "nan"
-                else:
-                    val = "nan"
-            else:
-                val = _get_safe_value(masc_stats, attr, "nan")
-                if val == False:  # Handle specific case where False should become "nan"
-                    val = "nan"
-            print("{}\t{}".format(row, val), file=f)
+        #
+        print(f"Name\t{basename}", file=f)
+        print(f"Read length\t{stats_result.read_len}", file=f)
+        print(f"Expected library length\t{_none2nan(stats_result.expected_lib_len)}", file=f)
+        print(f"Estimated library length\t{_none2nan(stats_result.est_lib_len)}", file=f)
+
+        #
+        ncc_stats = None if stats_result.whole_ncc_stats is None else stats_result.whole_ncc_stats.stats
+        mscc_stats = None if stats_result.whole_mscc_stats is None else stats_result.whole_mscc_stats.stats
+        _print_stats(ncc_stats, NCC_LABELS, f)
+        _print_stats(mscc_stats, MSCC_LABELS, f)
+
+
+def _print_stats(stats: Optional[CCStats], labels: Tuple[str, ...], output: TextIO) -> None:
+    """Print statistics for a given CCStats object."""
+    #
+    if stats is None:
+        values = ["nan"] * len(labels)
+    else:
+        values = [_none2nan(getattr(stats, attr)) for attr in STAT_ATTR]
+        ccfl, nsc, rsc, fwhm, vsn = (
+            _none2nan(getattr(stats.metrics_at_expected_length, attr)) for attr in QC_ATTR
+        )
+        ccfl_exp, nsc_exp, rsc_exp, fwhm_exp, vsn_exp = (
+            _none2nan(getattr(stats.metrics_at_estimated_length, attr)) for attr in QC_ATTR
+        )
+        values += [
+            ccfl, ccfl_exp,
+            nsc, rsc, nsc_exp, rsc_exp,
+            fwhm, vsn, fwhm_exp, vsn_exp
+        ]
+
+    #
+    for label, value in zip(labels, values):
+        print(f"{label}\t{value}", file=output)
 
 
 @catch_IOError(logger)
 def load_stats(path: os.PathLike[str], names: Tuple[str, ...]) -> Dict[str, Any]:
-    """Load statistics from tab-delimited file.
-
-    Reads statistics file and extracts requested attributes for use in
-    plot regeneration or analysis continuation.
-
-    Args:
-        path: Path to statistics file
-        names: List of attribute names to extract
-
-    Returns:
-        Dictionary mapping attribute names to values
+    """WIP
     """
     logger.info("Load statistics from '{}'.".format(path))
     stat2attr = {k: v for k, v in STAT_ATTR if v in names}
@@ -181,6 +156,6 @@ def load_stats(path: os.PathLike[str], names: Tuple[str, ...]) -> Dict[str, Any]
                 attrs["name"] = val.rstrip()
             if row in stat2attr:
                 val_converted: Union[int, None] = int(val) if val.strip().isdigit() else None
-                val = val_converted  # type: ignore[assignment]
+                val = val_converted
                 attrs[stat2attr[row]] = val
     return attrs

@@ -20,7 +20,7 @@ from typing import Optional, Dict, Any, Protocol, runtime_checkable
 
 from pysam import AlignmentFile, AlignedSegment
 
-from PyMaSC.core.interfaces import CrossCorrelationCalculator
+from PyMaSC.core.interfaces.calculator import CrossCorrelationCalculator
 from PyMaSC.core.models import WorkerConfig, CalculationConfig, CalculationTarget, ImplementationAlgorithm
 from PyMaSC.utils.progress import ProgressHook
 from PyMaSC.utils.read_processing import ReadProcessor as ReadProcessorUtil, create_standard_filter
@@ -362,18 +362,18 @@ class UnifiedWorker(BaseWorker):
             if self._secondary_calculator:
                 # Dual processor for NCC+MSCC
                 self._processor = DualReadProcessor(
-                    self._calculator,  # type: ignore[arg-type]
+                    self._calculator,
                     self._secondary_calculator,
                     calc_config.mapq_criteria
                 )
             else:
                 # Standard single processor
                 self._processor = StandardReadProcessor(
-                    self._calculator,  # type: ignore[arg-type]
+                    self._calculator,
                     calc_config.mapq_criteria
                 )
 
-        return self._processor  # type: ignore[return-value]
+        return self._processor
 
     def _collect_results(self, chrom: str) -> WorkerResult:
         """Collect results from calculators."""
@@ -391,7 +391,7 @@ class UnifiedWorker(BaseWorker):
         if self._bwfeeder and hasattr(self._bwfeeder, 'chrom2mappable_len'):
             result.mappable_length = self._bwfeeder.chrom2mappable_len.get(chrom)
         elif hasattr(self._calculator, 'ref2mappable_len'):
-            result.mappable_length = self._calculator.ref2mappable_len.get(chrom)  # type: ignore[union-attr]
+            result.mappable_length = self._calculator.ref2mappable_len.get(chrom)
         elif hasattr(self._calculator, '_calculator') and hasattr(self._calculator._calculator, 'ref2mappable_len'):
             # Try inner calculator (for CalculatorAdapter)
             inner_calc = self._calculator._calculator
@@ -407,9 +407,9 @@ class UnifiedWorker(BaseWorker):
             result.ncc_bins = self._secondary_calculator.ref2ccbins.get(chrom)
         elif not self.config.calculation_config.skip_ncc:
             # From primary calculator if it includes NCC
-            result.ncc_forward_sum = self._calculator.ref2forward_sum.get(chrom)  # type: ignore[union-attr]
-            result.ncc_reverse_sum = self._calculator.ref2reverse_sum.get(chrom)  # type: ignore[union-attr]
-            result.ncc_bins = self._calculator.ref2ccbins.get(chrom)  # type: ignore[union-attr]
+            result.ncc_forward_sum = self._calculator.ref2forward_sum.get(chrom)
+            result.ncc_reverse_sum = self._calculator.ref2reverse_sum.get(chrom)
+            result.ncc_bins = self._calculator.ref2ccbins.get(chrom)
 
         # Collect MSCC results
         target = self.config.calculation_config.target
@@ -418,15 +418,15 @@ class UnifiedWorker(BaseWorker):
 
         if target == CalculationTarget.MSCC:
             # For pure MSCC, use standard ref2* attributes
-            result.mscc_forward_sum = self._calculator.ref2forward_sum.get(chrom)  # type: ignore[union-attr]
-            result.mscc_reverse_sum = self._calculator.ref2reverse_sum.get(chrom)  # type: ignore[union-attr]
-            result.mscc_bins = self._calculator.ref2ccbins.get(chrom)  # type: ignore[union-attr]
+            result.mscc_forward_sum = self._calculator.ref2forward_sum.get(chrom)
+            result.mscc_reverse_sum = self._calculator.ref2reverse_sum.get(chrom)
+            result.mscc_bins = self._calculator.ref2ccbins.get(chrom)
         elif implementation == ImplementationAlgorithm.SUCCESSIVE and has_mappability:
             # For SUCCESSIVE with mappability (CompositeCalculator), use mappable attributes
             if hasattr(self._calculator, 'ref2mappable_forward_sum'):
-                mappable_forward = self._calculator.ref2mappable_forward_sum  # type: ignore[union-attr]
-                mappable_reverse = self._calculator.ref2mappable_reverse_sum  # type: ignore[union-attr]
-                mappable_bins = self._calculator.ref2mascbins  # type: ignore[union-attr]
+                mappable_forward = self._calculator.ref2mappable_forward_sum
+                mappable_reverse = self._calculator.ref2mappable_reverse_sum
+                mappable_bins = self._calculator.ref2mascbins
 
                 if mappable_forward is not None:
                     result.mscc_forward_sum = mappable_forward.get(chrom)
@@ -434,9 +434,9 @@ class UnifiedWorker(BaseWorker):
                     result.mscc_bins = mappable_bins.get(chrom)
         elif hasattr(self._calculator, 'ref2mappable_forward_sum'):
             # For BitArray with mappability
-            mappable_forward = self._calculator.ref2mappable_forward_sum  # type: ignore[union-attr]
-            mappable_reverse = self._calculator.ref2mappable_reverse_sum  # type: ignore[union-attr]
-            mappable_bins = self._calculator.ref2mascbins  # type: ignore[union-attr]
+            mappable_forward = self._calculator.ref2mappable_forward_sum
+            mappable_reverse = self._calculator.ref2mappable_reverse_sum
+            mappable_bins = self._calculator.ref2mascbins
 
             if mappable_forward is not None:
                 result.mscc_forward_sum = mappable_forward.get(chrom)
@@ -452,7 +452,7 @@ class UnifiedWorker(BaseWorker):
 
         # Call finishup on calculators if available
         if hasattr(self._calculator, 'finishup_calculation'):
-            self._calculator.finishup_calculation()  # type: ignore[union-attr]
+            self._calculator.finishup_calculation()
         if self._secondary_calculator and hasattr(self._secondary_calculator, 'finishup_calculation'):
             self._secondary_calculator.finishup_calculation()
 

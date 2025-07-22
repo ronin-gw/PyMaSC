@@ -233,7 +233,7 @@ class MappabilityHandler(MappableLengthCalculator):
                 logger.error("Max shift length for '{}' unmatched.".format(ref))
                 raise IndexError
 
-        return stats  # type: ignore[no-any-return]
+        return stats
 
     def _load_mappability_stats(self, stats: Dict[str, Any]) -> None:
         self.mappable_len = stats["__whole__"][:self.max_shift + 1]
@@ -306,7 +306,7 @@ class MappabilityHandler(MappableLengthCalculator):
         workers = [MappabilityCalcWorker(self.path, self.max_shift, order_queue, report_queue, logger_lock)
                    for _ in range(min(self.nworker, len(target_chroms)))]
 
-        with exec_worker_pool(workers, target_chroms, order_queue):  # type: ignore[arg-type]
+        with exec_worker_pool(workers, target_chroms, order_queue):
             while not self.is_called:
                 chrom, obj = report_queue.get()
                 if chrom is None:  # update progress

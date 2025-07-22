@@ -12,6 +12,7 @@ Key improvements:
 """
 from __future__ import annotations
 
+from abc import ABC
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Union, Any
 
@@ -21,10 +22,10 @@ import numpy as np
 @dataclass
 class NCCData:
     """Container for Naive Cross-Correlation (NCC) data.
-    
+
     NCC data uses scalar values for read counts since it doesn't
     account for mappability variations across shift positions.
-    
+
     Attributes:
         forward_sum: Total forward read count (scalar)
         reverse_sum: Total reverse read count (scalar)
@@ -35,7 +36,7 @@ class NCCData:
     reverse_sum: int
     ccbins: np.ndarray
     genomelen: int
-    
+
     def __post_init__(self):
         """Validate data consistency."""
         if self.forward_sum < 0 or self.reverse_sum < 0:
@@ -51,10 +52,10 @@ class NCCData:
 @dataclass
 class MSCCData:
     """Container for Mappability-Sensitive Cross-Correlation (MSCC) data.
-    
+
     MSCC data uses arrays for read counts as they vary by shift position
     based on mappability considerations.
-    
+
     Attributes:
         forward_sum: Forward read counts by shift position (array)
         reverse_sum: Reverse read counts by shift position (array)
@@ -65,7 +66,7 @@ class MSCCData:
     reverse_sum: np.ndarray
     ccbins: np.ndarray
     mappable_len: Union[int, np.ndarray, None]
-    
+
     def __post_init__(self):
         """Validate data consistency."""
         # Check for None values first
@@ -75,12 +76,12 @@ class MSCCData:
             raise ValueError("MSCC forward sum cannot be None")
         if self.reverse_sum is None:
             raise ValueError("MSCC reverse sum cannot be None")
-        
+
         # Ensure all arrays have the same length
         lengths = [len(self.forward_sum), len(self.reverse_sum), len(self.ccbins)]
         if len(set(lengths)) > 1:
             raise ValueError(f"Array lengths must match: {lengths}")
-        
+
         # Validate mappable_len type and value with more flexible checking
         if isinstance(self.mappable_len, np.ndarray):
             if len(self.mappable_len) == 0:
@@ -105,10 +106,10 @@ class MSCCData:
 @dataclass
 class ChromosomeResult:
     """Container for per-chromosome calculation results.
-    
+
     Stores both NCC and MSCC results for a single chromosome,
     handling cases where one or both analyses are performed.
-    
+
     Attributes:
         chromosome: Chromosome name
         length: Chromosome length
@@ -119,24 +120,24 @@ class ChromosomeResult:
     length: int
     ncc_data: Optional[NCCData] = None
     mscc_data: Optional[MSCCData] = None
-    
+
     def __post_init__(self):
         """Validate that at least one analysis type is present."""
         if self.ncc_data is None and self.mscc_data is None:
             raise ValueError(f"Chromosome {self.chromosome} has no analysis data")
         if self.length <= 0:
             raise ValueError(f"Chromosome {self.chromosome} length must be positive")
-    
+
     @property
     def has_ncc(self) -> bool:
         """Check if NCC data is available."""
         return self.ncc_data is not None
-    
+
     @property
     def has_mscc(self) -> bool:
         """Check if MSCC data is available."""
         return self.mscc_data is not None
-    
+
     @property
     def max_shift(self) -> int:
         """Get maximum shift distance from available data."""
@@ -150,10 +151,10 @@ class ChromosomeResult:
 @dataclass
 class ResultContainer:
     """Main container for all cross-correlation results.
-    
+
     Provides organized storage and access to calculation results
     across all chromosomes, with support for both NCC and MSCC analyses.
-    
+
     Attributes:
         read_length: Read length in base pairs
         references: List of analyzed chromosome names
@@ -166,34 +167,34 @@ class ResultContainer:
     chromosome_results: Dict[str, ChromosomeResult] = field(default_factory=dict)
     skip_ncc: bool = False
     has_mappability: bool = False
-    
+
     def __post_init__(self):
         """Validate container consistency."""
         if self.read_length <= 0:
             raise ValueError("Read length must be positive")
         if not self.references:
             raise ValueError("References list cannot be empty")
-    
+
     def add_chromosome_result(self, result: ChromosomeResult) -> None:
         """Add a chromosome result to the container.
-        
+
         Args:
             result: ChromosomeResult to add
-            
+
         Raises:
             ValueError: If chromosome is not in references list
         """
         if result.chromosome not in self.references:
             raise ValueError(f"Chromosome {result.chromosome} not in references")
         self.chromosome_results[result.chromosome] = result
-        
+
         # Update flags based on available data
         if result.has_mscc:
             self.has_mappability = True
-    
+
     def get_ncc_data(self) -> Dict[str, NCCData]:
         """Get all available NCC data by chromosome.
-        
+
         Returns:
             Dictionary mapping chromosome names to NCC data
         """
@@ -202,10 +203,10 @@ class ResultContainer:
             for chrom, result in self.chromosome_results.items()
             if result.ncc_data is not None
         }
-    
+
     def get_mscc_data(self) -> Dict[str, MSCCData]:
         """Get all available MSCC data by chromosome.
-        
+
         Returns:
             Dictionary mapping chromosome names to MSCC data
         """
@@ -214,38 +215,38 @@ class ResultContainer:
             for chrom, result in self.chromosome_results.items()
             if result.mscc_data is not None
         }
-    
+
     def get_total_reads(self) -> Dict[str, int]:
         """Calculate total read counts by chromosome.
-        
+
         Returns:
             Dictionary with forward, reverse, and total counts
         """
         forward_total = 0
         reverse_total = 0
-        
+
         for result in self.chromosome_results.values():
             if result.ncc_data:
                 forward_total += result.ncc_data.forward_sum
                 reverse_total += result.ncc_data.reverse_sum
-        
+
         return {
             'forward': forward_total,
             'reverse': reverse_total,
             'total': forward_total + reverse_total
         }
-    
+
     def get_genome_length(self) -> int:
         """Calculate total genome length across all chromosomes.
-        
+
         Returns:
             Total genome length in base pairs
         """
         return sum(result.length for result in self.chromosome_results.values())
-    
+
     def validate_completeness(self) -> None:
         """Validate that all expected chromosomes have results.
-        
+
         Raises:
             ValueError: If any chromosome is missing results
         """
@@ -261,16 +262,16 @@ def create_from_handler_data(
     lengths: List[int]
 ) -> ResultContainer:
     """Create ResultContainer from handler output data.
-    
+
     Factory function to create a properly structured ResultContainer
     from the dictionary-based output of calculation handlers.
-    
+
     Args:
         handler_data: Dictionary with handler calculation results
         read_length: Read length in base pairs
         references: List of chromosome names
         lengths: List of chromosome lengths
-        
+
     Returns:
         Populated ResultContainer instance
     """
@@ -279,16 +280,16 @@ def create_from_handler_data(
         references=references,
         skip_ncc=handler_data.get('skip_ncc', False)
     )
-    
+
     # Create chromosome results
     ref_to_length = dict(zip(references, lengths))
-    
+
     for ref in references:
         ncc_data = None
         mscc_data = None
-        
+
         # Extract NCC data if available
-        if (not container.skip_ncc and 
+        if (not container.skip_ncc and
             ref in handler_data.get('ref2ccbins', {}) and
             handler_data['ref2ccbins'][ref] is not None):
             ncc_data = NCCData(
@@ -297,14 +298,14 @@ def create_from_handler_data(
                 ccbins=handler_data['ref2ccbins'][ref],
                 genomelen=ref_to_length[ref]
             )
-        
+
         # Extract MSCC data if available
         mappable_forward = handler_data.get('mappable_ref2forward_sum', {}).get(ref)
         mappable_reverse = handler_data.get('mappable_ref2reverse_sum', {}).get(ref)
         mappable_ccbins = handler_data.get('mappable_ref2ccbins', {}).get(ref)
-        
-        if (mappable_ccbins is not None and 
-            mappable_forward is not None and 
+
+        if (mappable_ccbins is not None and
+            mappable_forward is not None and
             mappable_reverse is not None):
             mscc_data = MSCCData(
                 forward_sum=mappable_forward,
@@ -312,7 +313,7 @@ def create_from_handler_data(
                 ccbins=mappable_ccbins,
                 mappable_len=handler_data.get('ref2mappable_len', {}).get(ref, None)
             )
-        
+
         if ncc_data or mscc_data:
             result = ChromosomeResult(
                 chromosome=ref,
@@ -321,5 +322,5 @@ def create_from_handler_data(
                 mscc_data=mscc_data
             )
             container.add_chromosome_result(result)
-    
+
     return container

@@ -70,7 +70,7 @@ class TableIO(object):
 
     def open(self) -> None:
         """Open file for table operations."""
-        self.fp = open(self.path, self.mode, newline='')  # type: ignore
+        self.fp = open(self.path, self.mode, newline='')
 
     def __enter__(self) -> 'TableIO':
         """Context manager entry.
@@ -173,11 +173,11 @@ def _output_cctable(outfile: os.PathLike[str], stats_result: Any, suffix: str, t
 
     def _extract_correlation_data(stats_result, target_attr: str):
         """Extract correlation data from StatisticsResult.
-        
+
         Args:
             stats_result: StatisticsResult object
             target_attr: 'cc' for NCC or 'masc' for MSCC
-            
+
         Returns:
             Tuple of (whole_genome_cc, ref2cc_dict)
         """
@@ -190,14 +190,14 @@ def _output_cctable(outfile: os.PathLike[str], stats_result: Any, suffix: str, t
         else:
             # Return empty array if no data available
             whole_cc = np.array([])
-        
+
         # Extract per-chromosome correlations
         ref2cc = {}
         for chrom in stats_result.references:
             chrom_stats = stats_result.chromosome_stats.get(chrom)
             if chrom_stats is None:
                 continue
-                
+
             if target_attr == "cc" and chrom_stats.cc is not None:
                 cc_data = chrom_stats.cc.cc
                 if cc_data is not None and not np.isnan(cc_data).all():
@@ -206,7 +206,7 @@ def _output_cctable(outfile: os.PathLike[str], stats_result: Any, suffix: str, t
                 cc_data = chrom_stats.masc.cc
                 if cc_data is not None and not np.isnan(cc_data).all():
                     ref2cc[chrom] = cc_data
-        
+
         return whole_cc, ref2cc
 
     # Extract correlation data using new interface
@@ -256,7 +256,7 @@ class NReadsIO(TableIO):
 
         return forward, reverse
 
-    def read(self) -> Tuple[Dict[str, int], Dict[str, int], Dict[str, List[int]], Dict[str, List[int]]]:  # type: ignore[override]
+    def read(self) -> Tuple[Dict[str, int], Dict[str, int], Dict[str, List[int]], Dict[str, List[int]]]:
         """Read read count table with forward/reverse separation.
 
         Returns:
@@ -298,7 +298,7 @@ class NReadsIO(TableIO):
         """
         return [rowname] + ["{}-{}".format(f, r) for f, r in zip(forward, reverse)]
 
-    def write(self, header: List[str], forward_sum: Optional[Dict[str, int]], reverse_sum: Optional[Dict[str, int]], mappable_forward_sum: Optional[Dict[str, List[int]]], mappable_reverse_sum: Optional[Dict[str, List[int]]]) -> None:  # type: ignore[override]
+    def write(self, header: List[str], forward_sum: Optional[Dict[str, int]], reverse_sum: Optional[Dict[str, int]], mappable_forward_sum: Optional[Dict[str, List[int]]], mappable_reverse_sum: Optional[Dict[str, List[int]]]) -> None:
         """Write read count table with forward/reverse data.
 
         Args:
@@ -350,7 +350,7 @@ def load_nreads_table(path: os.PathLike[str]) -> Tuple[Dict[str, int], Dict[str,
     logger.info("Load Nreads table from '{}'".format(path))
 
     with NReadsIO(path) as tab:
-        result = tab.read()  # type: ignore[call-arg]
+        result = tab.read()
         forward_sum, reverse_sum, mappable_forward_sum, mappable_reverse_sum = result
 
     for d in [forward_sum, reverse_sum, mappable_forward_sum, mappable_reverse_sum]:
@@ -363,7 +363,7 @@ def load_nreads_table(path: os.PathLike[str]) -> Tuple[Dict[str, int], Dict[str,
         logger.critical("Nothing to load.")
         raise KeyError
 
-    return forward_sum, reverse_sum, mappable_forward_sum, mappable_reverse_sum  # type: ignore[return-value]
+    return forward_sum, reverse_sum, mappable_forward_sum, mappable_reverse_sum
 
 
 @catch_IOError(logger)
@@ -382,19 +382,19 @@ def output_nreads_table(outfile: os.PathLike[str], stats_result: Any) -> None:
 
     def _extract_read_counts(stats_result, count_type: str, is_mappable: bool = False):
         """Extract read counts from StatisticsResult.
-        
+
         Args:
             stats_result: StatisticsResult object
             count_type: 'forward_sum' or 'reverse_sum'
             is_mappable: Whether to extract mappable read counts
-            
+
         Returns:
             Dictionary with chromosome counts and 'whole' genome count.
             For non-mappable: values are integers
             For mappable: values are lists (arrays) indexed by shift distance
         """
         result_dict = {}
-        
+
         if is_mappable:
             # For mappable counts, we need arrays indexed by shift distance
             # First determine the max shift to create consistent array sizes
@@ -404,16 +404,16 @@ def output_nreads_table(outfile: os.PathLike[str], stats_result: Any) -> None:
                 max_shift = genome_stats.max_shift
             elif genome_stats and genome_stats.masc and hasattr(genome_stats.masc, 'cc') and genome_stats.masc.cc is not None:
                 max_shift = len(genome_stats.masc.cc) - 1
-                
+
             array_size = max_shift + 1
-            
+
             # Extract per-chromosome mappable counts as arrays
             for chrom in stats_result.references:
                 chrom_stats = stats_result.chromosome_stats.get(chrom)
                 if chrom_stats is None or chrom_stats.masc is None:
                     result_dict[chrom] = [0] * array_size
                     continue
-                    
+
                 count_value = getattr(chrom_stats.masc, count_type, None)
                 if count_value is not None and hasattr(count_value, '__iter__') and not isinstance(count_value, str):
                     # Convert to list and ensure proper length
@@ -430,7 +430,7 @@ def output_nreads_table(outfile: os.PathLike[str], stats_result: Any) -> None:
                     # Single value or None - create array with that value at position 0
                     value = int(count_value) if count_value is not None else 0
                     result_dict[chrom] = [value] + [0] * (array_size - 1)
-            
+
             # Extract whole-genome mappable count as array
             if genome_stats and genome_stats.masc is not None:
                 whole_count = getattr(genome_stats.masc, count_type, None)
@@ -447,7 +447,7 @@ def output_nreads_table(outfile: os.PathLike[str], stats_result: Any) -> None:
                     result_dict["whole"] = [value] + [0] * (array_size - 1)
             else:
                 result_dict["whole"] = [0] * array_size
-                
+
         else:
             # For non-mappable counts, return single integers
             # Extract per-chromosome counts
@@ -456,10 +456,10 @@ def output_nreads_table(outfile: os.PathLike[str], stats_result: Any) -> None:
                 if chrom_stats is None or chrom_stats.cc is None:
                     result_dict[chrom] = 0
                     continue
-                    
+
                 count_value = getattr(chrom_stats.cc, count_type, 0)
                 result_dict[chrom] = int(count_value) if count_value is not None else 0
-            
+
             # Extract whole-genome count
             genome_stats = stats_result.genome_wide_stats
             if genome_stats and genome_stats.cc is not None:
@@ -467,16 +467,16 @@ def output_nreads_table(outfile: os.PathLike[str], stats_result: Any) -> None:
                 result_dict["whole"] = int(whole_count) if whole_count is not None else 0
             else:
                 result_dict["whole"] = 0
-            
+
         return result_dict
 
     with NReadsIO(outfile_with_suffix, 'w') as tab:
         header = ["whole"] + sorted(stats_result.references)
-        
+
         # Extract read counts using new interface
         forward_sum = _extract_read_counts(stats_result, "forward_sum", is_mappable=False)
         reverse_sum = _extract_read_counts(stats_result, "reverse_sum", is_mappable=False)
-        
+
         # Extract mappable read counts if available
         if stats_result.has_mappability:
             mappable_forward = _extract_read_counts(stats_result, "forward_sum", is_mappable=True)
@@ -484,6 +484,6 @@ def output_nreads_table(outfile: os.PathLike[str], stats_result: Any) -> None:
         else:
             mappable_forward = None
             mappable_reverse = None
-        
+
         # NReadsIO has its own write() method with different signature
-        tab.write(header, forward_sum, reverse_sum, mappable_forward, mappable_reverse)  # type: ignore[call-arg]
+        tab.write(header, forward_sum, reverse_sum, mappable_forward, mappable_reverse)

@@ -15,7 +15,9 @@ from typing import Optional, Any, Dict
 from multiprocessing import Queue
 from multiprocessing.synchronize import Lock
 
-from .interfaces import CrossCorrelationCalculator
+from PyMaSC.core.interfaces.result import GenomeWideResult, BothGenomeWideResult
+
+from .interfaces.calculator import CrossCorrelationCalculator
 from .models import (
     CalculationConfig, MappabilityConfig, WorkerConfig,
     CalculationTarget, ImplementationAlgorithm
@@ -73,36 +75,6 @@ class CalculatorAdapter(CrossCorrelationCalculator):
             # For calculators without flush, finishup serves the same purpose
             self._calculator.finishup_calculation()
 
-    @property
-    def ref2forward_sum(self) -> Dict[str, int]:
-        """Forward read counts by chromosome."""
-        return self._calculator.ref2forward_sum  # type: ignore[no-any-return]
-
-    @property
-    def ref2reverse_sum(self) -> Dict[str, int]:
-        """Reverse read counts by chromosome."""
-        return self._calculator.ref2reverse_sum  # type: ignore[no-any-return]
-
-    @property
-    def ref2ccbins(self) -> Dict[str, Any]:
-        """Cross-correlation bins by chromosome."""
-        return self._calculator.ref2ccbins  # type: ignore[no-any-return]
-
-    @property
-    def ref2mappable_forward_sum(self) -> Optional[Dict[str, int]]:
-        """Mappable forward read counts (BitArray only)."""
-        return getattr(self._calculator, 'ref2mappable_forward_sum', None)
-
-    @property
-    def ref2mappable_reverse_sum(self) -> Optional[Dict[str, int]]:
-        """Mappable reverse read counts (BitArray only)."""
-        return getattr(self._calculator, 'ref2mappable_reverse_sum', None)
-
-    @property
-    def ref2mascbins(self) -> Optional[Dict[str, Any]]:
-        """MSCC bins (BitArray only)."""
-        return getattr(self._calculator, 'ref2mascbins', None)
-
 
 class CompositeCalculator(CrossCorrelationCalculator):
     """Composite calculator that runs both NCC and MSCC calculations.
@@ -110,6 +82,9 @@ class CompositeCalculator(CrossCorrelationCalculator):
     This calculator is used when SUCCESSIVE algorithm is combined with
     mappability data, matching the behavior of the original implementation.
     """
+
+    _ncc_calculator: _NativeCCCalculator
+    _mscc_calculator: _NativeMSCCCalculator
 
     def __init__(self, ncc_calculator: Any, mscc_calculator: Any):
         """Initialize composite calculator.
@@ -141,40 +116,19 @@ class CompositeCalculator(CrossCorrelationCalculator):
         self._ncc_calculator.finishup_calculation()
         self._mscc_calculator.finishup_calculation()
 
-    @property
-    def ref2forward_sum(self) -> Dict[str, int]:
-        """Forward read counts from NCC calculator."""
-        return self._ncc_calculator.ref2forward_sum  # type: ignore[no-any-return]
+    def get_result(self) -> GenomeWideResult:
+        nccresult = self._ncc_calculator.get_result()
+        msccresult = self._mscc_calculator.get_result()
 
-    @property
-    def ref2reverse_sum(self) -> Dict[str, int]:
-        """Reverse read counts from NCC calculator."""
-        return self._ncc_calculator.ref2reverse_sum  # type: ignore[no-any-return]
-
-    @property
-    def ref2ccbins(self) -> Dict[str, Any]:
-        """NCC bins from NCC calculator."""
-        return self._ncc_calculator.ref2ccbins  # type: ignore[no-any-return]
-
-    @property
-    def ref2mappable_forward_sum(self) -> Optional[Dict[str, int]]:
-        """Mappable forward read counts from MSCC calculator."""
-        return self._mscc_calculator.ref2forward_sum  # type: ignore[no-any-return]
-
-    @property
-    def ref2mappable_reverse_sum(self) -> Optional[Dict[str, int]]:
-        """Mappable reverse read counts from MSCC calculator."""
-        return self._mscc_calculator.ref2reverse_sum  # type: ignore[no-any-return]
-
-    @property
-    def ref2mascbins(self) -> Optional[Dict[str, Any]]:
-        """MSCC bins from MSCC calculator."""
-        return self._mscc_calculator.ref2ccbins  # type: ignore[no-any-return]
-
-    @property
-    def ref2mappable_len(self) -> Optional[Dict[str, Any]]:
-        """Mappable lengths from MSCC calculator."""
-        return self._mscc_calculator.ref2mappable_len  # type: ignore[no-any-return]
+        return BothGenomeWideResult(
+            genomelen=nccresult.genomelen,
+            forward_sum=nccresult.forward_sum,
+            reverse_sum=nccresult.reverse_sum,
+            chroms=nccresult.chroms.copy(),
+            mappable_chroms=msccresult.chroms.copy(),
+            forward_read_len_sum=msccresult.forward_read_len_sum,
+            reverse_read_len_sum=msccresult.reverse_read_len_sum
+        )
 
 
 # Strategy implementations moved into factory methods
@@ -243,20 +197,19 @@ class CalculatorFactory:
         """Create calculator using SUCCESSIVE algorithm."""
         if target == CalculationTarget.NCC:
             # Create NCC calculator
-            native_calc = _NativeCCCalculator(
+            return _NativeCCCalculator(
                 config.max_shift,
                 config.references,
                 config.lengths,
                 logger_lock
             )
-            return CalculatorAdapter(native_calc)
-            
+
         elif target == CalculationTarget.MSCC:
             # Create MSCC calculator
             return CalculatorFactory._create_mscc_calculator(
                 config, mappability_config, logger_lock
             )
-            
+
         elif target == CalculationTarget.BOTH:
             # Create composite calculator for both NCC and MSCC
             ncc_calc = _NativeCCCalculator(
@@ -265,17 +218,17 @@ class CalculatorFactory:
                 config.lengths,
                 logger_lock
             )
-            
+
             # Create BWFeeder for MSCC
             bwfeeder = BWFeederWithMappableRegionSum(
                 str(mappability_config.mappability_path),
                 config.max_shift
             )
-            
+
             read_len = config.read_length or mappability_config.read_len
             if read_len is None:
                 raise ValueError("Read length must be specified for MSCC")
-                
+
             mscc_calc = _NativeMSCCCalculator(
                 config.max_shift,
                 read_len,
@@ -284,7 +237,7 @@ class CalculatorFactory:
                 bwfeeder,
                 logger_lock
             )
-            
+
             return CompositeCalculator(ncc_calc, mscc_calc)
 
     @staticmethod
@@ -299,19 +252,20 @@ class CalculatorFactory:
         # BitArray handles all targets in a single calculator
         bwfeeder = None
         if mappability_config and mappability_config.is_enabled():
-            bwfeeder = BigWigReader(str(mappability_config.mappability_path))
+            assert mappability_config.mappability_path is not None
+            bwfeeder = BigWigReader(mappability_config.mappability_path)
 
         read_len = config.read_length
         if mappability_config and mappability_config.read_len:
             read_len = mappability_config.read_len
-            
+
         if read_len is None:
             raise ValueError("Read length must be specified for BitArray")
 
         # Determine skip_ncc based on target
         skip_ncc = target == CalculationTarget.MSCC or config.skip_ncc
 
-        native_calc = _NativeBitArrayCalculator(
+        return _NativeBitArrayCalculator(
             config.max_shift,
             read_len,
             config.references,
@@ -321,7 +275,6 @@ class CalculatorFactory:
             logger_lock,
             progress_hook
         )
-        return CalculatorAdapter(native_calc)
 
     @staticmethod
     def _create_mscc_calculator(
@@ -339,7 +292,7 @@ class CalculatorFactory:
         if read_len is None:
             raise ValueError("Read length must be specified for MSCC")
 
-        native_calc = _NativeMSCCCalculator(
+        return _NativeMSCCCalculator(
             config.max_shift,
             read_len,
             config.references,
@@ -347,7 +300,6 @@ class CalculatorFactory:
             bwfeeder,
             logger_lock
         )
-        return CalculatorAdapter(native_calc)
 
 
 class WorkerFactory:

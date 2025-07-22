@@ -28,7 +28,7 @@ from abc import ABC
 from typing import Optional, Any, List, ClassVar
 import logging
 
-from .interfaces import CrossCorrelationCalculator
+from .interfaces.calculator import CrossCorrelationCalculator
 from .factory import CalculatorFactory
 from .models import (
     CalculationConfig, MappabilityConfig,

@@ -21,7 +21,6 @@ from .interfaces.stats import (
 )
 
 from PyMaSC.utils.calc import moving_avr_filter
-from PyMaSC.utils.stats_utils import npcalc_with_logging_warn, CrossCorrelationMerger, ArrayAggregator
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +58,7 @@ class CCStats(CCStatsModel):
     raw_forward_reads: Union[int, npt.NDArray[np.int64]]
     raw_reverse_reads: Union[int, npt.NDArray[np.int64]]
 
-    def calc_qc_metrics(self) -> None:
+    def __post_init__(self) -> None:
         self.metrics_at_expected_length.calc_metrics(self)
         self.metrics_at_estimated_length.calc_metrics(self)
 
@@ -95,17 +94,17 @@ class NCCStats(CCStats):
 class MSCCStats(CCStats):
     @property
     def genomelen(self) -> int:
-        assert isinstance(self.raw_genomelen, np.ndarray), "genomelen must be an array."
+        assert isinstance(self.raw_genomelen, (list, np.ndarray)), "genomelen must be an array."
         return int(self.raw_genomelen[self.read_len - 1])
 
     @property
     def forward_reads(self) -> int:
-        assert isinstance(self.raw_forward_reads, np.ndarray), "forward_reads must be an array."
+        assert isinstance(self.raw_forward_reads, (list, np.ndarray)), "forward_reads must be an array."
         return int(self.raw_forward_reads[self.read_len - 1])
 
     @property
     def reverse_reads(self) -> int:
-        assert isinstance(self.raw_reverse_reads, np.ndarray), "reverse_reads must be an array."
+        assert isinstance(self.raw_reverse_reads, (list, np.ndarray)), "reverse_reads must be an array."
         return int(self.raw_reverse_reads[self.read_len - 1])
 
 
@@ -136,6 +135,7 @@ class CCContainer:
         cc_min = np.sort(self.cc[-self.min_calc_width:])[
             min(self.min_calc_width, self.cc.size) // 2
         ]
+
         if (np.median(self.cc[:NEAR_ZERO_MIN_CALC_LEN]) < cc_min and
                 self.output_warnings):
             logger.warning(
@@ -253,7 +253,8 @@ def make_chromosome_stat(
     filter_mask_len: int = 5,
     min_calc_width: int = 10,
     output_warnings: bool = True,
-    stats_type: Optional[Type[CCStats]] = None
+    stats_type: Optional[Type[CCStats]] = None,
+    estimated_library_len: Optional[int] = None
 ) -> ChromosomeStats:
     #
     cc_container = CCContainer(
@@ -276,10 +277,13 @@ def make_chromosome_stat(
         metrics_at_expected_length = CCQualityMetrics()
 
     #
+    if estimated_library_len is None:
+        estimated_library_len = cc_container.est_lib_len
+
     metrics_at_estimated_length = CCQualityMetrics(
-        fragment_length=cc_container.est_lib_len,
-        ccfl=cc_container.cc[cc_container.est_lib_len - 1],
-        fwhm=cc_container.calc_FWHM(cc_container.est_lib_len)
+        fragment_length=estimated_library_len,
+        ccfl=cc_container.cc[estimated_library_len - 1],
+        fwhm=cc_container.calc_FWHM(estimated_library_len)
     )
 
     statclass: Type[CCStats]
@@ -335,7 +339,8 @@ def aggregate_chromosome_stats(
     filter_mask_len: int,
     min_calc_width: int,
     output_warnings: bool,
-    expected_library_len: Optional[int] = None
+    expected_library_len: Optional[int] = None,
+    estimated_library_len: Optional[int] = None
 ) -> Optional[ChromosomeStats[TStats]]:
     if chrom_stats is None:
         return None
@@ -355,7 +360,6 @@ def aggregate_chromosome_stats(
     for chrom, stats_obj in chrom_stats.items():
         assert stats_obj.stats is not None, f"Stats for chromosome {chrom} is None."
 
-        # Collect data
         genome_lengths.append(stats_obj.stats.raw_genomelen)
         forward_reads.append(stats_obj.stats.raw_forward_reads)
         reverse_reads.append(stats_obj.stats.raw_reverse_reads)
@@ -370,9 +374,7 @@ def aggregate_chromosome_stats(
     total_reverse_reads: Union[int, npt.NDArray[np.int64]] = np.sum(np.asarray(reverse_reads, dtype=np.int64), axis=0)
 
     # Aggregate raw cross-correlation using Fisher z-transformation
-    from PyMaSC.core.constants import MERGED_CC_CONFIDENCE_INTERVAL
-    merger = CrossCorrelationMerger(confidence_interval=MERGED_CC_CONFIDENCE_INTERVAL)
-    _, aggregated_cc, _ = merger.merge_correlations(
+    aggregated_cc, _, _ = merge_correlations(
         np.array(representative_genome_lengths, dtype=np.int64),
         cc_arrays,
         first_stats.read_len
@@ -394,7 +396,8 @@ def aggregate_chromosome_stats(
         filter_mask_len=filter_mask_len,
         min_calc_width=min_calc_width,
         output_warnings=output_warnings,
-        stats_type=stats_type
+        stats_type=stats_type,
+        estimated_library_len=estimated_library_len
     )
 
 
@@ -411,18 +414,7 @@ def make_genome_wide_stat(
     #
     ncc_stats = mscc_stats = None
 
-    if isinstance(result, (NCCGenomeWideResult, BothGenomeWideResult)):
-        ncc_stats = {
-            chrom: make_chromosome_stat(
-                chromres,
-                read_len,
-                mv_avr_filter_len,
-                expected_library_len,
-                filter_mask_len,
-                min_calc_width
-            )
-            for chrom, chromres in result.chroms.items()
-        }
+    #
     if isinstance(result, MSCCGenomeWideResult):
         mscc_stats = {
             chrom: make_chromosome_stat(
@@ -448,99 +440,142 @@ def make_genome_wide_stat(
             for chrom, chromres in result.mappable_chroms.items()
         }
 
+    #
+    if isinstance(result, NCCGenomeWideResult):
+        ncc_stats = {
+            chrom: make_chromosome_stat(
+                chromres,
+                read_len,
+                mv_avr_filter_len,
+                expected_library_len,
+                filter_mask_len,
+                min_calc_width
+            )
+            for chrom, chromres in result.chroms.items()
+        }
+    elif isinstance(result, BothGenomeWideResult):
+        assert mscc_stats is not None, "MSCC stats must be available for BothGenomeWideResult."
+        ncc_stats = {}
+        for chrom, chromres in result.chroms.items():
+            if chrom in mscc_stats:
+                estimated_library_len = mscc_stats[chrom].stats.metrics_at_estimated_length.fragment_length
+            else:
+                estimated_library_len = None
+
+            ncc_stats[chrom] = make_chromosome_stat(
+                chromres,
+                read_len,
+                mv_avr_filter_len,
+                expected_library_len,
+                filter_mask_len,
+                min_calc_width,
+                estimated_library_len=estimated_library_len
+            )
+
     if ncc_stats is None and mscc_stats is None:
         raise TypeError("Unsupported GenomeWideResult type.")
 
+    #
+    whole_mscc_stats = aggregate_chromosome_stats(
+        mscc_stats,
+        read_len,
+        mv_avr_filter_len,
+        filter_mask_len,
+        min_calc_width,
+        output_warnings
+    )
+    print(whole_mscc_stats.stats.metrics_at_estimated_length.nsc)
+
+    if whole_mscc_stats is None:
+        estimated_library_len = None
+    else:
+        estimated_library_len = whole_mscc_stats.est_lib_len
+
+    whole_ncc_stats = aggregate_chromosome_stats(
+        ncc_stats,
+        read_len,
+        mv_avr_filter_len,
+        filter_mask_len,
+        min_calc_width,
+        output_warnings,
+        estimated_library_len=estimated_library_len
+    )
+
     return GenomeWideStats(
-        whole_ncc_stats=aggregate_chromosome_stats(
-            ncc_stats,
-            read_len,
-            mv_avr_filter_len,
-            filter_mask_len,
-            min_calc_width,
-            output_warnings
-        ),
-        whole_mscc_stats=aggregate_chromosome_stats(
-            mscc_stats,
-            read_len,
-            mv_avr_filter_len,
-            filter_mask_len,
-            min_calc_width,
-            output_warnings
-        ),
+        whole_ncc_stats=whole_ncc_stats,
+        whole_mscc_stats=whole_mscc_stats,
         ncc_stats=ncc_stats,
         mscc_stats=mscc_stats
     )
 
 
-# TODO: Remove this duplicate implementation after verifying CrossCorrelationMerger works correctly
-# def merge_correlations(
-#     genome_lengths: npt.NDArray[np.int64],
-#     correlation_arrays: List[npt.NDArray[np.float64]],
-#     read_length: int,
-#     confidence_interval: float = 0.99
-# ) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-#     """Merge cross-correlation results using Fisher z-transformation.
-# 
-#     This method replicates the exact behavior of CCResult._merge_cc(),
-#     combining per-chromosome correlations into genome-wide profiles with
-#     confidence intervals.
-# 
-#     Mathematical Process:
-#     1. Fisher z-transformation: z = arctanh(r) for each correlation
-#     2. Weighted averaging: z_avg = Σ(w_i * z_i) / Σ(w_i) where w_i = n_i - 3
-#     3. Confidence intervals: CI = tanh(z_avg ± z_α/2 * SE)
-#     4. Inverse transformation: r = tanh(z_avg) back to correlation
-# 
-#     Args:
-#         genome_lengths: Array of genome lengths for each chromosome
-#         correlation_arrays: List of correlation arrays, one per chromosome
-#         read_length: Read length for position-dependent weighting
-# 
-#     Returns:
-#         Tuple of (merged_correlations, lower_confidence, upper_confidence)
-#     """
-#     ns = genome_lengths
-# 
-#     merged_r = []
-#     interval_upper = []
-#     interval_lower = []
-# 
-#     for i, __ccs in enumerate(zip(*correlation_arrays)):
-#         _ccs: Tuple[np.float64, ...] = __ccs
-#         # Filter out NaN values
-#         nans = np.isnan(_ccs)
-#         ccs = np.array(_ccs)[~nans]
-# 
-#         # Calculate weights (effective sample size - 3)
-#         if len(ns.shape) == 1:
-#             _ns = ns[~nans] - 3
-#         else:
-#             _ns = ns[~nans, abs(read_length - i)] - 3
-# 
-#         # Fisher z-transformation
-#         zs = np.arctanh(ccs)
-# 
-#         # Filter out infinite values
-#         infs = np.isinf(zs)
-#         zs = zs[~infs]
-#         _ns = _ns[~infs]
-# 
-#         # Weighted average in z-space
-#         avr_z = np.average(zs, weights=_ns)
-# 
-#         # Calculate confidence interval
-#         z_interval = norm.ppf(1 - (1 - confidence_interval) / 2) * np.sqrt(1 / np.sum(_ns))
-#         z_interval_upper = avr_z + z_interval
-#         z_interval_lower = avr_z - z_interval
-# 
-#         # Transform back to correlation space
-#         merged_r.append(np.tanh(avr_z))
-#         interval_upper.append(np.tanh(z_interval_upper))
-#         interval_lower.append(np.tanh(z_interval_lower))
-# 
-#     return (
-#         np.array(merged_r, dtype=np.float64),
-#         np.array(interval_lower, dtype=np.float64),
-#         np.array(interval_upper, dtype=np.float64)
-#     )
+def merge_correlations(
+    genome_lengths: npt.NDArray[np.int64],
+    correlation_arrays: List[npt.NDArray[np.float64]],
+    read_length: int,
+    confidence_interval: float = 0.99
+) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    """Merge cross-correlation results using Fisher z-transformation.
+
+    This method replicates the exact behavior of CCResult._merge_cc(),
+    combining per-chromosome correlations into genome-wide profiles with
+    confidence intervals.
+
+    Mathematical Process:
+    1. Fisher z-transformation: z = arctanh(r) for each correlation
+    2. Weighted averaging: z_avg = Σ(w_i * z_i) / Σ(w_i) where w_i = n_i - 3
+    3. Confidence intervals: CI = tanh(z_avg ± z_α/2 * SE)
+    4. Inverse transformation: r = tanh(z_avg) back to correlation
+
+    Args:
+        genome_lengths: Array of genome lengths for each chromosome
+        correlation_arrays: List of correlation arrays, one per chromosome
+        read_length: Read length for position-dependent weighting
+
+    Returns:
+        Tuple of (merged_correlations, lower_confidence, upper_confidence)
+    """
+    ns = genome_lengths
+
+    merged_r = []
+    interval_upper = []
+    interval_lower = []
+
+    for i, __ccs in enumerate(zip(*correlation_arrays)):
+        _ccs: Tuple[np.float64, ...] = __ccs
+        # Filter out NaN values
+        nans = np.isnan(_ccs)
+        ccs = np.array(_ccs)[~nans]
+
+        # Calculate weights (effective sample size - 3)
+        if len(ns.shape) == 1:
+            _ns = ns[~nans] - 3
+        else:
+            _ns = ns[~nans, abs(read_length - i)] - 3
+
+        # Fisher z-transformation
+        zs = np.arctanh(ccs)
+
+        # Filter out infinite values
+        infs = np.isinf(zs)
+        zs = zs[~infs]
+        _ns = _ns[~infs]
+
+        # Weighted average in z-space
+        avr_z = np.average(zs, weights=_ns)
+
+        # Calculate confidence interval
+        z_interval = norm.ppf(1 - (1 - confidence_interval) / 2) * np.sqrt(1 / np.sum(_ns))
+        z_interval_upper = avr_z + z_interval
+        z_interval_lower = avr_z - z_interval
+
+        # Transform back to correlation space
+        merged_r.append(np.tanh(avr_z))
+        interval_upper.append(np.tanh(z_interval_upper))
+        interval_lower.append(np.tanh(z_interval_lower))
+
+    return (
+        np.array(merged_r, dtype=np.float64),
+        np.array(interval_lower, dtype=np.float64),
+        np.array(interval_upper, dtype=np.float64)
+    )

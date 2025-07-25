@@ -23,6 +23,11 @@ from typing import Any, Optional, Tuple, Union
 
 import numpy as np
 
+from PyMaSC.core.interfaces.stats import (
+    GenomeWideStats, WholeGenomeStats,
+    ChromosomeStats,
+    TStats, NCCStats, MSCCStats
+)
 from PyMaSC.utils.output import catch_IOError
 
 logger = logging.getLogger(__name__)
@@ -30,7 +35,7 @@ logger = logging.getLogger(__name__)
 try:
     import matplotlib.pyplot as plt
     from matplotlib.backends.backend_pdf import PdfPages
-except:
+except Exception:
     logger.error("Failed to import matplotlib.")
     import traceback
     logger.warning("Exception traceback:\n|" +
@@ -49,7 +54,7 @@ def _feed_pdf_page(pp: Any) -> None:
 
 
 @catch_IOError(logger)
-def plot_figures(outfile: os.PathLike[str], stats_result: Any) -> None:
+def plot_figures(outfile: os.PathLike[str], stats: GenomeWideStats) -> None:
     """Generate all PyMaSC plots and save to PDF file using new StatisticsResult interface.
 
     Creates a multi-page PDF containing all relevant plots based on the
@@ -65,21 +70,30 @@ def plot_figures(outfile: os.PathLike[str], stats_result: Any) -> None:
     name = outfile_path.stem
 
     with PdfPages(os.fspath(outfile_path)) as pp:
-        if not stats_result.skip_ncc:
-            plot_naive_cc(stats_result, name)
+        if stats.whole_ncc_stats:
+            plot_naive_cc(stats.whole_ncc_stats, name)
             _feed_pdf_page(pp)
 
-        if stats_result.has_mappability:
-            if plot_naive_cc_just(stats_result, name):
+        if stats.whole_mscc_stats:
+            est_lib_len = stats.whole_mscc_stats.est_lib_len
+            if plot_naive_cc_just(stats.whole_ncc_stats, est_lib_len, name):
                 _feed_pdf_page(pp)
 
-            plot_masc(stats_result, name)
+            plot_masc(stats.whole_mscc_stats, name)
             _feed_pdf_page(pp)
 
-        plot_ncc_vs_masc(pp, stats_result, name)
+        plot_ncc_vs_masc(pp, stats, name)
 
 
-def _annotate_point(x: Union[int, float], color: str, axis_y: Union[int, float], axis_text: str, point_y: Optional[Union[int, float]] = None, point_text: Optional[str] = None, yoffset: Union[int, float] = 0) -> None:
+def _annotate_point(
+    x: Union[int, float],
+    color: str,
+    axis_y: Union[int, float],
+    axis_text: str,
+    point_y: Optional[Union[int, float]] = None,
+    point_text: Optional[str] = None,
+    yoffset: Union[int, float] = 0
+) -> None:
     """Add vertical line and annotations to plot at specified x position.
 
     Args:
@@ -93,7 +107,7 @@ def _annotate_point(x: Union[int, float], color: str, axis_y: Union[int, float],
     """
     plt.axvline(x, color=color, linestyle="dashed", linewidth=0.5)
     plt.annotate(axis_text, (x, axis_y))
-    if point_y:
+    if point_y and point_text:
         plt.scatter(x, point_y, facecolors="none", edgecolors=color)
         plt.annotate(point_text, (x, point_y + yoffset))
 
@@ -111,12 +125,18 @@ def _annotate_bottom_right_box(text: str) -> None:
     )
 
 
-def _annotate_params(nsc: Optional[Union[int, float]] = None, rsc: Optional[Union[int, float]] = None, est_nsc: Optional[Union[int, float]] = None, est_rsc: Optional[Union[int, float]] = None, loc: str = "lower right") -> None:
+def _annotate_params(
+    nsc: Optional[Union[int, float]] = None,
+    rsc: Optional[Union[int, float]] = None,
+    est_nsc: Optional[Union[int, float]] = None,
+    est_rsc: Optional[Union[int, float]] = None,
+    loc: str = "lower right"
+) -> None:
     """Add parameter annotations to plot showing quality metrics.
 
     Args:
         nsc: Normalized Strand Coefficient value
-        rsc: Relative Strand Coefficient value  
+        rsc: Relative Strand Coefficient value
         est_nsc: Estimated NSC value
         est_rsc: Estimated RSC value
         loc: Location for the annotation box
@@ -147,7 +167,11 @@ def _set_ylim() -> Tuple[float, float, float]:
     return lower, upper, height
 
 
-def plot_naive_cc(stats_result: Any, name: Optional[str] = None, xlim: Optional[Tuple[int, Any]] = None) -> None:
+def plot_naive_cc(
+    whole_stat: WholeGenomeStats[TStats],
+    name: Optional[str] = None,
+    xlim: Optional[Tuple[int, Any]] = None
+) -> None:
     """Plot naive cross-correlation results using new StatisticsResult interface.
 
     Creates a comprehensive plot of naive cross-correlation showing:
@@ -165,10 +189,7 @@ def plot_naive_cc(stats_result: Any, name: Optional[str] = None, xlim: Optional[
     if name:
         title += " for " + name
 
-    genome_stats = stats_result.genome_wide_stats
-    cc_stats = genome_stats.cc if genome_stats else None
-    
-    if cc_stats is None:
+    if whole_stat is None:
         logger.warning("No CC statistics available for plotting")
         return
 
@@ -176,27 +197,32 @@ def plot_naive_cc(stats_result: Any, name: Optional[str] = None, xlim: Optional[
     plt.xlabel("Reverse Strand Shift")
     plt.ylabel("Cross-Correlation")
 
-    # Plot confidence intervals if available (skip if not available in StatisticsResult)
-    max_shift = getattr(genome_stats, 'max_shift', len(cc_stats.cc) - 1 if cc_stats.cc is not None else 300)
+    # Plot confidence intervals if available
+    max_shift = len(whole_stat.cc) - 1
     x_range = range(max_shift + 1)
-    
+
+    # Plot confidence intervals
+    plt.fill_between(x_range, whole_stat.cc_lower, whole_stat.cc_upper,
+                     color="lightskyblue", alpha=0.5, linewidth=0)
+
     # Plot main cross-correlation curve
-    if cc_stats.cc is not None:
-        plt.plot(x_range, cc_stats.cc, color="black", linewidth=0.5)
-    
+    if whole_stat.cc is not None:
+        plt.plot(x_range, whole_stat.cc, color="black", linewidth=0.5)
+
     axes = plt.gca()
     if xlim:
         axes.set_xlim(xlim)
     lower, upper, height = _set_ylim()
 
     # Plot minimum correlation line
-    if hasattr(cc_stats, 'cc_min') and cc_stats.cc_min is not None:
+    cc_stats = whole_stat.stats
+    if cc_stats.cc_min is not None:
         plt.axhline(cc_stats.cc_min, linestyle="dashed", linewidth=0.5)
         plt.text(0, cc_stats.cc_min, 'min(cc) = {:.5f}'.format(cc_stats.cc_min))
 
     # Annotate read length
-    read_len = getattr(genome_stats, 'read_len', None) or getattr(cc_stats, 'read_len', None)
-    if read_len and hasattr(cc_stats, 'ccrl') and cc_stats.ccrl is not None:
+    read_len = cc_stats.read_len
+    if read_len and cc_stats.ccrl is not None:
         _annotate_point(
             read_len - 1, "red",
             upper - height / 25, 'read length: {}'.format(read_len),
@@ -204,24 +230,27 @@ def plot_naive_cc(stats_result: Any, name: Optional[str] = None, xlim: Optional[
         )
 
     # Annotate estimated library length
-    if hasattr(cc_stats, 'est_lib_len') and cc_stats.est_lib_len:
-        est_ccfl = getattr(cc_stats, 'est_ccfl', None)
+    qc_stats = cc_stats.metrics_at_estimated_length
+    if qc_stats.fragment_length:
+        est_ccfl = qc_stats.ccfl
         if est_ccfl is not None:
             _annotate_point(
-                cc_stats.est_lib_len - 1, "blue",
-                upper - height / 10, 'estimated lib len: {}'.format(cc_stats.est_lib_len),
+                qc_stats.fragment_length - 1, "blue",
+                upper - height / 10, 'estimated lib len: {}'.format(qc_stats.fragment_length),
                 est_ccfl, " cc(est lib len) = {:.5f}".format(est_ccfl), height / 50
             )
-    
+
     # Annotate expected library length
-    library_len = getattr(genome_stats, 'library_len', None) or getattr(cc_stats, 'library_len', None)
-    if library_len and hasattr(cc_stats, 'ccfl') and cc_stats.ccfl is not None:
+    qc_stats = cc_stats.metrics_at_expected_length
+    if qc_stats and qc_stats.ccfl is not None:
+        library_len = qc_stats.fragment_length
+        assert library_len is not None
         _annotate_point(
             library_len - 1, "green",
             upper - height / 6, 'expected lib len: {}'.format(library_len),
-            cc_stats.ccfl, " cc(lib length) = {:.5f}".format(cc_stats.ccfl), -height / 25
+            qc_stats.ccfl, " cc(lib length) = {:.5f}".format(qc_stats.ccfl), -height / 25
         )
-    
+
     # Add quality metrics annotations
     _annotate_params(
         getattr(cc_stats, 'nsc', None),
@@ -231,7 +260,11 @@ def plot_naive_cc(stats_result: Any, name: Optional[str] = None, xlim: Optional[
     )
 
 
-def plot_naive_cc_just(stats_result: Any, name: Optional[str] = None) -> bool:
+def plot_naive_cc_just(
+    stats: Optional[WholeGenomeStats[NCCStats]],
+    est_lib_len: Optional[int],
+    name: Optional[str] = None
+) -> bool:
     """Plot zoomed naive cross-correlation around fragment length peak using new StatisticsResult interface.
 
     Creates a focused plot showing the cross-correlation peak region
@@ -244,26 +277,25 @@ def plot_naive_cc_just(stats_result: Any, name: Optional[str] = None) -> bool:
     Returns:
         True if plot was created, False if insufficient data
     """
-    genome_stats = stats_result.genome_wide_stats
-    if genome_stats is None:
+    if stats is None:
         return False
-        
-    cc_stats = genome_stats.cc
-    if cc_stats is None:
-        return False
-        
+
     # Check if we can create a zoomed plot
-    calc_ncc = not stats_result.skip_ncc
-    max_shift = getattr(genome_stats, 'max_shift', 300)
-    est_lib_len = getattr(cc_stats, 'est_lib_len', None)
-    
-    if calc_ncc and est_lib_len and est_lib_len * 2 < max_shift + 1:
-        plot_naive_cc(stats_result, name, (0, est_lib_len * 2))
+    if stats.cc is None:
+        return False
+
+    max_shift = len(stats.cc) - 1
+    if est_lib_len is not None and est_lib_len * 2 < max_shift + 1:
+        plot_naive_cc(stats, name, (0, est_lib_len * 2))
         return True
+
     return False
 
 
-def plot_masc(stats_result: Any, name: Optional[str] = None) -> None:
+def plot_masc(
+    masc_stats: Optional[WholeGenomeStats[MSCCStats]],
+    name: Optional[str] = None
+) -> None:
     """Plot mappability-sensitive cross-correlation (MSCC) results using new StatisticsResult interface.
 
     Creates comprehensive MSCC plots showing:
@@ -284,31 +316,26 @@ def plot_masc(stats_result: Any, name: Optional[str] = None) -> None:
     plt.xlabel("Reverse Strand Shift")
     plt.ylabel("Mappability Sensitive Cross-Correlation")
 
-    genome_stats = stats_result.genome_wide_stats
-    if genome_stats is None:
-        logger.warning("No genome-wide statistics available for MSCC plotting")
-        return
-        
-    masc_stats = genome_stats.masc
     if masc_stats is None:
         logger.warning("No MSCC statistics available for plotting")
         return
 
-    max_shift = getattr(genome_stats, 'max_shift', len(masc_stats.cc) - 1 if masc_stats.cc is not None else 300)
+    max_shift = len(masc_stats.cc) - 1
     x_range = range(max_shift + 1)
+
+    # Plot confidence intervals for MSCC
+    plt.fill_between(x_range, masc_stats.cc_lower, masc_stats.cc_upper,
+                     color="lightskyblue", alpha=0.5, linewidth=0)
 
     # Plot MSCC curves
     if masc_stats.cc is not None:
         plt.plot(x_range, masc_stats.cc, color="black", linewidth=0.5, label="MSCC")
-    
-    # Plot smoothed MSCC if available
-    if hasattr(masc_stats, 'avr_cc') and masc_stats.avr_cc is not None:
         plt.plot(x_range, masc_stats.avr_cc, alpha=0.8, label="Smoothed", color="pink")
 
     lower, upper, height = _set_ylim()
 
     # Annotate estimated library length
-    est_lib_len = getattr(masc_stats, 'est_lib_len', None)
+    est_lib_len = masc_stats.est_lib_len
     if est_lib_len and masc_stats.cc is not None and est_lib_len <= len(masc_stats.cc):
         masc_est_ll = masc_stats.cc[est_lib_len - 1]
         _annotate_point(
@@ -318,7 +345,7 @@ def plot_masc(stats_result: Any, name: Optional[str] = None) -> None:
         )
 
     # Annotate expected library length
-    library_len = getattr(genome_stats, 'library_len', None) or getattr(masc_stats, 'library_len', None)
+    library_len = masc_stats.stats.metrics_at_expected_length.fragment_length
     if library_len and masc_stats.cc is not None and library_len <= len(masc_stats.cc):
         masc_ll = masc_stats.cc[library_len - 1]
         _annotate_point(
@@ -328,14 +355,14 @@ def plot_masc(stats_result: Any, name: Optional[str] = None) -> None:
         )
 
     plt.legend(loc="best")
-    
+
     # Add moving average window size annotation if available
     mv_avr_filter_len = getattr(masc_stats, 'mv_avr_filter_len', None)
     if mv_avr_filter_len:
         _annotate_bottom_right_box("Mov avr win size = {}".format(mv_avr_filter_len))
 
 
-def plot_ncc_vs_masc(pp: Any, stats_result: Any, name: str) -> None:
+def plot_ncc_vs_masc(pp: PdfPages, stats: GenomeWideStats, name: str) -> None:
     """Generate comparison plots between NCC and MSCC using new StatisticsResult interface.
 
     Creates side-by-side comparison plots for each chromosome showing
@@ -351,22 +378,26 @@ def plot_ncc_vs_masc(pp: Any, stats_result: Any, name: str) -> None:
         title += " for " + name
 
     # Plot genome-wide comparison if MSCC is available
-    if stats_result.has_mappability:
-        _plot_ncc_vs_masc(stats_result.genome_wide_stats, "Naive CC vs MSCC")
+    if stats.has_mscc:
+        _plot_ncc_vs_masc(stats.whole_ncc_stats, stats.whole_mscc_stats, "Naive CC vs MSCC")
         _feed_pdf_page(pp)
 
     # Plot per-chromosome comparisons
-    for ref in sorted(stats_result.references):
-        chrom_stats = stats_result.chromosome_stats.get(ref)
-        if chrom_stats is not None:
-            try:
-                _plot_ncc_vs_masc(chrom_stats, title.format(ref))
-                _feed_pdf_page(pp)
-            except AssertionError:
-                logger.debug("Skip plot for {}, valid reads unable.".format(ref))
+    for ref in sorted(stats.references):
+        try:
+            ncc = None if stats.ncc_stats is None else stats.ncc_stats.get(ref)
+            mscc = None if stats.mscc_stats is None else stats.mscc_stats.get(ref)
+            _plot_ncc_vs_masc(ncc, mscc, title.format(ref))
+            _feed_pdf_page(pp)
+        except AssertionError:
+            logger.debug("Skip plot for {}, valid reads unable.".format(ref))
 
 
-def _plot_ncc_vs_masc(stats: Any, title: str) -> None:
+def _plot_ncc_vs_masc(
+    cc_stats: Optional[ChromosomeStats[NCCStats]],
+    masc_stats: Optional[ChromosomeStats[MSCCStats]],
+    title: str
+) -> None:
     """Create individual NCC vs MSCC comparison plot using new UnifiedStats interface.
 
     Generates a single comparison plot showing both NCC and MSCC
@@ -380,16 +411,17 @@ def _plot_ncc_vs_masc(stats: Any, title: str) -> None:
         None
     """
     # Check if we have valid data to plot
-    cc_stats = getattr(stats, 'cc', None)
-    masc_stats = getattr(stats, 'masc', None)
-    
-    has_valid_cc = (cc_stats is not None and 
-                   hasattr(cc_stats, 'cc') and cc_stats.cc is not None and 
-                   not np.all(np.isnan(cc_stats.cc)))
-    has_valid_masc = (masc_stats is not None and 
-                     hasattr(masc_stats, 'cc') and masc_stats.cc is not None and 
-                     not np.all(np.isnan(masc_stats.cc)))
-    
+    has_valid_cc = (
+        cc_stats is not None and
+        cc_stats.cc is not None and
+        not np.all(np.isnan(cc_stats.cc))
+    )
+    has_valid_masc = (
+        masc_stats is not None and
+        masc_stats.cc is not None and
+        not np.all(np.isnan(masc_stats.cc))
+    )
+
     if not (has_valid_cc or has_valid_masc):
         raise AssertionError("No valid correlation data available for plotting")
 
@@ -403,33 +435,38 @@ def _plot_ncc_vs_masc(stats: Any, title: str) -> None:
         max_shift = len(cc_stats.cc) - 1
     elif masc_stats and masc_stats.cc is not None:
         max_shift = len(masc_stats.cc) - 1
-    
+
     x_range = range(max_shift + 1)
 
     # Plot NCC if available
-    if has_valid_cc and hasattr(cc_stats, 'cc_min') and cc_stats.cc_min is not None:
-        plt.plot(x_range, cc_stats.cc - cc_stats.cc_min,
+    if cc_stats is not None and cc_stats.stats.cc_min is not None:
+        plt.plot(x_range, cc_stats.cc - cc_stats.stats.cc_min,
                  color="black", linewidth=0.5, label="Naive CC")
-    
+
     # Plot MSCC if available
-    if has_valid_masc and hasattr(masc_stats, 'cc_min') and masc_stats.cc_min is not None:
+    if masc_stats is not None and masc_stats.stats.cc_min is not None:
         alpha = 1 if not has_valid_cc else 0.8
-        plt.plot(x_range, masc_stats.cc - masc_stats.cc_min,
+        plt.plot(x_range, masc_stats.cc - masc_stats.stats.cc_min,
                  alpha=alpha, linewidth=0.5, label="MSCC")
 
     lower, upper, height = _set_ylim()
 
     # Annotate read length
-    read_len = getattr(stats, 'read_len', None)
-    if read_len:
-        _annotate_point(
-            read_len, "red",
-            upper - height/25, "read length: {}".format(read_len)
-        )
+    if cc_stats is not None:
+        read_len = cc_stats.stats.read_len
+    elif masc_stats is not None:
+        read_len = masc_stats.stats.read_len
+    else:
+        raise AssertionError
+
+    _annotate_point(
+        read_len, "red",
+        upper - height/25, "read length: {}".format(read_len)
+    )
 
     # Annotate estimated library length from MSCC
-    if has_valid_masc:
-        est_lib_len = getattr(masc_stats, 'est_lib_len', None)
+    if masc_stats is not None:
+        est_lib_len = masc_stats.est_lib_len
         if est_lib_len:
             _annotate_point(
                 est_lib_len, "blue",
@@ -438,7 +475,13 @@ def _plot_ncc_vs_masc(stats: Any, title: str) -> None:
         plt.legend(loc="best")
 
     # Annotate expected library length
-    library_len = getattr(stats, 'library_len', None)
+    if cc_stats is not None:
+        library_len = cc_stats.stats.metrics_at_expected_length.fragment_length
+    elif masc_stats is not None:
+        library_len = masc_stats.stats.metrics_at_expected_length.fragment_length
+    else:
+        raise AssertionError
+
     if library_len:
         _annotate_point(
             library_len, "green",

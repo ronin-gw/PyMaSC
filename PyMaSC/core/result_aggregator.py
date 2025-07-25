@@ -24,7 +24,6 @@ from PyMaSC.core.result_container import (
     ResultContainer, ChromosomeResult, NCCData, MSCCData
 )
 from PyMaSC.core.interfaces.calculator import CrossCorrelationCalculator
-from PyMaSC.utils.stats_utils import ArrayAggregator
 
 # Import WorkerResult for the aggregate method
 from PyMaSC.core.worker import WorkerResult

@@ -11,7 +11,7 @@ else:
 import numpy as np
 import numpy.typing as npt
 
-from PyMaSC.utils.stats_utils import npcalc_with_logging_warn
+from PyMaSC.utils.calc import npcalc_with_logging_warn
 
 
 @dataclass
@@ -85,14 +85,14 @@ class MSCCResult(CorrelationResult):
 
     def calc_cc(self) -> None:
         assert self.mappable_len is not None, "mappable_len must be set before calculating CC."
-        totlen = np.array(self.mappable_len, dtype=np.float_)
+        totlen = np.array(self.mappable_len, dtype=np.float64)
         totlen = np.concatenate((
             totlen[:self.read_len][::-1], totlen[1:]
         ))[:self.max_shift + 1]
 
         self.cc = self._calc_cc(
-            np.array(self.forward_sum[:self.max_shift + 1], dtype=np.float_),
-            np.array(self.reverse_sum[:self.max_shift + 1], dtype=np.float_),
+            np.array(self.forward_sum[:self.max_shift + 1], dtype=np.float64),
+            np.array(self.reverse_sum[:self.max_shift + 1], dtype=np.float64),
             self.ccbins[:self.max_shift + 1],
             totlen,
             totlen

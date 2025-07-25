@@ -14,20 +14,21 @@ Key components:
 The module handles both reading and writing of tables with proper error
 handling and logging for debugging and validation.
 """
-from __future__ import annotations, print_function
+from __future__ import annotations
 
 import logging
-from functools import partial
+import os
 import csv
 from collections import defaultdict
-from copy import copy
-import os
+from functools import partial
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, TextIO, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, TextIO, Tuple, Union, Literal
 
 import numpy as np
 
+from PyMaSC.core.interfaces.stats import GenomeWideStats, WholeGenomeStats, ChromosomeStats
 from PyMaSC.utils.output import catch_IOError
+
 
 CCOUTPUT_SUFFIX = "_cc.tab"
 MSCCOUTPUT_SUFFIX = "_mscc.tab"
@@ -156,14 +157,19 @@ load_masc = partial(_load_table, logfmt="Load MSCC table from '{}'")
 
 
 @catch_IOError(logger)
-def _output_cctable(outfile: os.PathLike[str], stats_result: Any, suffix: str, target_attr: str) -> None:
+def _output_cctable(
+    outfile: os.PathLike[str],
+    stats: GenomeWideStats,
+    suffix: str,
+    target_attr: Union[Literal['ncc'], Literal['mscc']]
+) -> None:
     """Output cross-correlation tables using new StatisticsResult interface.
 
     Args:
         outfile: Base output file path
         stats_result: StatisticsResult object containing data
         suffix: File suffix to append
-        target_attr: Attribute name ('cc' or 'masc') to extract
+        target_attr: Attribute name ('cc' or 'mscc') to extract
     """
     outfile_path = Path(outfile)
     # Create: /path/to/file.ext -> /path/to/file_cc.tab or /path/to/file_mscc.tab
@@ -171,54 +177,25 @@ def _output_cctable(outfile: os.PathLike[str], stats_result: Any, suffix: str, t
     outfile_with_suffix = outfile_path.parent / f"{stem_with_suffix}.tab"
     logger.info("Output '{}'".format(outfile_with_suffix))
 
-    def _extract_correlation_data(stats_result, target_attr: str):
-        """Extract correlation data from StatisticsResult.
+    # Extract whole-genome correlation
+    whole_cc: WholeGenomeStats = getattr(stats, f'whole_{target_attr}_stats')
+    chrom_stats: Dict[str, ChromosomeStats] = getattr(stats, f'{target_attr}_stats')
 
-        Args:
-            stats_result: StatisticsResult object
-            target_attr: 'cc' for NCC or 'masc' for MSCC
+    assert whole_cc is not None
+    assert chrom_stats is not None
 
-        Returns:
-            Tuple of (whole_genome_cc, ref2cc_dict)
-        """
-        # Extract whole-genome correlation
-        genome_stats = stats_result.genome_wide_stats
-        if target_attr == "cc" and genome_stats.cc is not None:
-            whole_cc = genome_stats.cc.cc
-        elif target_attr == "masc" and genome_stats.masc is not None:
-            whole_cc = genome_stats.masc.cc
-        else:
-            # Return empty array if no data available
-            whole_cc = np.array([])
-
-        # Extract per-chromosome correlations
-        ref2cc = {}
-        for chrom in stats_result.references:
-            chrom_stats = stats_result.chromosome_stats.get(chrom)
-            if chrom_stats is None:
-                continue
-
-            if target_attr == "cc" and chrom_stats.cc is not None:
-                cc_data = chrom_stats.cc.cc
-                if cc_data is not None and not np.isnan(cc_data).all():
-                    ref2cc[chrom] = cc_data
-            elif target_attr == "masc" and chrom_stats.masc is not None:
-                cc_data = chrom_stats.masc.cc
-                if cc_data is not None and not np.isnan(cc_data).all():
-                    ref2cc[chrom] = cc_data
-
-        return whole_cc, ref2cc
-
-    # Extract correlation data using new interface
-    cc, ref2cc = _extract_correlation_data(stats_result, target_attr)
+    # Extract correlations
+    cc = whole_cc.cc
+    ref2cc = {chrom: stats.cc for chrom, stats in chrom_stats.items()
+              if not np.isnan(stats.cc).all()}
     keys = sorted(ref2cc.keys())
 
     with TableIO(outfile_with_suffix, 'w') as tab:
         tab.write(["whole", ] + keys, ([cc] + [ref2cc[k][i] for k in keys] for i, cc in enumerate(cc)))
 
 
-output_cc = partial(_output_cctable, suffix=CCOUTPUT_SUFFIX, target_attr="cc")
-output_mscc = partial(_output_cctable, suffix=MSCCOUTPUT_SUFFIX, target_attr="masc")
+output_cc = partial(_output_cctable, suffix=CCOUTPUT_SUFFIX, target_attr="ncc")
+output_mscc = partial(_output_cctable, suffix=MSCCOUTPUT_SUFFIX, target_attr="mscc")
 
 
 class NReadsIO(TableIO):
@@ -298,7 +275,14 @@ class NReadsIO(TableIO):
         """
         return [rowname] + ["{}-{}".format(f, r) for f, r in zip(forward, reverse)]
 
-    def write(self, header: List[str], forward_sum: Optional[Dict[str, int]], reverse_sum: Optional[Dict[str, int]], mappable_forward_sum: Optional[Dict[str, List[int]]], mappable_reverse_sum: Optional[Dict[str, List[int]]]) -> None:
+    def write(
+        self,
+        header: List[str],
+        forward_sum: Optional[Dict[str, int]],
+        reverse_sum: Optional[Dict[str, int]],
+        mappable_forward_sum: Optional[Dict[str, List[int]]],
+        mappable_reverse_sum: Optional[Dict[str, List[int]]]
+    ) -> None:
         """Write read count table with forward/reverse data.
 
         Args:
@@ -367,7 +351,7 @@ def load_nreads_table(path: os.PathLike[str]) -> Tuple[Dict[str, int], Dict[str,
 
 
 @catch_IOError(logger)
-def output_nreads_table(outfile: os.PathLike[str], stats_result: Any) -> None:
+def output_nreads_table(outfile: os.PathLike[str], stats: GenomeWideStats) -> None:
     """Output read count table from analysis results using new StatisticsResult interface.
 
     Args:
@@ -380,110 +364,28 @@ def output_nreads_table(outfile: os.PathLike[str], stats_result: Any) -> None:
     outfile_with_suffix = outfile_path.parent / f"{stem_with_suffix}.tab"
     logger.info("Output '{}'".format(outfile_with_suffix))
 
-    def _extract_read_counts(stats_result, count_type: str, is_mappable: bool = False):
-        """Extract read counts from StatisticsResult.
+    #
+    def _extract_read_counts(whole_stats: WholeGenomeStats, chromstats: Dict[str, ChromosomeStats]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        forward_sum = {}
+        forward_sum['whole'] = whole_stats.stats.forward_reads
+        forward_sum.update(**{chrom: stat.stats.forward_reads for chrom, stat in chromstats.items()})
 
-        Args:
-            stats_result: StatisticsResult object
-            count_type: 'forward_sum' or 'reverse_sum'
-            is_mappable: Whether to extract mappable read counts
+        reverse_sum = {}
+        reverse_sum['whole'] = whole_stats.stats.reverse_reads
+        reverse_sum.update(**{chrom: stat.stats.reverse_reads for chrom, stat in chromstats.items()})
 
-        Returns:
-            Dictionary with chromosome counts and 'whole' genome count.
-            For non-mappable: values are integers
-            For mappable: values are lists (arrays) indexed by shift distance
-        """
-        result_dict = {}
+        return forward_sum, reverse_sum
 
-        if is_mappable:
-            # For mappable counts, we need arrays indexed by shift distance
-            # First determine the max shift to create consistent array sizes
-            max_shift = 300  # Default fallback
-            genome_stats = stats_result.genome_wide_stats
-            if genome_stats and hasattr(genome_stats, 'max_shift'):
-                max_shift = genome_stats.max_shift
-            elif genome_stats and genome_stats.masc and hasattr(genome_stats.masc, 'cc') and genome_stats.masc.cc is not None:
-                max_shift = len(genome_stats.masc.cc) - 1
+    forward_sum = reverse_sum = None
+    if stats.whole_ncc_stats is not None:
+        assert stats.ncc_stats is not None
+        forward_sum, reverse_sum = _extract_read_counts(stats.whole_ncc_stats, stats.ncc_stats)
 
-            array_size = max_shift + 1
-
-            # Extract per-chromosome mappable counts as arrays
-            for chrom in stats_result.references:
-                chrom_stats = stats_result.chromosome_stats.get(chrom)
-                if chrom_stats is None or chrom_stats.masc is None:
-                    result_dict[chrom] = [0] * array_size
-                    continue
-
-                count_value = getattr(chrom_stats.masc, count_type, None)
-                if count_value is not None and hasattr(count_value, '__iter__') and not isinstance(count_value, str):
-                    # Convert to list and ensure proper length
-                    count_list = list(count_value)
-                    if len(count_list) == array_size:
-                        result_dict[chrom] = count_list
-                    elif len(count_list) < array_size:
-                        # Pad with zeros if too short
-                        result_dict[chrom] = count_list + [0] * (array_size - len(count_list))
-                    else:
-                        # Truncate if too long
-                        result_dict[chrom] = count_list[:array_size]
-                else:
-                    # Single value or None - create array with that value at position 0
-                    value = int(count_value) if count_value is not None else 0
-                    result_dict[chrom] = [value] + [0] * (array_size - 1)
-
-            # Extract whole-genome mappable count as array
-            if genome_stats and genome_stats.masc is not None:
-                whole_count = getattr(genome_stats.masc, count_type, None)
-                if whole_count is not None and hasattr(whole_count, '__iter__') and not isinstance(whole_count, str):
-                    count_list = list(whole_count)
-                    if len(count_list) == array_size:
-                        result_dict["whole"] = count_list
-                    elif len(count_list) < array_size:
-                        result_dict["whole"] = count_list + [0] * (array_size - len(count_list))
-                    else:
-                        result_dict["whole"] = count_list[:array_size]
-                else:
-                    value = int(whole_count) if whole_count is not None else 0
-                    result_dict["whole"] = [value] + [0] * (array_size - 1)
-            else:
-                result_dict["whole"] = [0] * array_size
-
-        else:
-            # For non-mappable counts, return single integers
-            # Extract per-chromosome counts
-            for chrom in stats_result.references:
-                chrom_stats = stats_result.chromosome_stats.get(chrom)
-                if chrom_stats is None or chrom_stats.cc is None:
-                    result_dict[chrom] = 0
-                    continue
-
-                count_value = getattr(chrom_stats.cc, count_type, 0)
-                result_dict[chrom] = int(count_value) if count_value is not None else 0
-
-            # Extract whole-genome count
-            genome_stats = stats_result.genome_wide_stats
-            if genome_stats and genome_stats.cc is not None:
-                whole_count = getattr(genome_stats.cc, count_type, 0)
-                result_dict["whole"] = int(whole_count) if whole_count is not None else 0
-            else:
-                result_dict["whole"] = 0
-
-        return result_dict
+    mappable_forward = mappable_reverse = None
+    if stats.whole_mscc_stats is not None:
+        assert stats.mscc_stats is not None
+        mappable_forward, mappable_reverse = _extract_read_counts(stats.whole_mscc_stats, stats.mscc_stats)
 
     with NReadsIO(outfile_with_suffix, 'w') as tab:
-        header = ["whole"] + sorted(stats_result.references)
-
-        # Extract read counts using new interface
-        forward_sum = _extract_read_counts(stats_result, "forward_sum", is_mappable=False)
-        reverse_sum = _extract_read_counts(stats_result, "reverse_sum", is_mappable=False)
-
-        # Extract mappable read counts if available
-        if stats_result.has_mappability:
-            mappable_forward = _extract_read_counts(stats_result, "forward_sum", is_mappable=True)
-            mappable_reverse = _extract_read_counts(stats_result, "reverse_sum", is_mappable=True)
-        else:
-            mappable_forward = None
-            mappable_reverse = None
-
-        # NReadsIO has its own write() method with different signature
+        header = ["whole"] + sorted(stats.references)
         tab.write(header, forward_sum, reverse_sum, mappable_forward, mappable_reverse)

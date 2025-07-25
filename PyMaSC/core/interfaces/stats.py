@@ -1,6 +1,6 @@
-from dataclasses import dataclass, field
-from abc import abstractmethod
-from typing import Optional, Dict, TypeVar, Generic
+from dataclasses import dataclass
+from functools import cached_property
+from typing import Optional, Dict, Tuple, TypeVar, Generic, Protocol
 
 import numpy as np
 import numpy.typing as npt
@@ -18,29 +18,29 @@ class CCQualityMetrics:
     vsn: Optional[float] = None
 
 
-@dataclass
-class CCStats(AbstractDataclass):
+TCount = TypeVar("TCount", int, npt.NDArray[np.int64])
+
+
+class CCStats(Protocol, Generic[TCount]):
     read_len: int
     cc_min: float
     ccrl: float
 
     metrics_at_expected_length: CCQualityMetrics
     metrics_at_estimated_length: CCQualityMetrics
+    genomelen: TCount
+    forward_reads: TCount
+    reverse_reads: TCount
 
-    @property
-    @abstractmethod
-    def genomelen(self) -> int:
-        pass
+    # Attributes for the representative values
+    # i.e. return itself in NCC, return 1st item of array in MSCC
+    genomelen_repr: int
+    forward_reads_repr: int
+    reverse_reads_repr: int
 
-    @property
-    @abstractmethod
-    def forward_reads(self) -> int:
-        pass
 
-    @property
-    @abstractmethod
-    def reverse_reads(self) -> int:
-        pass
+NCCStats = CCStats[int]
+MSCCStats = CCStats[npt.NDArray[np.int64]]
 
 
 @dataclass
@@ -48,9 +48,10 @@ class CCArrays(AbstractDataclass):
     cc: npt.NDArray[np.float64]
     avr_cc: npt.NDArray[np.float64]
     est_lib_len: Optional[int]
+    mv_avr_filter_len: int
 
 
-TStats = TypeVar("TStats", bound=CCStats)
+TStats = TypeVar("TStats", bound=CCStats, covariant=True)
 
 
 @dataclass
@@ -59,11 +60,17 @@ class ChromosomeStats(Generic[TStats], CCArrays):
 
 
 @dataclass
+class WholeGenomeStats(ChromosomeStats[TStats]):
+    cc_upper: npt.NDArray[np.float64]
+    cc_lower: npt.NDArray[np.float64]
+
+
+@dataclass
 class GenomeWideStats:
-    whole_ncc_stats: Optional[ChromosomeStats] = None
-    whole_mscc_stats: Optional[ChromosomeStats] = None
-    ncc_stats: Optional[Dict[str, ChromosomeStats]] = None
-    mscc_stats: Optional[Dict[str, ChromosomeStats]] = None
+    whole_ncc_stats: Optional[WholeGenomeStats[NCCStats]] = None
+    whole_mscc_stats: Optional[WholeGenomeStats[MSCCStats]] = None
+    ncc_stats: Optional[Dict[str, ChromosomeStats[NCCStats]]] = None
+    mscc_stats: Optional[Dict[str, ChromosomeStats[MSCCStats]]] = None
 
     @property
     def has_ncc(self) -> bool:
@@ -99,3 +106,12 @@ class GenomeWideStats:
             return self.whole_ncc_stats.est_lib_len
         else:
             raise ValueError("No estimated library length available in GenomeWideStats.")
+
+    @cached_property
+    def references(self) -> Tuple[str, ...]:
+        if self.ncc_stats is not None:
+            return tuple(self.ncc_stats.keys())
+        elif self.mscc_stats is not None:
+            return tuple(self.mscc_stats.keys())
+        else:
+            raise ValueError("No chromosome stats available in GenomeWideStats.")

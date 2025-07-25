@@ -160,56 +160,6 @@ class WorkerConfig:
 
 
 @dataclass
-class ChromosomeResult:
-    """Results for a single chromosome calculation.
-
-    Attributes:
-        chromosome: Chromosome name
-        forward_count: Number of forward reads processed
-        reverse_count: Number of reverse reads processed
-        correlation_bins: Cross-correlation bins array
-        mappable_length: Mappable length for the chromosome (if applicable)
-        execution_time: Time taken for calculation
-    """
-    chromosome: str
-    forward_count: int
-    reverse_count: int
-    correlation_bins: np.ndarray
-    mappable_length: Optional[int] = None
-    execution_time: Optional[float] = None
-
-
-@dataclass
-class CalculationResult:
-    """Aggregated results from cross-correlation calculation.
-
-    Attributes:
-        chromosome_results: Results for each chromosome
-        total_forward_reads: Total forward reads across all chromosomes
-        total_reverse_reads: Total reverse reads across all chromosomes
-        calculation_target: What type of cross-correlation was calculated
-        implementation_algorithm: How the calculation was implemented
-        execution_metadata: Additional execution information
-    """
-    chromosome_results: List[ChromosomeResult]
-    total_forward_reads: int
-    total_reverse_reads: int
-    calculation_target: CalculationTarget
-    implementation_algorithm: ImplementationAlgorithm
-    execution_metadata: Dict[str, Any] = field(default_factory=dict)
-
-    @property
-    def processed_chromosomes(self) -> List[str]:
-        """Get list of processed chromosome names."""
-        return [result.chromosome for result in self.chromosome_results]
-
-    @property
-    def total_reads(self) -> int:
-        """Get total number of reads processed."""
-        return self.total_forward_reads + self.total_reverse_reads
-
-
-@dataclass
 class CalculationRequest:
     """Request object for cross-correlation calculation.
 

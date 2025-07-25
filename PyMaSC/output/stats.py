@@ -26,9 +26,9 @@ logger = logging.getLogger(__name__)
 STATSFILE_SUFFIX = "_stats.tab"
 
 STAT_ATTR = (
-    "genomelen",
-    "forward_reads",
-    "reverse_reads",
+    "genomelen_repr",
+    "forward_reads_repr",
+    "reverse_reads_repr",
     "cc_min",
     "ccrl"
 )
@@ -150,8 +150,8 @@ def load_stats(path: os.PathLike[str], names: Tuple[str, ...]) -> Dict[str, Any]
     stat2attr = {k: v for k, v in STAT_ATTR if v in names}
     attrs = {}
     with open(path) as f:
-        for l in f:
-            row, val = l.split('\t', 1)
+        for line in f:
+            row, val = line.split('\t', 1)
             if row == "Name":
                 attrs["name"] = val.rstrip()
             if row in stat2attr:

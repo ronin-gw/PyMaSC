@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 import os
 from multiprocessing import Queue, Lock
-from typing import Optional, List, Dict, Tuple, Union, Any, TYPE_CHECKING
+from typing import Optional, List, Tuple, Union, Any, TYPE_CHECKING
 
 import pysam
 
@@ -37,6 +37,7 @@ from PyMaSC.core.readlen import estimate_readlen
 from PyMaSC.core.progress_adapter import ProgressManager
 from PyMaSC.core.worker import UnifiedWorker
 from PyMaSC.utils.calc import exec_worker_pool
+from PyMaSC.utils.read_processing import create_read_processor
 
 logger = logging.getLogger(__name__)
 
@@ -220,6 +221,9 @@ class UnifiedCalcHandler:
             self.mappability_config
         )
 
+        #
+        read_processor = create_read_processor(calculator, self.config.mapq_criteria)
+
         # Setup progress reporting
         progress_reporter = self._progress_coordinator.setup_single_process()
 
@@ -243,22 +247,7 @@ class UnifiedCalcHandler:
 
             progress_reporter.update(chrom, read.reference_start)
 
-            # Skip reads based on criteria
-            if (read.is_read2 or read.mapping_quality < self.config.mapq_criteria or
-                read.is_unmapped or read.is_duplicate):
-                continue
-
-            # Feed read to calculator
-            query_length = read.infer_query_length()
-            if query_length is not None:
-                if read.is_reverse:
-                    calculator.feed_reverse_read(
-                        chrom, read.reference_start + 1, query_length
-                    )
-                else:
-                    calculator.feed_forward_read(
-                        chrom, read.reference_start + 1, query_length
-                    )
+            read_processor.process_read(read)
 
         # Finish last chromosome and cleanup progress
         if current_chr is not None:
@@ -298,7 +287,6 @@ class UnifiedCalcHandler:
             )
         else:
             # Create a minimal config when mappability is not needed
-            from PyMaSC.core.models import MappabilityConfig
             default_mappability = MappabilityConfig()  # Use default config
             worker_config = WorkerConfig(
                 calculation_config=self.config,
@@ -370,13 +358,6 @@ class UnifiedCalcHandler:
                     self.mappability_handler.chrom2is_called.values()
                 )
                 self.mappability_handler.calc_mappability()
-
-    @property
-    def ref2mappable_len(self) -> Dict[str, Any]:
-        """Mappable lengths by chromosome."""
-        if self.mappability_handler:
-            return self.mappability_handler.chrom2mappable_len
-        return {}
 
     # Progress observer methods
     def attach_progress_observer(self, observer: 'ProgressObserver') -> None:

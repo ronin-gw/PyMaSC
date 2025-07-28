@@ -17,8 +17,6 @@ from PyMaSC.utils.parsearg import get_pymasc_parser
 from PyMaSC.utils.progress import ProgressBase
 from PyMaSC.utils.output import prepare_outdir
 from PyMaSC.handler.mappability import MappabilityHandler, BWIOError, JSONIOError
-from PyMaSC.handler.unified import InputUnseekable
-from PyMaSC.handler.base import NothingToCalc
 from PyMaSC.handler.unified import UnifiedCalcHandler
 from PyMaSC.core.interfaces.stats import GenomeWideStats
 from PyMaSC.core.models import (
@@ -26,8 +24,7 @@ from PyMaSC.core.models import (
     ImplementationAlgorithm, ExecutionMode, MappabilityConfig
 )
 from PyMaSC.core.stats import make_genome_wide_stat
-from PyMaSC.core.exceptions import ReadsTooFew
-from PyMaSC.core.ncc import ReadUnsortedError
+from PyMaSC.core.exceptions import ReadUnsortedError, ReadsTooFew, InputUnseekable, NothingToCalc
 from PyMaSC.output.stats import output_stats, STATSFILE_SUFFIX
 from PyMaSC.output.table import (output_cc, output_mscc, output_nreads_table,
                                  CCOUTPUT_SUFFIX, MSCCOUTPUT_SUFFIX, NREADOUTPUT_SUFFIX)

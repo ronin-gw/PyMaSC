@@ -21,11 +21,12 @@ from pathlib import Path
 from typing import Any, Optional, Sequence, Type, Union
 
 import PyMaSC
-from PyMaSC.core.constants import NEAR_READLEN_ERR_CRITERION
 
 READLEN_ESTIMATION_TYPES = ("MEAN", "MEDIAN", "MODE", "MIN", "MAX")
 EPILOG = (" \nVisit PyMaSC web site for more information and to get human genome "
           "mappability tracks\n" + PyMaSC.WEBSITE_URL + '\n ')
+
+NEAR_READLEN_ERR_CRITERION = 5
 
 
 def _make_upper(s: str) -> str:

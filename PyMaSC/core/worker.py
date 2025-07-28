@@ -13,66 +13,18 @@ Key components:
 import logging
 import os
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from multiprocessing import Process, Queue
 from multiprocessing.synchronize import Lock
-from typing import Optional, Dict, Any, Protocol, runtime_checkable
+from typing import Optional, Any
 
-from pysam import AlignmentFile, AlignedSegment
+from pysam import AlignmentFile
 
 from PyMaSC.core.interfaces.calculator import CrossCorrelationCalculator
-from PyMaSC.core.models import WorkerConfig, CalculationConfig, CalculationTarget, ImplementationAlgorithm
+from PyMaSC.core.models import WorkerConfig
 from PyMaSC.utils.progress import ProgressHook
-from PyMaSC.utils.read_processing import ReadProcessor as ReadProcessorUtil, create_standard_filter
+from PyMaSC.utils.read_processing import ReadProcessor, create_read_processor
 
 logger = logging.getLogger(__name__)
-
-
-@runtime_checkable
-class ReadProcessor(Protocol):
-    """Protocol for read processing logic.
-
-    Defines the interface for components that process individual reads
-    from BAM files. This allows different algorithms to implement their
-    own read handling logic while maintaining a consistent interface.
-    """
-
-    def should_skip_read(self, read: AlignedSegment) -> bool:
-        """Check if a read should be skipped.
-
-        Args:
-            read: Read to check
-
-        Returns:
-            True if read should be skipped
-        """
-        ...
-
-    def process_read(self, read: AlignedSegment) -> None:
-        """Process a single read.
-
-        Args:
-            read: Read to process
-        """
-        ...
-
-
-@dataclass
-class WorkerResult:
-    """Container for worker calculation results.
-
-    Provides a standardized format for returning results from workers
-    to the main process, supporting both NCC and MSCC results.
-    """
-    chromosome: str
-    mappable_length: Optional[int] = None
-    ncc_forward_sum: Optional[int] = None
-    ncc_reverse_sum: Optional[int] = None
-    ncc_bins: Optional[Any] = None
-    mscc_forward_sum: Optional[Any] = None  # Can be int or array depending on algorithm
-    mscc_reverse_sum: Optional[Any] = None  # Can be int or array depending on algorithm
-    mscc_bins: Optional[Any] = None
-    metadata: Optional[Dict[str, Any]] = None
 
 
 class BaseWorker(Process, ABC):
@@ -119,6 +71,8 @@ class BaseWorker(Process, ABC):
 
     def run(self) -> None:
         """Main worker process loop."""
+        from PyMaSC.utils.logfmt import set_rootlogger
+        set_rootlogger("TRUE", logging.DEBUG)
         with self.logger_lock:
             logger.debug(f"{self.name}: Starting worker, PID {os.getpid()}")
 
@@ -137,8 +91,7 @@ class BaseWorker(Process, ABC):
                     self._process_chromosome(alignfile, chrom)
 
                     # Report results
-                    result = self._collect_results(chrom)
-                    self._report_result(result)
+                    self._report_result(chrom)
 
         except Exception as e:
             with self.logger_lock:
@@ -173,24 +126,16 @@ class BaseWorker(Process, ABC):
             if self._progress:
                 self._progress.update(read.reference_start)
 
-            # Skip if needed
-            if processor.should_skip_read(read):
-                continue
-
             # Process read
-            try:
-                processor.process_read(read)
-            except Exception as e:
-                logger.error(f"Error processing read: {e}")
-                raise
+            processor.process_read(read)
 
-    def _report_result(self, result: WorkerResult) -> None:
+    def _report_result(self, chrom: str) -> None:
         """Report result to main process.
 
         Args:
             result: Result to report
         """
-        self.report_queue.put((result.chromosome, result))
+        pass
 
     @abstractmethod
     def _initialize(self) -> None:
@@ -207,68 +152,9 @@ class BaseWorker(Process, ABC):
         pass
 
     @abstractmethod
-    def _collect_results(self, chrom: str) -> WorkerResult:
-        """Collect results for a chromosome.
-
-        Args:
-            chrom: Chromosome to collect results for
-
-        Returns:
-            WorkerResult containing calculation results
-        """
-        pass
-
-    @abstractmethod
     def _cleanup(self) -> None:
         """Clean up worker resources."""
         pass
-
-
-class StandardReadProcessor:
-    """Standard read processor implementation.
-
-    Provides the common read filtering and processing logic used by
-    most PyMaSC calculations. Now uses the centralized read processing
-    utilities to eliminate duplicate filtering logic.
-    """
-
-    def __init__(self,
-                 calculator: CrossCorrelationCalculator,
-                 mapq_criteria: int):
-        """Initialize read processor.
-
-        Args:
-            calculator: Calculator to feed reads to
-            mapq_criteria: Minimum mapping quality threshold
-        """
-        self.calculator = calculator
-        self.mapq_criteria = mapq_criteria
-        # Use centralized read processing utilities
-        self._filter = create_standard_filter(mapq_criteria)
-        self._processor = ReadProcessorUtil(calculator, self._filter)
-
-    def should_skip_read(self, read: AlignedSegment) -> bool:
-        """Check if read should be skipped based on quality criteria.
-
-        Uses centralized filtering logic to ensure consistency.
-
-        Args:
-            read: Read to check
-
-        Returns:
-            True if read should be skipped
-        """
-        return self._filter.should_skip_read(read)
-
-    def process_read(self, read: AlignedSegment) -> None:
-        """Process a single read by feeding to calculator.
-
-        Uses centralized processing logic to eliminate duplication.
-
-        Args:
-            read: Read to process
-        """
-        self._processor.process_read(read)
 
 
 class UnifiedWorker(BaseWorker):
@@ -300,12 +186,11 @@ class UnifiedWorker(BaseWorker):
             calculator_factory: Optional calculator factory (for testing)
         """
         super().__init__(worker_config, order_queue, report_queue,
-                        logger_lock, bam_path)
+                         logger_lock, bam_path)
 
         self._calculator_factory = calculator_factory
         self._calculator: Optional[CrossCorrelationCalculator] = None
         self._processor: Optional[ReadProcessor] = None
-        self._secondary_calculator: Optional[CrossCorrelationCalculator] = None  # For dual NCC/MSCC mode
         self._bwfeeder: Optional[Any] = None
 
     def _initialize(self) -> None:
@@ -326,28 +211,6 @@ class UnifiedWorker(BaseWorker):
             self._progress
         )
 
-        # For dual NCC/MSCC mode, create secondary NCC calculator
-        if (calc_config.target == CalculationTarget.BOTH and
-            not calc_config.skip_ncc):
-            # Create NCC calculator
-            ncc_config = CalculationConfig(
-                target=CalculationTarget.NCC,
-                implementation=ImplementationAlgorithm.SUCCESSIVE,
-                max_shift=calc_config.max_shift,
-                mapq_criteria=calc_config.mapq_criteria,
-                references=calc_config.references,
-                lengths=calc_config.lengths,
-                read_length=calc_config.read_length
-            )
-            self._secondary_calculator = factory.create_calculator(
-                CalculationTarget.NCC,
-                ImplementationAlgorithm.SUCCESSIVE,
-                ncc_config,
-                None,  # No mappability for NCC
-                self.logger_lock,
-                None   # No separate progress for secondary
-            )
-
         # Initialize BigWig feeder if needed
         if map_config and map_config.is_enabled():
             from PyMaSC.reader.bigwig import BigWigReader
@@ -359,91 +222,23 @@ class UnifiedWorker(BaseWorker):
             # Create processor based on configuration
             calc_config = self.config.calculation_config
 
-            if self._secondary_calculator:
-                # Dual processor for NCC+MSCC
-                self._processor = DualReadProcessor(
-                    self._calculator,
-                    self._secondary_calculator,
-                    calc_config.mapq_criteria
-                )
-            else:
-                # Standard single processor
-                self._processor = StandardReadProcessor(
-                    self._calculator,
-                    calc_config.mapq_criteria
-                )
+            assert self._calculator is not None
+            self._processor = create_read_processor(
+                self._calculator,
+                calc_config.mapq_criteria
+            )
 
         return self._processor
 
-    def _collect_results(self, chrom: str) -> WorkerResult:
-        """Collect results from calculators."""
-        result = WorkerResult(chromosome=chrom)
-
-        # Flush calculators
-        if self._calculator is not None and hasattr(self._calculator, 'flush'):
-            self._calculator.flush()
-        if self._secondary_calculator is not None and hasattr(self._secondary_calculator, 'flush'):
-            self._secondary_calculator.flush()
-        if self._bwfeeder and hasattr(self._bwfeeder, 'flush'):
-            self._bwfeeder.flush()
-
-        # Get mappable length if available
-        if self._bwfeeder and hasattr(self._bwfeeder, 'chrom2mappable_len'):
-            result.mappable_length = self._bwfeeder.chrom2mappable_len.get(chrom)
-        elif hasattr(self._calculator, 'ref2mappable_len'):
-            result.mappable_length = self._calculator.ref2mappable_len.get(chrom)
-        elif hasattr(self._calculator, '_calculator') and hasattr(self._calculator._calculator, 'ref2mappable_len'):
-            # Try inner calculator (for CalculatorAdapter)
-            inner_calc = self._calculator._calculator
-            result.mappable_length = inner_calc.ref2mappable_len.get(chrom)
-        else:
-            result.mappable_length = None
-
-        # Collect NCC results
-        if self._secondary_calculator:
-            # From secondary NCC calculator
-            result.ncc_forward_sum = self._secondary_calculator.ref2forward_sum.get(chrom)
-            result.ncc_reverse_sum = self._secondary_calculator.ref2reverse_sum.get(chrom)
-            result.ncc_bins = self._secondary_calculator.ref2ccbins.get(chrom)
-        elif not self.config.calculation_config.skip_ncc:
-            # From primary calculator if it includes NCC
-            result.ncc_forward_sum = self._calculator.ref2forward_sum.get(chrom)
-            result.ncc_reverse_sum = self._calculator.ref2reverse_sum.get(chrom)
-            result.ncc_bins = self._calculator.ref2ccbins.get(chrom)
-
-        # Collect MSCC results
-        target = self.config.calculation_config.target
-        implementation = self.config.calculation_config.implementation
-        has_mappability = self.config.mappability_config and self.config.mappability_config.is_enabled()
-
-        if target == CalculationTarget.MSCC:
-            # For pure MSCC, use standard ref2* attributes
-            result.mscc_forward_sum = self._calculator.ref2forward_sum.get(chrom)
-            result.mscc_reverse_sum = self._calculator.ref2reverse_sum.get(chrom)
-            result.mscc_bins = self._calculator.ref2ccbins.get(chrom)
-        elif implementation == ImplementationAlgorithm.SUCCESSIVE and has_mappability:
-            # For SUCCESSIVE with mappability (CompositeCalculator), use mappable attributes
-            if hasattr(self._calculator, 'ref2mappable_forward_sum'):
-                mappable_forward = self._calculator.ref2mappable_forward_sum
-                mappable_reverse = self._calculator.ref2mappable_reverse_sum
-                mappable_bins = self._calculator.ref2mascbins
-
-                if mappable_forward is not None:
-                    result.mscc_forward_sum = mappable_forward.get(chrom)
-                    result.mscc_reverse_sum = mappable_reverse.get(chrom)
-                    result.mscc_bins = mappable_bins.get(chrom)
-        elif hasattr(self._calculator, 'ref2mappable_forward_sum'):
-            # For BitArray with mappability
-            mappable_forward = self._calculator.ref2mappable_forward_sum
-            mappable_reverse = self._calculator.ref2mappable_reverse_sum
-            mappable_bins = self._calculator.ref2mascbins
-
-            if mappable_forward is not None:
-                result.mscc_forward_sum = mappable_forward.get(chrom)
-                result.mscc_reverse_sum = mappable_reverse.get(chrom)
-                result.mscc_bins = mappable_bins.get(chrom)
-
-        return result
+    def _report_result(self, chrom: str) -> None:
+        assert self._calculator is not None
+        self._calculator.flush(chrom)
+        #
+        try:
+            result = self._calculator.get_result(chrom)
+        except KeyError:
+            result = None
+        self.report_queue.put((chrom, result))
 
     def _cleanup(self) -> None:
         """Clean up resources."""
@@ -451,140 +246,5 @@ class UnifiedWorker(BaseWorker):
             self._bwfeeder.close()
 
         # Call finishup on calculators if available
-        if hasattr(self._calculator, 'finishup_calculation'):
+        if self._calculator is not None:
             self._calculator.finishup_calculation()
-        if self._secondary_calculator and hasattr(self._secondary_calculator, 'finishup_calculation'):
-            self._secondary_calculator.finishup_calculation()
-
-
-class DualReadProcessor:
-    """Read processor that feeds reads to two calculators.
-
-    Used for simultaneous NCC and MSCC calculations, feeding each
-    read to both calculators to compute both standard and
-    mappability-corrected results. Now uses centralized utilities.
-    """
-
-    def __init__(self,
-                 primary_calculator: CrossCorrelationCalculator,
-                 secondary_calculator: CrossCorrelationCalculator,
-                 mapq_criteria: int):
-        """Initialize dual processor.
-
-        Args:
-            primary_calculator: Primary calculator (usually MSCC)
-            secondary_calculator: Secondary calculator (usually NCC)
-            mapq_criteria: Minimum mapping quality threshold
-        """
-        self.primary_calculator = primary_calculator
-        self.secondary_calculator = secondary_calculator
-        self.mapq_criteria = mapq_criteria
-        # Use centralized read processing utilities
-        from PyMaSC.utils.read_processing import create_dual_processor
-        self._dual_processor = create_dual_processor(
-            primary_calculator,
-            secondary_calculator,
-            mapq_criteria
-        )
-
-    def should_skip_read(self, read: AlignedSegment) -> bool:
-        """Check if read should be skipped using centralized logic."""
-        return self._dual_processor.filter.should_skip_read(read)
-
-    def process_read(self, read: AlignedSegment) -> None:
-        """Process read in both calculators using centralized logic."""
-        self._dual_processor.process_read(read)
-
-
-# Backward compatibility aliases
-def create_legacy_worker(worker_type: str, *args: Any, **kwargs: Any) -> BaseWorker:
-    """Create worker using legacy interface.
-
-    This function provides backward compatibility for code expecting
-    the old worker classes.
-
-    Args:
-        worker_type: Type of worker ('ncc', 'mscc', 'ncc_mscc', 'bitarray')
-        *args, **kwargs: Legacy arguments
-
-    Returns:
-        UnifiedWorker configured appropriately
-    """
-    # Extract common arguments
-    order_queue = args[0]
-    report_queue = args[1]
-    logger_lock = args[2]
-    bam_path = args[3]
-    mapq_criteria = args[4]
-    max_shift = args[5]
-    references = args[6]
-    lengths = args[7]
-
-    # Create appropriate configuration
-    if worker_type == 'bitarray':
-        from PyMaSC.core.models import CalculationTarget, ImplementationAlgorithm
-        calc_config = CalculationConfig(
-            target=CalculationTarget.BOTH,
-            implementation=ImplementationAlgorithm.BITARRAY,
-            max_shift=max_shift,
-            mapq_criteria=mapq_criteria,
-            references=references,
-            lengths=lengths,
-            read_length=kwargs.get('read_len', 50),
-            skip_ncc=kwargs.get('skip_ncc', False)
-        )
-    else:
-        # Standard NCC/MSCC workers
-        from PyMaSC.core.models import CalculationTarget, ImplementationAlgorithm
-        if worker_type == 'ncc':
-            target = CalculationTarget.NCC
-            implementation = ImplementationAlgorithm.SUCCESSIVE
-            skip_ncc = False
-        elif worker_type == 'mscc':
-            target = CalculationTarget.MSCC
-            implementation = ImplementationAlgorithm.SUCCESSIVE
-            skip_ncc = True
-        else:  # ncc_mscc
-            target = CalculationTarget.BOTH
-            implementation = ImplementationAlgorithm.SUCCESSIVE
-            skip_ncc = False
-
-        calc_config = CalculationConfig(
-            target=target,
-            implementation=implementation,
-            max_shift=max_shift,
-            mapq_criteria=mapq_criteria,
-            references=references,
-            lengths=lengths,
-            read_length=kwargs.get('read_len', 50),
-            skip_ncc=skip_ncc
-        )
-
-    # Create mappability config if needed
-    map_config = None
-    if 'mappable_path' in kwargs:
-        from PyMaSC.core.models import MappabilityConfig
-        map_config = MappabilityConfig(
-            mappability_path=kwargs['mappable_path']
-        )
-
-    # Create worker config
-    # Handle optional mappability config
-    if map_config is None:
-        from PyMaSC.core.models import MappabilityConfig
-        map_config = MappabilityConfig()  # Use default empty config
-
-    worker_config = WorkerConfig(
-        calculation_config=calc_config,
-        mappability_config=map_config,
-        progress_enabled=True,
-        logger_lock=logger_lock
-    )
-
-    return UnifiedWorker(
-        worker_config,
-        order_queue,
-        report_queue,
-        logger_lock,
-        bam_path
-    )

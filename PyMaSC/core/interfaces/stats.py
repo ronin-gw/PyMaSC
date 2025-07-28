@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from abc import abstractmethod
 from functools import cached_property
 from typing import Optional, Dict, Tuple, TypeVar, Generic, Protocol
 
@@ -34,9 +35,20 @@ class CCStats(Protocol, Generic[TCount]):
 
     # Attributes for the representative values
     # i.e. return itself in NCC, return 1st item of array in MSCC
-    genomelen_repr: int
-    forward_reads_repr: int
-    reverse_reads_repr: int
+    @property
+    @abstractmethod
+    def genomelen_repr(self) -> int:
+        pass
+
+    @property
+    @abstractmethod
+    def forward_reads_repr(self) -> int:
+        pass
+
+    @property
+    @abstractmethod
+    def reverse_reads_repr(self) -> int:
+        pass
 
 
 NCCStats = CCStats[int]

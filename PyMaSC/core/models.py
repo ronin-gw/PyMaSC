@@ -120,30 +120,6 @@ class ExecutionConfig:
 
 
 @dataclass
-class IOConfig:
-    """Configuration for input/output operations.
-
-    Attributes:
-        input_paths: List of input BAM file paths
-        output_dir: Output directory path
-        output_names: Custom output names (optional)
-        expected_suffixes: Expected output file suffixes
-    """
-    input_paths: List[Path]
-    output_dir: Path
-    output_names: Optional[List[str]] = None
-    expected_suffixes: List[str] = field(default_factory=lambda: ['.pdf', '.tab', '.json'])
-
-    def __post_init__(self) -> None:
-        """Validate I/O configuration."""
-        if not self.input_paths:
-            raise ValueError("At least one input path must be specified")
-        for path in self.input_paths:
-            if not isinstance(path, Path):
-                raise TypeError("input_paths must contain Path objects")
-
-
-@dataclass
 class WorkerConfig:
     """Configuration for individual worker processes.
 
@@ -157,65 +133,6 @@ class WorkerConfig:
     mappability_config: MappabilityConfig
     progress_enabled: bool = True
     logger_lock: Optional[Any] = None
-
-
-@dataclass
-class CalculationRequest:
-    """Request object for cross-correlation calculation.
-
-    This class encapsulates all configuration and parameters needed
-    to execute a complete cross-correlation analysis.
-
-    Attributes:
-        calculation_config: Core calculation parameters
-        mappability_config: Mappability correction settings
-        execution_config: Execution mode and worker settings
-        io_config: Input/output file settings
-    """
-    calculation_config: CalculationConfig
-    mappability_config: MappabilityConfig
-    execution_config: ExecutionConfig
-    io_config: IOConfig
-
-    def validate(self) -> List[str]:
-        """Validate the entire request configuration.
-
-        Returns:
-            List of validation error messages (empty if valid)
-        """
-        errors = []
-
-        # Check algorithm-specific requirements using new conceptual approach
-        if (self.calculation_config.target in [CalculationTarget.MSCC, CalculationTarget.BOTH]
-            and not self.mappability_config.is_enabled()):
-            errors.append(f"{self.calculation_config.target.value} target requires mappability configuration")
-
-        # Check execution mode compatibility
-        if (self.execution_config.mode == ExecutionMode.MULTI_PROCESS
-            and self.execution_config.worker_count == 1):
-            errors.append("Multi-process mode requires worker_count > 1")
-
-        # Check I/O compatibility
-        if (len(self.io_config.input_paths) > 1
-            and self.io_config.output_names
-            and len(self.io_config.output_names) != len(self.io_config.input_paths)):
-            errors.append("output_names length must match input_paths length")
-
-        return errors
-
-
-@dataclass
-class ValidationResult:
-    """Result of configuration validation.
-
-    Attributes:
-        is_valid: Whether the configuration is valid
-        errors: List of validation error messages
-        warnings: List of validation warning messages
-    """
-    is_valid: bool
-    errors: List[str] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
 
 
 # Type aliases for convenience

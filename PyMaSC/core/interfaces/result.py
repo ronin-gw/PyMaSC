@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Tuple, Dict, Any, Optional, Union
+from typing import Tuple, List, Dict, Any, Optional, Union
 from dataclasses import dataclass, field
 
 import sys
@@ -29,7 +29,7 @@ class CorrelationResult(AbstractDataclass):
     genomelen: int
     forward_sum: Any
     reverse_sum: Any
-    ccbins: npt.NDArray[np.int64]
+    ccbins: Union[List[float], npt.NDArray[np.int64]]
 
     cc: npt.NDArray[np.float64] = field(init=False)
 
@@ -42,11 +42,16 @@ class CorrelationResult(AbstractDataclass):
     def _calc_cc(
         forward_sum: Union[float, npt.NDArray[np.float64]],
         reverse_sum: Union[float, npt.NDArray[np.float64]],
-        ccbins: npt.NDArray[np.int64],
+        ccbins: Union[List[float], npt.NDArray[np.int64]],
         totlen: Union[int, npt.NDArray[np.float64]],
         denom: npt.NDArray[np.float64],
     ) -> npt.NDArray[np.float64]:
         """Calculate normalized cross-correlation using binomial variance model."""
+        ccbins = np.array(ccbins, dtype=np.int64)
+        #
+        if ccbins.sum() == 0:
+            return np.full_like(ccbins, np.nan, dtype=np.float64)
+
         forward_mean = forward_sum / totlen
         reverse_mean = reverse_sum / totlen
 
@@ -58,11 +63,17 @@ class CorrelationResult(AbstractDataclass):
         return (ccbins / denom - sum_prod) / var_geomean
 
 
+class ChromResult:
+    pass
+
+
 @dataclass
-class NCCResult(CorrelationResult):
+class NCCResult(ChromResult, CorrelationResult):
     forward_sum: int
     reverse_sum: int
-    ccbins: npt.NDArray[np.int64]
+    forward_read_len_sum: int
+    reverse_read_len_sum: int
+    ccbins: Union[List[float], npt.NDArray[np.int64]]
 
     def calc_cc(self) -> None:
         denom = self.genomelen - np.array(range(self.max_shift + 1), dtype=np.float64)
@@ -76,10 +87,12 @@ class NCCResult(CorrelationResult):
 
 
 @dataclass
-class MSCCResult(CorrelationResult):
+class MSCCResult(ChromResult, CorrelationResult):
     forward_sum: npt.NDArray[np.int64]
     reverse_sum: npt.NDArray[np.int64]
-    ccbins: npt.NDArray[np.int64]
+    forward_read_len_sum: Optional[int]
+    reverse_read_len_sum: Optional[int]
+    ccbins: Union[List[float], npt.NDArray[np.int64]]
 
     mappable_len: Optional[Tuple[int]]
 
@@ -97,6 +110,14 @@ class MSCCResult(CorrelationResult):
             totlen,
             totlen
         )
+
+
+@dataclass
+class BothChromResult(ChromResult):
+    """For multiprocessing workers"""
+
+    chrom: NCCResult
+    mappable_chrom: MSCCResult
 
 
 @dataclass

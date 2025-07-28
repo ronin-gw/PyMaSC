@@ -11,15 +11,14 @@ Key factories:
 - CalculatorAdapter: Adapts existing calculators to new interface
 """
 import logging
-from typing import Optional, Any, Dict
-from multiprocessing import Queue
+from typing import Optional, Any
 from multiprocessing.synchronize import Lock
 
-from PyMaSC.core.interfaces.result import GenomeWideResult, BothGenomeWideResult
+from PyMaSC.core.interfaces.result import BothChromResult, BothGenomeWideResult
 
-from .interfaces.calculator import CrossCorrelationCalculator
+from .interfaces.calculator import CrossCorrelationCalculator, BothCalculatorModel
 from .models import (
-    CalculationConfig, MappabilityConfig, WorkerConfig,
+    CalculationConfig, MappabilityConfig,
     CalculationTarget, ImplementationAlgorithm
 )
 
@@ -36,47 +35,7 @@ from PyMaSC.core.mappability import BWFeederWithMappableRegionSum
 logger = logging.getLogger(__name__)
 
 
-# Strategy pattern removed - direct factory implementation is simpler
-
-
-class CalculatorAdapter(CrossCorrelationCalculator):
-    """Minimal adapter to make Cython calculators conform to interface.
-
-    Since Cython cdef classes cannot inherit from Python ABC classes,
-    this adapter provides a thin wrapper to expose the calculator
-    interface uniformly across all implementations.
-    """
-
-    def __init__(self, native_calculator: Any):
-        """Initialize adapter with native calculator instance.
-
-        Args:
-            native_calculator: Existing calculator implementation
-        """
-        self._calculator = native_calculator
-
-    def feed_forward_read(self, chrom: str, pos: int, readlen: int) -> None:
-        """Process a forward strand read."""
-        self._calculator.feed_forward_read(chrom, pos, readlen)
-
-    def feed_reverse_read(self, chrom: str, pos: int, readlen: int) -> None:
-        """Process a reverse strand read."""
-        self._calculator.feed_reverse_read(chrom, pos, readlen)
-
-    def finishup_calculation(self) -> None:
-        """Complete cross-correlation calculation."""
-        self._calculator.finishup_calculation()
-
-    def flush(self) -> None:
-        """Flush intermediate results."""
-        if hasattr(self._calculator, 'flush'):
-            self._calculator.flush()
-        else:
-            # For calculators without flush, finishup serves the same purpose
-            self._calculator.finishup_calculation()
-
-
-class CompositeCalculator(CrossCorrelationCalculator):
+class CompositeCalculator(BothCalculatorModel):
     """Composite calculator that runs both NCC and MSCC calculations.
 
     This calculator is used when SUCCESSIVE algorithm is combined with
@@ -111,14 +70,20 @@ class CompositeCalculator(CrossCorrelationCalculator):
         self._ncc_calculator.finishup_calculation()
         self._mscc_calculator.finishup_calculation()
 
-    def flush(self) -> None:
+    def flush(self, chrom: Optional[str] = None) -> None:
         """Flush both calculators."""
-        self._ncc_calculator.finishup_calculation()
-        self._mscc_calculator.finishup_calculation()
+        self._ncc_calculator.flush(chrom)
+        self._mscc_calculator.flush(chrom)
 
-    def get_result(self) -> GenomeWideResult:
-        nccresult = self._ncc_calculator.get_result()
-        msccresult = self._mscc_calculator.get_result()
+    def get_result(self, chrom: str) -> BothChromResult:
+        return BothChromResult(
+            chrom=self._ncc_calculator.get_result(chrom),
+            mappable_chrom=self._mscc_calculator.get_result(chrom)
+        )
+
+    def get_whole_result(self) -> BothGenomeWideResult:
+        nccresult = self._ncc_calculator.get_whole_result()
+        msccresult = self._mscc_calculator.get_whole_result()
 
         return BothGenomeWideResult(
             genomelen=nccresult.genomelen,
@@ -129,9 +94,6 @@ class CompositeCalculator(CrossCorrelationCalculator):
             forward_read_len_sum=msccresult.forward_read_len_sum,
             reverse_read_len_sum=msccresult.reverse_read_len_sum
         )
-
-
-# Strategy implementations moved into factory methods
 
 
 class CalculatorFactory:
@@ -299,60 +261,4 @@ class CalculatorFactory:
             config.lengths,
             bwfeeder,
             logger_lock
-        )
-
-
-class WorkerFactory:
-    """Factory for creating worker instances for multiprocessing.
-
-    This factory handles the complex logic of creating different worker
-    types based on the calculation configuration, including the selection
-    of appropriate worker classes and initialization of their dependencies.
-    """
-
-    @staticmethod
-    def create_worker(
-        worker_config: WorkerConfig,
-        order_queue: Queue,
-        report_queue: Queue,
-        logger_lock: Lock,
-        bam_path: str,
-        use_unified: bool = True
-    ) -> Any:  # Returns Process-based worker
-        """Create a worker instance with the specified configuration.
-
-        Args:
-            worker_config: Worker configuration parameters
-            order_queue: Queue for receiving work orders
-            report_queue: Queue for reporting results
-            logger_lock: Lock for thread-safe logging
-            bam_path: Path to BAM file to process
-            use_unified: Whether to use new unified worker (default True)
-
-        Returns:
-            Worker instance ready for multiprocessing execution
-
-        Raises:
-            ImportError: If required worker class is not available
-        """
-        # Use unified worker by default
-        if use_unified:
-            from PyMaSC.core.worker import UnifiedWorker
-            return UnifiedWorker(
-                worker_config,
-                order_queue,
-                report_queue,
-                logger_lock,
-                bam_path
-            )
-
-        # Legacy worker creation for backward compatibility
-        # Use unified worker for all target-implementation combinations
-        from PyMaSC.core.worker import UnifiedWorker
-        return UnifiedWorker(
-            worker_config,
-            order_queue,
-            report_queue,
-            logger_lock,
-            bam_path
         )

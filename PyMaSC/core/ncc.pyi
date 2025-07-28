@@ -1,8 +1,10 @@
 """Type stubs for ncc.pyx - Naive Cross-Correlation calculation module."""
 
 from typing import Optional, List, Any
-from .interfaces.calculator import CrossCorrelationCalculator
-from .interfaces.result import NCCGenomeWideResult
+from multiprocessing.synchronize import Lock
+
+from .interfaces.calculator import NCCCalculatorModel
+from .interfaces.result import NCCResult, NCCGenomeWideResult
 
 
 class ReadUnsortedError(IndexError):
@@ -10,12 +12,12 @@ class ReadUnsortedError(IndexError):
     pass
 
 
-class NaiveCCCalculator(CrossCorrelationCalculator):
+class NaiveCCCalculator(NCCCalculatorModel):
     """Cython implementation of naive cross-correlation calculation."""
 
     # Public readonly attributes
     max_shift: int
-    logger_lock: Optional[Any]
+    logger_lock: Optional[Lock]
 
     def __init__(
         self,
@@ -54,7 +56,7 @@ class NaiveCCCalculator(CrossCorrelationCalculator):
         """
         ...
 
-    def flush(self) -> None:
+    def flush(self, chrom: Optional[str] = None) -> None:
         """Finalize cross-correlation calculation for current chromosome."""
         ...
 
@@ -62,7 +64,10 @@ class NaiveCCCalculator(CrossCorrelationCalculator):
         """Complete cross-correlation calculation for all chromosomes."""
         ...
 
-    def get_result(self) -> NCCGenomeWideResult:
+    def get_result(self, chrom: str) -> NCCResult:
+        ...
+
+    def get_whole_result(self) -> NCCGenomeWideResult:
         """Get the genome-wide NCC calculation results.
 
         Returns:

@@ -3,12 +3,12 @@
 from typing import Optional, List, Any
 from multiprocessing.synchronize import Lock
 
-from PyMaSC.core.interfaces.calculator import CrossCorrelationCalculator
-from PyMaSC.core.interfaces.result import BothGenomeWideResult
+from PyMaSC.core.interfaces.calculator import BothCalculatorModel
+from PyMaSC.core.interfaces.result import BothChromResult, BothGenomeWideResult
 from PyMaSC.reader.bigwig import BigWigReader
 
 
-class CCBitArrayCalculator(CrossCorrelationCalculator):
+class CCBitArrayCalculator(BothCalculatorModel):
     """High-performance MSCC calculator using bit array operations.
 
     Implements mappability-sensitive cross-correlation calculation using
@@ -93,7 +93,7 @@ class CCBitArrayCalculator(CrossCorrelationCalculator):
         """
         ...
 
-    def flush(self) -> None:
+    def flush(self, chrom: Optional[str] = None) -> None:
         """Flush any intermediate calculation results.
 
         Processes buffered data and calculates cross-correlation for
@@ -115,7 +115,10 @@ class CCBitArrayCalculator(CrossCorrelationCalculator):
         """
         ...
 
-    def get_result(self) -> BothGenomeWideResult:
+    def get_result(self, chrom: str) -> BothChromResult:
+        ...
+
+    def get_whole_result(self) -> BothGenomeWideResult:
         """Get the genome-wide NCC and MSCC calculation results.
 
         Returns:

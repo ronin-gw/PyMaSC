@@ -10,6 +10,8 @@ import numpy as np
 import numpy.typing as npt
 
 from scipy.stats import norm
+from typing import Callable, TypeVar
+from typing_extensions import ParamSpec
 
 logger = logging.getLogger(__name__)
 
@@ -137,7 +139,11 @@ class exec_worker_pool(object):
                 w.terminate()
 
 
-def npcalc_with_logging_warn(func):
+P = ParamSpec('P')
+T = TypeVar('T')
+
+
+def npcalc_with_logging_warn(func: Callable[P, T]) -> Callable[P, T]:
     """Decorator for handling numpy floating point errors gracefully.
 
     This decorator wraps numerical calculation functions to handle common
@@ -145,7 +151,7 @@ def npcalc_with_logging_warn(func):
     such as division by zero or invalid operations.
     """
     @wraps(func)
-    def _inner(*args, **kwargs):
+    def _inner(*args: P.args, **kwargs: P.kwargs) -> T:
         try:
             with np.errstate(divide="raise", invalid="raise"):
                 return func(*args, **kwargs)

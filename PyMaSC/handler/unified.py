@@ -16,38 +16,29 @@ import os
 from multiprocessing import Queue, Lock
 from typing import Optional, List, Dict, Tuple, Union, Any, TYPE_CHECKING
 
+import pysam
+
 if TYPE_CHECKING:
     from PyMaSC.core.observer import ProgressObserver
 
-import pysam
-
+from PyMaSC.core.exceptions import InputUnseekable, NothingToCalc
 from PyMaSC.core.strategy import CalculationContext
-from PyMaSC.core.factory import WorkerFactory
 from PyMaSC.core.models import (
     CalculationConfig, MappabilityConfig, ExecutionConfig,
     ExecutionMode, WorkerConfig
 )
 from PyMaSC.core.bam_processor import BAMFileProcessor, BAMValidationError
-from PyMaSC.core.progress_coordinator import ProgressCoordinator, ProgressConfig, ProgressMode
-from PyMaSC.handler.base import NothingToCalc
-from PyMaSC.core.interfaces.calculator import CrossCorrelationCalculator
-from PyMaSC.core.interfaces.result import GenomeWideResult
-from PyMaSC.core.readlen import estimate_readlen
-from PyMaSC.core.progress_adapter import ProgressBarAdapter, ProgressManager, get_progress_manager
-from PyMaSC.core.worker import WorkerResult
-from PyMaSC.utils.calc import filter_chroms, exec_worker_pool
-
-# New aggregation system
-from PyMaSC.core.result_aggregator import (
-    ResultAggregator, AggregationConfig, AggregationMode, AggregationResult
+from PyMaSC.core.progress_coordinator import ProgressCoordinator
+from PyMaSC.core.interfaces.result import (
+    ChromResult, GenomeWideResult
 )
+from PyMaSC.core.result import aggregate_results
+from PyMaSC.core.readlen import estimate_readlen
+from PyMaSC.core.progress_adapter import ProgressManager
+from PyMaSC.core.worker import UnifiedWorker
+from PyMaSC.utils.calc import exec_worker_pool
 
 logger = logging.getLogger(__name__)
-
-
-class InputUnseekable(Exception):
-    """Exception raised when input stream cannot be rewound."""
-    pass
 
 
 class UnifiedCalcHandler:
@@ -133,17 +124,14 @@ class UnifiedCalcHandler:
 
         # Check for index in multiprocess mode
         if (self.execution_config.mode == ExecutionMode.MULTI_PROCESS and
-            not self.bam_processor.check_multiprocess_compatibility()):
+                not self.bam_processor.check_multiprocess_compatibility()):
             self.execution_config.mode = ExecutionMode.SINGLE_PROCESS
             self.execution_config.worker_count = 1
         elif self.execution_config.mode == ExecutionMode.MULTI_PROCESS:
             self.bam_processor.close()
 
         # For backward compatibility, maintain align_file access
-        self.align_file = None
-
-        # Result storage through aggregator only
-        self._aggregation_result: Optional[AggregationResult] = None
+        self.align_file: Optional[pysam.AlignmentFile] = None
 
         # Read length will be set later
         self.read_len: Optional[int] = None
@@ -158,16 +146,6 @@ class UnifiedCalcHandler:
         self.use_observer_progress = True
         self._progress_observers: List['ProgressObserver'] = []
         self._progress_coordinator: Optional[ProgressCoordinator] = None
-
-        # Result aggregation system (dual implementation)
-        self._aggregation_config = AggregationConfig(
-            mode=AggregationMode.HYBRID,  # Use both legacy and new systems
-            enable_validation=True,
-            enable_logging=True,
-            fallback_to_legacy=True
-        )
-        self._result_aggregator = ResultAggregator(self._aggregation_config)
-        self._aggregation_result: Optional[AggregationResult] = None
 
     def set_or_estimate_readlen(self, readlen: Optional[int] = None) -> None:
         """Set or estimate read length.
@@ -194,7 +172,7 @@ class UnifiedCalcHandler:
 
         if self.read_len is not None and self.read_len > self.config.max_shift:
             logger.error(f"Read length ({self.read_len}) seems to be longer than "
-                        f"shift size ({self.config.max_shift}).")
+                         f"shift size ({self.config.max_shift}).")
             raise ValueError
 
         # Update config with read length
@@ -291,9 +269,9 @@ class UnifiedCalcHandler:
         # Finalize calculation
         calculator.finishup_calculation()
         self._calc_unsolved_mappability()
-        return calculator.get_result()
+        return calculator.get_whole_result()
 
-    def _run_multiprocess_calculation(self) -> None:
+    def _run_multiprocess_calculation(self) -> GenomeWideResult:
         """Execute calculation using multiple processes."""
 
         # Queue for distributing tasks to workers
@@ -303,7 +281,7 @@ class UnifiedCalcHandler:
         # - results are collected for aggregation
         # If the 1st item is a string, it shoud be a chromosome and the 2nd item must be a `WorkerResult`.
         # Otherwise, it's a progress report from a `ProgressHook` and that should be avoid here.
-        self._report_queue: Queue[Tuple[Optional[str], Union[WorkerResult, Tuple[str, int]]]] = Queue()
+        self._report_queue: Queue[Tuple[Optional[str], Union[ChromResult, Tuple[str, int]]]] = Queue()
         self._logger_lock = Lock()
 
         # Setup progress coordinator for multiprocess
@@ -333,7 +311,7 @@ class UnifiedCalcHandler:
         workers = []
         num_workers = min(self.execution_config.worker_count, len(self.references))
         for _ in range(num_workers):
-            worker = WorkerFactory.create_worker(
+            worker = UnifiedWorker(
                 worker_config,
                 self._order_queue,
                 self._report_queue,
@@ -343,13 +321,15 @@ class UnifiedCalcHandler:
             workers.append(worker)
 
         # Run calculation with workers
-        self._run_calculation_with_workers(workers)
+        result = self._run_calculation_with_workers(workers)
         self._calc_unsolved_mappability()
 
-    def _run_calculation_with_workers(self, workers: List[Any]) -> None:
+        return result
+
+    def _run_calculation_with_workers(self, workers: List[Any]) -> GenomeWideResult:
         """Coordinate worker processes and collect results."""
         _chrom2finished = {c: False for c in self.references}
-        _worker_results = []  # Collect results for new aggregation system
+        _worker_results = {}  # Collect results for new aggregation system
 
         with exec_worker_pool(workers, self.references, self._order_queue):
             while True:
@@ -357,15 +337,16 @@ class UnifiedCalcHandler:
 
                 #
                 if chrom is None:
-                    assert not isinstance(obj, WorkerResult)
+                    assert not isinstance(obj, ChromResult)
                     chrom_text, pos = obj
                     self._progress_coordinator.handle_multiprocess_report(chrom_text, pos)
                     continue  # This was a progress update, continue processing
 
                 # Result received
-                assert isinstance(obj, WorkerResult)
-                # Store for aggregation system
-                _worker_results.append(obj)
+                if obj is not None:
+                    assert isinstance(obj, ChromResult)
+                    # Store for aggregation system
+                    _worker_results[chrom] = obj
 
                 _chrom2finished[chrom] = True
                 if all(_chrom2finished.values()):
@@ -379,28 +360,7 @@ class UnifiedCalcHandler:
         self._progress_coordinator.cleanup()
 
         # Apply new aggregation system for worker results
-        self._aggregate_worker_results(_worker_results)
-
-    def _aggregate_worker_results(self, worker_results: List[WorkerResult]) -> None:
-        """Aggregate worker results using aggregation system."""
-        self._aggregation_result = self._result_aggregator.aggregate(
-            worker_results=worker_results,
-            references=self.references,
-            lengths=self.lengths,
-            read_length=self.read_len,
-            skip_ncc=self.config.skip_ncc
-        )
-
-        # Handle mappability lengths separately since they need special processing
-        for result in worker_results:
-            if result.mappable_length is not None and self.mappability_handler:
-                chrom = result.chromosome
-                self.mappability_handler.chrom2mappable_len[chrom] = result.mappable_length
-                self.mappability_handler.chrom2is_called[chrom] = True
-
-        # Log aggregation success
-        if self._aggregation_result.validation_errors:
-            logger.warning(f"Worker aggregation validation errors: {self._aggregation_result.validation_errors}")
+        return aggregate_results(_worker_results)
 
     def _calc_unsolved_mappability(self) -> None:
         """Complete any remaining mappability calculations."""
@@ -417,37 +377,6 @@ class UnifiedCalcHandler:
         if self.mappability_handler:
             return self.mappability_handler.chrom2mappable_len
         return {}
-
-    # Properties for backward compatibility
-    @property
-    def skip_ncc(self) -> bool:
-        """Whether NCC calculation is skipped."""
-        return self.config.skip_ncc
-
-    @property
-    def max_shift(self) -> int:
-        """Maximum shift distance."""
-        return self.config.max_shift
-
-    @property
-    def mapq_criteria(self) -> int:
-        """Minimum mapping quality."""
-        return self.config.mapq_criteria
-
-    @property
-    def nworker(self) -> int:
-        """Number of worker processes."""
-        return self.execution_config.worker_count
-
-    @property
-    def esttype(self) -> str:
-        """Read length estimation type."""
-        return self._esttype
-
-    @esttype.setter
-    def esttype(self, value: str) -> None:
-        """Set read length estimation type."""
-        self._esttype = value
 
     # Progress observer methods
     def attach_progress_observer(self, observer: 'ProgressObserver') -> None:
@@ -483,14 +412,3 @@ class UnifiedCalcHandler:
             enabled: Whether to use observer pattern for progress
         """
         self.use_observer_progress = enabled
-
-    def get_aggregation_result(self) -> Optional['AggregationResult']:
-        """Get calculation results for new statistics system.
-
-        Provides read-only access to aggregation results without exposing
-        internal implementation details. Only valid after run_calculation() completes.
-
-        Returns:
-            AggregationResult containing calculation data, or None if not available
-        """
-        return self._aggregation_result

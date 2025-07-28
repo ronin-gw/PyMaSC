@@ -64,11 +64,11 @@ cdef class MSCCCalculator(object):
         # Result storage (internal)
         dict ref2genomelen
         int64 genomelen
-        dict ref2mscc_result
         int64 forward_read_len_sum, reverse_read_len_sum
+        dict ref2mscc_result
         # Calculation state
         str _chr
-        int64 _max_shift_from_f, _forward_buff_size
+        int64 _max_shift_from_f, _forward_buff_size, _forward_read_len_sum, _reverse_read_len_sum
         np.ndarray _forward_sum, _reverse_sum, _ccbins
         list _forward_buff, _reverse_buff, _solved_chr
         int64 _fb_tail_pos, _last_pos, _last_forward_pos
@@ -146,6 +146,7 @@ cdef class MSCCCalculator(object):
         self._forward_sum.fill(0)
         self._reverse_sum.fill(0)
         self._ccbins.fill(0)
+        self._forward_read_len_sum = self._reverse_read_len_sum = 0
 
         for i in range(len(self._forward_buff)):
             self._forward_buff[i] = None
@@ -181,26 +182,24 @@ cdef class MSCCCalculator(object):
                 self.logger_lock.release()
             self._bwiter_stopped = True
 
-    def flush(self):
+    def flush(self, chrom: Optional[str] = None):
         """Finalize MSCC calculation for current chromosome.
 
         Completes the mappability-weighted cross-correlation calculation
         for the current chromosome and stores results as an MSCCResult object.
         Handles final mappability corrections before storing.
         """
+        if self._chr == '':
+            return
+
+        if chrom is not None and chrom != self._chr:
+            self._chr = chrom
+
         if self._reverse_buff:
             self._shift_with_update(self._forward_buff_size)
 
-        # Create MSCCResult for this chromosome
-        self.ref2mscc_result[self._chr] = MSCCResult(
-            max_shift=self.max_shift,
-            read_len=self.read_len,
-            genomelen=self.ref2genomelen[self._chr],
-            forward_sum=self._forward_sum,
-            reverse_sum=self._reverse_sum,
-            ccbins=self._ccbins,
-            mappable_len=None  # mappability length not calculated here, handled in finishup_calculation
-        )
+        self.forward_read_len_sum += self._forward_read_len_sum
+        self.reverse_read_len_sum += self._reverse_read_len_sum
 
         # update bwfeeder
         if not self._bwiter_stopped and self._feeder:
@@ -209,6 +208,20 @@ cdef class MSCCCalculator(object):
             except StopIteration:
                 pass
             self._bwiter_stopped = True
+
+        # Create MSCCResult for this chromosome
+        result = self.ref2mscc_result[self._chr] = MSCCResult(
+            max_shift=self.max_shift,
+            read_len=self.read_len,
+            genomelen=self.ref2genomelen[self._chr],
+            forward_sum=self._forward_sum.copy(),
+            reverse_sum=self._reverse_sum.copy(),
+            forward_read_len_sum=self._forward_read_len_sum,
+            reverse_read_len_sum=self._reverse_read_len_sum,
+            ccbins=self._ccbins.copy(),
+            mappable_len=self._bwfeeder.chrom2mappable_len[self._chr]
+        )
+        result.calc_cc()
 
         self._init_pos_buff()
 
@@ -457,21 +470,6 @@ cdef class MSCCCalculator(object):
         """
         self.flush()
 
-        # Initialize any unprocessed chromosomes with zero-filled results
-        cdef int64 zero_bins_size = self._forward_buff_size
-        cdef np.ndarray zero_bins = np.zeros(zero_bins_size, dtype=np.int64)
-        for ref in self.references:
-            if ref not in self.ref2mscc_result:
-                self.ref2mscc_result[ref] = MSCCResult(
-                    max_shift=self.max_shift,
-                    read_len=self.read_len,
-                    genomelen=self.ref2genomelen[ref],
-                    forward_sum=zero_bins.copy(),
-                    reverse_sum=zero_bins.copy(),
-                    ccbins=zero_bins.copy(),
-                    mappable_len=None
-                )
-
         if not self._bwiter_stopped and self._feeder is not None:
             try:
                 self._feeder.throw(ContinueCalculation)
@@ -479,22 +477,34 @@ cdef class MSCCCalculator(object):
                 pass
         self._bwfeeder.calc_mappability()
 
-        # Extract mappable length data from bwfeeder and update MSCCResult objects
+        # Initialize any unprocessed chromosomes with zero-filled results
+        cdef int64 zero_bins_size = self._forward_buff_size
+        cdef np.ndarray zero_bins = np.zeros(zero_bins_size, dtype=np.int64)
         for ref in self.references:
-            if ref in self._bwfeeder.chrom2mappable_len:
-                # Update the MSCCResult object with the mappable length
-                self.ref2mscc_result[ref].mappable_len = self._bwfeeder.chrom2mappable_len[ref]
+            if ref in self._bwfeeder.chrom2mappable_len and ref not in self.ref2mscc_result:
+                result = self.ref2mscc_result[ref] = MSCCResult(
+                    max_shift=self.max_shift,
+                    read_len=self.read_len,
+                    genomelen=self.ref2genomelen[ref],
+                    forward_sum=zero_bins.copy(),
+                    reverse_sum=zero_bins.copy(),
+                    forward_read_len_sum=0,
+                    reverse_read_len_sum=0,
+                    ccbins=zero_bins.copy(),
+                    mappable_len=self._bwfeeder.chrom2mappable_len[ref]
+                )
+                result.calc_cc()
 
-    def get_result(self):
+    def get_result(self, chrom: str) -> MSCCResult:
+        return self.ref2mscc_result[chrom]
+
+    def get_whole_result(self):
         """Get the genome-wide MSCC calculation results.
 
         Returns:
             MSCCGenomeWideResult: Complete results for all chromosomes including
                 per-chromosome MSCCResult objects and genome-wide statistics.
         """
-        for result in self.ref2mscc_result.values():
-            result.calc_cc()
-
         return MSCCGenomeWideResult(
             genomelen=self.genomelen,
             chroms=self.ref2mscc_result.copy(),

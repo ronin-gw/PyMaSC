@@ -1,6 +1,5 @@
 import logging
 from dataclasses import dataclass, field
-from abc import abstractmethod
 from typing import Union, Optional, Type, Dict, List, Tuple, TypeVar, Protocol, Generic, overload, cast
 
 import numpy as np
@@ -19,6 +18,7 @@ from .interfaces.stats import (
     GenomeWideStats,
     TCount
 )
+from .exceptions import ReadsTooFew
 
 from PyMaSC.utils.calc import moving_avr_filter, merge_correlations
 
@@ -65,21 +65,6 @@ class CCStats(CCStatsModel[TCount]):
     def __post_init__(self) -> None:
         self.metrics_at_expected_length.calc_metrics(self)
         self.metrics_at_estimated_length.calc_metrics(self)
-
-    @property
-    @abstractmethod
-    def genomelen_repr(self) -> int:
-        pass
-
-    @property
-    @abstractmethod
-    def forward_reads_repr(self) -> int:
-        pass
-
-    @property
-    @abstractmethod
-    def reverse_reads_repr(self) -> int:
-        pass
 
 
 @dataclass
@@ -238,7 +223,6 @@ class CCContainer:
 
 
 TLen = TypeVar("TLen", int, npt.NDArray[np.int64])
-TCount = TypeVar("TCount", int, npt.NDArray[np.int64])
 
 
 class CorrLike(Protocol, Generic[TLen, TCount]):
@@ -343,6 +327,7 @@ def _prepare_chromosome_stat(
         fwhm=cc_container.calc_FWHM(estimated_library_len)
     )
 
+    stats: Union[NCCStats, MSCCStats, TStats]
     if isinstance(result, NCCResult):
         stats = NCCStats(
             read_len=read_len,
@@ -619,6 +604,32 @@ def make_genome_wide_stat(
         output_warnings,
         estimated_library_len=estimated_library_len
     )
+
+    #
+    if whole_ncc_stats is not None:
+        if whole_ncc_stats.stats.forward_reads == 0:
+            logger.error("There is no forward read.")
+            raise ReadsTooFew
+        if whole_ncc_stats.stats.reverse_reads == 0:
+            logger.error("There is no reverse read.")
+            raise ReadsTooFew
+
+    if whole_mscc_stats is not None:
+        errormsg = "There is no forward read in mappable regions."
+        if whole_mscc_stats.stats.forward_reads.sum() == 0:
+            if whole_ncc_stats is not None:
+                logger.warning(errormsg)
+            else:
+                logger.error(errormsg)
+                raise ReadsTooFew
+
+        errormsg = "There is no reverse read in mappable regions."
+        if whole_mscc_stats.stats.reverse_reads.sum() == 0:
+            if whole_ncc_stats is not None:
+                logger.warning(errormsg)
+            else:
+                logger.error(errormsg)
+                raise ReadsTooFew
 
     return GenomeWideStats(
         whole_ncc_stats=whole_ncc_stats,

@@ -3,13 +3,13 @@
 from typing import Optional, List
 from multiprocessing.synchronize import Lock
 
-from .interfaces.calculator import CrossCorrelationCalculator
-from .interfaces.result import MSCCGenomeWideResult
+from .interfaces.calculator import MSCCCalculatorModel
+from .interfaces.result import MSCCResult, MSCCGenomeWideResult
 
 from PyMaSC.reader.bigwig import BigWigReader
 
 
-class MSCCCalculator(CrossCorrelationCalculator):
+class MSCCCalculator(MSCCCalculatorModel):
     """Cython implementation of Mappability-Sensitive Cross-Correlation."""
 
     # Public readonly attributes
@@ -58,7 +58,7 @@ class MSCCCalculator(CrossCorrelationCalculator):
         """
         ...
 
-    def flush(self) -> None:
+    def flush(self, chrom: Optional[str] = None) -> None:
         """Finalize MSCC calculation for current chromosome."""
         ...
 
@@ -66,7 +66,10 @@ class MSCCCalculator(CrossCorrelationCalculator):
         """Complete MSCC calculation for all chromosomes."""
         ...
 
-    def get_result(self) -> MSCCGenomeWideResult:
+    def get_result(self, chrom: str) -> MSCCResult:
+        ...
+
+    def get_whole_result(self) -> MSCCGenomeWideResult:
         """Get the genome-wide MSCC calculation results.
 
         Returns:

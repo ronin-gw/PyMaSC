@@ -24,19 +24,11 @@ from cython cimport boundscheck, wraparound
 from .utils cimport int64_min
 
 import numpy as np
+
+from .exceptions import ReadUnsortedError
 from .interfaces.result import NCCResult, NCCGenomeWideResult
 
 logger = logging.getLogger(__name__)
-
-
-class ReadUnsortedError(IndexError):
-    """Exception raised when input reads are not sorted by position.
-
-    This exception is raised when the algorithm detects that input reads
-    are not properly sorted by genomic position, which is required for
-    the sliding window cross-correlation calculation.
-    """
-    pass
 
 
 cdef class NaiveCCCalculator(object):
@@ -68,11 +60,11 @@ cdef class NaiveCCCalculator(object):
         int64 genomelen
         dict ref2genomelen
         int64 forward_sum, reverse_sum
-        dict ref2ncc_result
         int64 forward_read_len_sum, reverse_read_len_sum
+        dict ref2ncc_result
         # Calculation state
         str _chr
-        int64 _forward_buff_size, _forward_sum, _reverse_sum
+        int64 _forward_buff_size, _forward_sum, _reverse_sum, _forward_read_len_sum, _reverse_read_len_sum
         np.ndarray _ccbins
         list _forward_buff, _reverse_buff, _solved_chr
         int64 _fb_tail_pos, _last_pos, _last_forward_pos
@@ -115,6 +107,7 @@ cdef class NaiveCCCalculator(object):
         forward/reverse read buffers, and position tracking variables.
         """
         self._forward_sum = self._reverse_sum = 0
+        self._forward_read_len_sum = self._reverse_read_len_sum = 0
         self._ccbins.fill(0)
 
         self._forward_buff = [0] * self._forward_buff_size
@@ -125,27 +118,38 @@ cdef class NaiveCCCalculator(object):
         self._last_pos = 0
         self._last_forward_pos = 0
 
-    def flush(self):
+    def flush(self, chrom: Optional[str] = None):
         """Finalize cross-correlation calculation for current chromosome.
 
         Completes the sliding window calculation for the current chromosome
         and stores the results as an NCCResult object.
         Called when switching to a new chromosome or finishing calculation.
         """
+        if self._chr == '':
+            return
+
+        if chrom is not None and chrom != self._chr:
+            self._chr = chrom
+
         self._shift_with_update(self._forward_buff_size)
 
         self.forward_sum += self._forward_sum
         self.reverse_sum += self._reverse_sum
+        self.forward_read_len_sum += self._forward_read_len_sum
+        self.reverse_read_len_sum += self._reverse_read_len_sum
 
         # Create NCCResult for this chromosome
-        self.ref2ncc_result[self._chr] = NCCResult(
+        result = self.ref2ncc_result[self._chr] = NCCResult(
             max_shift=self.max_shift,
             read_len=self._forward_buff_size,
             genomelen=self.ref2genomelen[self._chr],
             forward_sum=self._forward_sum,
             reverse_sum=self._reverse_sum,
+            forward_read_len_sum=self._forward_read_len_sum,
+            reverse_read_len_sum=self._reverse_read_len_sum,
             ccbins=np.array(self._ccbins, dtype=np.int64)
         )
+        result.calc_cc()
 
     cdef inline _check_pos(self, str chrom, int64 pos):
         """Validate read position and handle chromosome transitions.
@@ -203,7 +207,7 @@ cdef class NaiveCCCalculator(object):
         self._last_forward_pos = pos
 
         self._forward_sum += 1
-        self.forward_read_len_sum += readlen
+        self._forward_read_len_sum += readlen
 
         offset = pos - self._fb_tail_pos
 
@@ -249,7 +253,7 @@ cdef class NaiveCCCalculator(object):
             return None  # duplicated read
 
         self._reverse_sum += 1
-        self.reverse_read_len_sum += readlen
+        self._reverse_read_len_sum += readlen
 
         if len(self._reverse_buff) > revbuff_pos:
             self._reverse_buff[revbuff_pos] = 1
@@ -302,16 +306,16 @@ cdef class NaiveCCCalculator(object):
         """
         self.flush()
 
-    def get_result(self):
+    def get_result(self, chrom: str) -> NCCResult:
+        return self.ref2ncc_result[chrom]
+
+    def get_whole_result(self):
         """Get the genome-wide NCC calculation results.
 
         Returns:
             NCCGenomeWideResult: Complete results for all chromosomes including
                 per-chromosome NCCResult objects and genome-wide statistics.
         """
-        for result in self.ref2ncc_result.values():
-            result.calc_cc()
-
         return NCCGenomeWideResult(
             genomelen=self.genomelen,
             forward_sum=self.forward_sum,

@@ -47,7 +47,7 @@ class ReadFilter:
         skip_duplicates: Whether to skip duplicate reads
     """
 
-    def __init__(self, 
+    def __init__(self,
                  mapq_criteria: int = 0,
                  skip_read2: bool = True,
                  skip_unmapped: bool = True,
@@ -95,47 +95,19 @@ class ReadFilter:
 
         return False
 
-    def get_filter_stats(self) -> dict:
-        """Get current filter configuration as dictionary.
-
-        Returns:
-            Dictionary with current filter settings
-        """
-        return {
-            'mapq_criteria': self.mapq_criteria,
-            'skip_read2': self.skip_read2,
-            'skip_unmapped': self.skip_unmapped,
-            'skip_duplicates': self.skip_duplicates
-        }
-
 
 class ReadProcessor:
-    """Standardized read processing for feeding to calculators.
-
-    Handles the common pattern of processing reads and feeding them
-    to calculation objects. Centralizes the read coordinate conversion
-    and strand-specific feeding logic.
-
-    Attributes:
-        calculator: Calculator object to feed reads to
-        filter: ReadFilter for quality filtering
-        position_offset: Offset to add to read positions (default 1 for 1-based)
+    """
     """
 
-    def __init__(self,
-                 calculator: ReadCalculator,
-                 read_filter: ReadFilter,
-                 position_offset: int = 1):
-        """Initialize read processor.
+    calculator: ReadCalculator
+    read_filter: ReadFilter
 
-        Args:
-            calculator: Calculator to feed reads to
-            read_filter: Filter for read quality checking
-            position_offset: Offset for coordinate conversion (1 for 1-based coordinates)
+    def __init__(self, calculator: ReadCalculator, read_filter: ReadFilter) -> None:
+        """
         """
         self.calculator = calculator
-        self.filter = read_filter
-        self.position_offset = position_offset
+        self.read_filter = read_filter
 
     def process_read(self, read: AlignedSegment) -> bool:
         """Process a single read through filtering and feeding.
@@ -153,7 +125,7 @@ class ReadProcessor:
             ReadUnsortedError: If reads appear to be unsorted (implementation specific)
         """
         # Apply quality filtering
-        if self.filter.should_skip_read(read):
+        if self.read_filter.should_skip_read(read):
             return False
 
         # Extract read information
@@ -161,117 +133,24 @@ class ReadProcessor:
         if chrom is None:
             return False  # Skip reads without reference
 
-        pos = read.reference_start + self.position_offset
+        pos = read.reference_start + 1  # Convert to 1-based coordinate
         readlen = read.infer_query_length()
         if readlen is None:
             return False  # Skip reads without queryable length
 
         # Feed to appropriate calculator method based on strand
-        try:
-            if read.is_reverse:
-                self.calculator.feed_reverse_read(chrom, pos, readlen)
-            else:
-                self.calculator.feed_forward_read(chrom, pos, readlen)
+        if read.is_reverse:
+            self.feed_reverse_read(chrom, pos, readlen)
+        else:
+            self.feed_forward_read(chrom, pos, readlen)
 
-            return True
+        return True
 
-        except Exception as e:
-            # Convert certain exceptions to ReadUnsortedError for consistency
-            if "sorted" in str(e).lower() or "order" in str(e).lower():
-                raise ReadUnsortedError("Input alignment file must be sorted") from e
-            else:
-                # Re-raise other exceptions as-is
-                raise
+    def feed_forward_read(self, chrom: str, pos: int, readlen: int) -> None:
+        return self.calculator.feed_forward_read(chrom, pos, readlen)
 
-
-class DualReadProcessor:
-    """Read processor that feeds reads to two calculators simultaneously.
-
-    Used for calculations that need both NCC and MSCC results.
-    Eliminates duplicate read feeding logic in combined workers.
-
-    Attributes:
-        primary_calculator: Primary calculator (typically MSCC)
-        secondary_calculator: Secondary calculator (typically NCC)
-        filter: ReadFilter for quality checking
-        position_offset: Offset for coordinate conversion
-    """
-
-    def __init__(self,
-                 primary_calculator: ReadCalculator,
-                 secondary_calculator: ReadCalculator,
-                 read_filter: ReadFilter,
-                 position_offset: int = 1):
-        """Initialize dual read processor.
-
-        Args:
-            primary_calculator: Primary calculator to feed reads to
-            secondary_calculator: Secondary calculator to feed reads to
-            read_filter: Filter for read quality checking
-            position_offset: Offset for coordinate conversion
-        """
-        self.primary_calculator = primary_calculator
-        self.secondary_calculator = secondary_calculator
-        self.filter = read_filter
-        self.position_offset = position_offset
-
-    def process_read(self, read: AlignedSegment) -> bool:
-        """Process read through both calculators.
-
-        Args:
-            read: Read to process
-
-        Returns:
-            True if read was processed, False if skipped
-        """
-        # Apply quality filtering
-        if self.filter.should_skip_read(read):
-            return False
-
-        # Extract read information
-        chrom = read.reference_name
-        if chrom is None:
-            return False  # Skip reads without reference
-
-        pos = read.reference_start + self.position_offset
-        readlen = read.infer_query_length()
-        if readlen is None:
-            return False  # Skip reads without queryable length
-
-        # Feed to both calculators
-        try:
-            if read.is_reverse:
-                self.primary_calculator.feed_reverse_read(chrom, pos, readlen)
-                self.secondary_calculator.feed_reverse_read(chrom, pos, readlen)
-            else:
-                self.primary_calculator.feed_forward_read(chrom, pos, readlen)
-                self.secondary_calculator.feed_forward_read(chrom, pos, readlen)
-
-            return True
-
-        except Exception as e:
-            if "sorted" in str(e).lower() or "order" in str(e).lower():
-                raise ReadUnsortedError("Input alignment file must be sorted") from e
-            else:
-                raise
-
-
-# Convenience functions for backward compatibility and easy adoption
-def create_standard_filter(mapq_criteria: int) -> ReadFilter:
-    """Create standard PyMaSC read filter.
-
-    Args:
-        mapq_criteria: Minimum mapping quality threshold
-
-    Returns:
-        ReadFilter with standard PyMaSC settings
-    """
-    return ReadFilter(
-        mapq_criteria=mapq_criteria,
-        skip_read2=True,
-        skip_unmapped=True,
-        skip_duplicates=True
-    )
+    def feed_reverse_read(self, chrom: str, pos: int, readlen: int) -> None:
+        return self.calculator.feed_reverse_read(chrom, pos, readlen)
 
 
 def create_read_processor(calculator: ReadCalculator, mapq_criteria: int) -> ReadProcessor:
@@ -284,42 +163,5 @@ def create_read_processor(calculator: ReadCalculator, mapq_criteria: int) -> Rea
     Returns:
         ReadProcessor with standard configuration
     """
-    filter_obj = create_standard_filter(mapq_criteria)
+    filter_obj = ReadFilter(mapq_criteria)
     return ReadProcessor(calculator, filter_obj)
-
-
-def create_dual_processor(primary_calc: ReadCalculator, 
-                         secondary_calc: ReadCalculator,
-                         mapq_criteria: int) -> DualReadProcessor:
-    """Create dual read processor with standard PyMaSC filter settings.
-
-    Args:
-        primary_calc: Primary calculator
-        secondary_calc: Secondary calculator  
-        mapq_criteria: Minimum mapping quality threshold
-
-    Returns:
-        DualReadProcessor with standard configuration
-    """
-    filter_obj = create_standard_filter(mapq_criteria)
-    return DualReadProcessor(primary_calc, secondary_calc, filter_obj)
-
-
-# Legacy compatibility - reproduce exact filtering logic from old code
-def legacy_should_skip_read(read: AlignedSegment, mapq_criteria: int) -> bool:
-    """Legacy read filtering function for exact backward compatibility.
-
-    This function reproduces the exact filtering logic from the original
-    worker implementations to ensure identical behavior during migration.
-
-    Args:
-        read: Read to check
-        mapq_criteria: Minimum mapping quality threshold
-
-    Returns:
-        True if read should be skipped
-    """
-    return (read.is_read2 or 
-            read.mapping_quality < mapq_criteria or
-            read.is_unmapped or 
-            read.is_duplicate)

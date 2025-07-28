@@ -89,7 +89,7 @@ class ColorfulFormatter(logging.Formatter):
 
     The formatter applies different colors based on log level:
     - INFO: Cyan
-    - WARNING: Yellow  
+    - WARNING: Yellow
     - ERROR: Red
     - CRITICAL: Magenta
 

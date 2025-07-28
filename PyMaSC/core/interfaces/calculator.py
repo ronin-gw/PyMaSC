@@ -1,6 +1,11 @@
 from abc import ABC, abstractmethod
+from typing import Optional
+from multiprocessing.synchronize import Lock
 
-from .result import GenomeWideResult
+from .result import (
+    ChromResult, NCCResult, MSCCResult, BothChromResult,
+    GenomeWideResult, NCCGenomeWideResult, MSCCGenomeWideResult, BothGenomeWideResult
+)
 
 
 class CrossCorrelationCalculator(ABC):
@@ -16,6 +21,9 @@ class CrossCorrelationCalculator(ABC):
     - Flushing intermediate results
     - Accessing result data
     """
+
+    max_shift: int
+    logger_lock: Optional[Lock]
 
     @abstractmethod
     def feed_forward_read(self, chrom: str, pos: int, readlen: int) -> None:
@@ -49,14 +57,55 @@ class CrossCorrelationCalculator(ABC):
         pass
 
     @abstractmethod
-    def flush(self) -> None:
+    def flush(self, chrom: Optional[str] = None) -> None:
         """Flush any intermediate calculation results.
 
         Used in multiprocessing scenarios to ensure results are available
         for collection before worker process termination.
+
+        If `chrom` is provided, flush results for that specific chromosome;
+        especially in multiprocessing, this argument is used to ensure that
+        result is available for the chromosome that has no reads processed.
         """
         pass
 
     @abstractmethod
-    def get_result(self) -> GenomeWideResult:
+    def get_result(self, chrom: str) -> ChromResult:
+        pass
+
+    @abstractmethod
+    def get_whole_result(self) -> GenomeWideResult:
+        pass
+
+
+class NCCCalculatorModel(CrossCorrelationCalculator):
+    @abstractmethod
+    def get_result(self, chrom: str) -> NCCResult:
+        pass
+
+    @abstractmethod
+    def get_whole_result(self) -> NCCGenomeWideResult:
+        pass
+
+
+class MSCCCalculatorModel(CrossCorrelationCalculator):
+    @abstractmethod
+    def get_result(self, chrom: str) -> MSCCResult:
+        pass
+
+    @abstractmethod
+    def get_whole_result(self) -> MSCCGenomeWideResult:
+        pass
+
+
+class BothCalculatorModel(CrossCorrelationCalculator):
+    read_len: int
+    skip_ncc: bool
+
+    @abstractmethod
+    def get_result(self, chrom: str) -> BothChromResult:
+        pass
+
+    @abstractmethod
+    def get_whole_result(self) -> BothGenomeWideResult:
         pass

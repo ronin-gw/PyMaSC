@@ -267,10 +267,10 @@ def create_handler_with_observers(handler_class: Type[Any],
         Handler instance with observers attached
 
     Example:
-        >>> from PyMaSC.handler.unified import UnifiedCalcHandler
+        >>> from PyMaSC.handler.calc import CalcHandler
         >>> from PyMaSC.core.observer import TerminalProgressObserver
         >>> handler = create_handler_with_observers(
-        ...     UnifiedCalcHandler,
+        ...     CalcHandler,
         ...     [TerminalProgressObserver()],
         ...     path="input.bam",
         ...     config=calc_config

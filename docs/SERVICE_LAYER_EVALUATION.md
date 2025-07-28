@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This document evaluates the service layer implementation in PyMaSC (`PyMaSC/services`), comparing it with the currently adopted UnifiedCalcHandler architecture. While the service layer demonstrates excellent software engineering principles, its practical benefits for PyMaSC's specific use case are limited, which explains why it remains experimental and unintegrated in production.
+This document evaluates the service layer implementation in PyMaSC (`PyMaSC/services`), comparing it with the currently adopted CalcHandler architecture. While the service layer demonstrates excellent software engineering principles, its practical benefits for PyMaSC's specific use case are limited, which explains why it remains experimental and unintegrated in production.
 
 ## 1. Service Layer Module Overview
 
@@ -141,7 +141,7 @@ class WorkflowRequest:
 
 ## 3. Comparison with Current Architecture
 
-### 3.1 Current Architecture (UnifiedCalcHandler)
+### 3.1 Current Architecture (CalcHandler)
 
 **Strengths**:
 - Direct integration with existing Cython implementations
@@ -175,7 +175,7 @@ result = workflow_service.execute(WorkflowRequest(...))
 
 ### 3.3 Detailed Comparison
 
-| Aspect | UnifiedCalcHandler | Service Layer |
+| Aspect | CalcHandler | Service Layer |
 |--------|-------------------|---------------|
 | **Complexity** | Single handler class with strategy pattern | 5 services + orchestration |
 | **Learning Curve** | Moderate - understand handler + strategies | Steep - understand service interactions |
@@ -206,7 +206,7 @@ result = workflow_service.execute(WorkflowRequest(...))
    - Benefits mostly theoretical for PyMaSC's domain
 
 4. **Existing Architecture Sufficiency**
-   - UnifiedCalcHandler already provides good separation via strategy pattern
+   - CalcHandler already provides good separation via strategy pattern
    - Direct Cython integration is actually a strength for performance
    - Current design has proven stable and performant
 
@@ -238,7 +238,7 @@ The service layer would become practical if PyMaSC evolved to support:
 
 ### 5.1 Short Term (Current State)
 - **Keep service layer as experimental** - The implementation is valuable for learning and future possibilities
-- **Continue using UnifiedCalcHandler** - It provides the right balance of flexibility and simplicity
+- **Continue using CalcHandler** - It provides the right balance of flexibility and simplicity
 - **Document service layer** - Maintain it as a reference implementation
 
 ### 5.2 Long Term Considerations
@@ -257,7 +257,7 @@ Instead of full service layer adoption, consider:
 
 The service layer implementation in PyMaSC represents excellent software engineering practices and clean architecture principles. However, for PyMaSC's specific use case of processing ChIP-seq data on single machines with local file access, the additional complexity is not justified by the practical benefits.
 
-The current UnifiedCalcHandler architecture strikes the right balance between:
+The current CalcHandler architecture strikes the right balance between:
 - Clean design (strategy pattern)
 - Performance (direct Cython integration)
 - Maintainability (single cohesive handler)

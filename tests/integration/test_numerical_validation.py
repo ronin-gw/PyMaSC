@@ -12,7 +12,7 @@ from pathlib import Path
 # BigWigFile import removed - using pyBigWig implementation
 import pysam
 from PyMaSC.core.ncc import NaiveCCCalculator
-from PyMaSC.handler.unified import UnifiedCalcHandler
+from PyMaSC.handler.calc import CalcHandler
 from PyMaSC.core.models import CalculationConfig, ExecutionConfig, CalculationTarget, ImplementationAlgorithm, ExecutionMode
 
 
@@ -300,7 +300,7 @@ class TestIntegrationWorkflow:
 
         # Test that handler can be initialized with real data paths
         try:
-            # Create configuration objects for UnifiedCalcHandler
+            # Create configuration objects for CalcHandler
             calc_config = CalculationConfig(
                 target=CalculationTarget.BOTH,  # Both NCC and MSCC
                 implementation=ImplementationAlgorithm.SUCCESSIVE,  # Using successive algorithm
@@ -315,7 +315,7 @@ class TestIntegrationWorkflow:
                 worker_count=1
             )
 
-            handler = UnifiedCalcHandler(
+            handler = CalcHandler(
                 path=str(bam_path),
                 config=calc_config,
                 execution_config=exec_config

@@ -17,7 +17,7 @@ from PyMaSC.utils.parsearg import get_pymasc_parser
 from PyMaSC.utils.progress import ProgressBase
 from PyMaSC.utils.output import prepare_outdir
 from PyMaSC.handler.mappability import MappabilityHandler, BWIOError, JSONIOError
-from PyMaSC.handler.unified import UnifiedCalcHandler
+from PyMaSC.handler.calc import CalcHandler
 from PyMaSC.core.interfaces.stats import GenomeWideStats
 from PyMaSC.core.models import (
     CalculationConfig, ExecutionConfig, CalculationTarget,
@@ -175,10 +175,10 @@ def prepare_output(reads: List[str], names: List[Optional[str]], outdir: str, su
     return basenames
 
 
-def make_handlers(args: argparse.Namespace) -> List[UnifiedCalcHandler]:
+def make_handlers(args: argparse.Namespace) -> List[CalcHandler]:
     """Create calculation handlers for input files.
 
-    Instantiates UnifiedCalcHandler with appropriate configuration objects
+    Instantiates CalcHandler with appropriate configuration objects
     based on algorithm selection and input file specifications.
 
     Args:
@@ -190,7 +190,7 @@ def make_handlers(args: argparse.Namespace) -> List[UnifiedCalcHandler]:
     Note:
         Failed handlers are logged but not included in returned list
     """
-    calc_handlers: List[UnifiedCalcHandler] = []
+    calc_handlers: List[CalcHandler] = []
 
     # Create configuration objects from arguments
     for f in args.reads:
@@ -234,7 +234,7 @@ def make_handlers(args: argparse.Namespace) -> List[UnifiedCalcHandler]:
                 )
 
             # Create handler
-            handler = UnifiedCalcHandler(f, calc_config, exec_config, mappability_config)
+            handler = CalcHandler(f, calc_config, exec_config, mappability_config)
             calc_handlers.append(handler)
 
         except ValueError:
@@ -247,7 +247,7 @@ def make_handlers(args: argparse.Namespace) -> List[UnifiedCalcHandler]:
     return calc_handlers
 
 
-def set_readlen(args: argparse.Namespace, calc_handlers: List[UnifiedCalcHandler]) -> int:
+def set_readlen(args: argparse.Namespace, calc_handlers: List[CalcHandler]) -> int:
     """Set or estimate read length for all calculation handlers.
 
     Either uses user-specified read length or estimates it from the data.
@@ -286,7 +286,7 @@ def set_readlen(args: argparse.Namespace, calc_handlers: List[UnifiedCalcHandler
     return max_readlen
 
 
-def run_calculation(args: argparse.Namespace, handler: UnifiedCalcHandler, output_basename: Path) -> Optional[GenomeWideStats]:
+def run_calculation(args: argparse.Namespace, handler: CalcHandler, output_basename: Path) -> Optional[GenomeWideStats]:
     """Execute cross-correlation calculation for a single file using new statistics system.
 
     Runs the main calculation workflow and creates a result handler

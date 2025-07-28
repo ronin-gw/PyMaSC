@@ -25,7 +25,7 @@ Business logic separated into focused services:
 ### 3. Handler Layer (`PyMaSC/handler/`)
 User-facing API that coordinates services:
 - **BaseCalcHandler**: Common handler functionality
-- **UnifiedCalcHandler**: Unified algorithm interface
+- **CalcHandler**: Unified algorithm interface
 - **SimplifiedCalcHandler**: Clean dependency injection example
 - **ServiceBasedCalcHandler**: Adapter for legacy compatibility
 

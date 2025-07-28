@@ -1,11 +1,11 @@
 """Unified calculation handler using strategy pattern.
 
-This module provides a unified handler that replaces both CCCalcHandler
+This module provides a handler that replaces both CCCalcHandler
 and BACalcHandler using the strategy pattern. It delegates algorithm-specific
 logic to strategies while maintaining a single, consistent interface.
 
 Key components:
-- UnifiedCalcHandler: Main handler that uses strategies for algorithm selection
+- CalcHandler: Main handler that uses strategies for algorithm selection
 - Integrates with factory pattern for calculator and worker creation
 - Maintains backward compatibility while simplifying the architecture
 """
@@ -42,8 +42,8 @@ from PyMaSC.utils.read_processing import create_read_processor
 logger = logging.getLogger(__name__)
 
 
-class UnifiedCalcHandler:
-    """Unified cross-correlation calculation handler.
+class CalcHandler:
+    """Cross-correlation calculation handler.
 
     This handler replaces both CCCalcHandler and BACalcHandler by using
     the strategy pattern for algorithm-specific logic. It maintains the
@@ -75,7 +75,7 @@ class UnifiedCalcHandler:
                  config: CalculationConfig,
                  execution_config: Optional[ExecutionConfig] = None,
                  mappability_config: Optional[MappabilityConfig] = None):
-        """Initialize unified handler with configuration.
+        """Initialize handler with configuration.
 
         Args:
             path: Path to input BAM file

@@ -289,8 +289,8 @@ class TestMigrationIntegration:
         assert len(estimator._observers) == 0
 
     def test_unified_handler_integration(self):
-        """Test integration with UnifiedCalcHandler."""
-        from PyMaSC.handler.unified import UnifiedCalcHandler
+        """Test integration with CalcHandler."""
+        from PyMaSC.handler.calc import CalcHandler
         from PyMaSC.core.models import CalculationConfig, CalculationTarget, ImplementationAlgorithm
 
         # Mock file
@@ -309,7 +309,7 @@ class TestMigrationIntegration:
                 mapq_criteria=20
             )
 
-            handler = UnifiedCalcHandler("test.bam", config)
+            handler = CalcHandler("test.bam", config)
 
             # Check observer support
             assert hasattr(handler, 'attach_progress_observer')

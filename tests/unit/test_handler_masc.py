@@ -4,7 +4,7 @@ import pytest
 from unittest.mock import Mock, patch
 
 from tests.utils.test_data_generator import create_mock_reference_data
-from PyMaSC.handler.unified import UnifiedCalcHandler
+from PyMaSC.handler.calc import CalcHandler
 from PyMaSC.core.models import CalculationConfig, ExecutionConfig, CalculationTarget, ImplementationAlgorithm, ExecutionMode
 from PyMaSC.handler.base import NothingToCalc
 
@@ -12,7 +12,7 @@ from PyMaSC.handler.base import NothingToCalc
 def create_test_handler(path="test.bam", esttype="ncc", max_shift=200, mapq_criteria=20,
                        nworker=1, skip_ncc=False, chromfilter=None,
                        target=CalculationTarget.NCC, implementation=ImplementationAlgorithm.SUCCESSIVE):
-    """Helper function to create UnifiedCalcHandler for testing."""
+    """Helper function to create CalcHandler for testing."""
     calc_config = CalculationConfig(
         target=target,
         implementation=implementation,
@@ -28,7 +28,7 @@ def create_test_handler(path="test.bam", esttype="ncc", max_shift=200, mapq_crit
         worker_count=nworker
     )
 
-    return UnifiedCalcHandler(path, calc_config, exec_config)
+    return CalcHandler(path, calc_config, exec_config)
 
 
 class TestCCCalcHandlerBasics:
@@ -40,9 +40,9 @@ class TestCCCalcHandlerBasics:
         assert unified is not None
 
     def test_cchandler_class_exists(self):
-        """Test that UnifiedCalcHandler class is available."""
-        from PyMaSC.handler.unified import UnifiedCalcHandler
-        assert UnifiedCalcHandler is not None
+        """Test that CalcHandler class is available."""
+        from PyMaSC.handler.calc import CalcHandler
+        assert CalcHandler is not None
 
     def test_exceptions_defined(self):
         """Test that custom exceptions are defined."""
@@ -275,7 +275,7 @@ class TestCCCalcHandlerReferenceHandling:
         mock_bam.lengths = []
         mock_alignment_file.return_value = mock_bam
 
-        # Should raise NothingToCalc for empty references (raised by UnifiedCalcHandler)
+        # Should raise NothingToCalc for empty references (raised by CalcHandler)
         with pytest.raises(NothingToCalc):
             create_test_handler(
                 path="mock_path.bam",

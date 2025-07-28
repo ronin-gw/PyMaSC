@@ -1,7 +1,7 @@
-"""Tests for refactored UnifiedCalcHandler components.
+"""Tests for refactored CalcHandler components.
 
 This module tests the new components created for the refactored
-UnifiedCalcHandler to ensure they work correctly and maintain
+CalcHandler to ensure they work correctly and maintain
 compatibility with the existing system.
 """
 import unittest
@@ -17,7 +17,7 @@ from PyMaSC.core.progress_coordinator import (
     ObserverProgressReporter, NullProgressReporter
 )
 # ResultAggregator functionality has been integrated into the main codebase
-from PyMaSC.handler.unified import UnifiedCalcHandler
+from PyMaSC.handler.calc import CalcHandler
 from PyMaSC.core.models import (
     CalculationConfig, ExecutionConfig, MappabilityConfig,
     CalculationTarget, ImplementationAlgorithm, ExecutionMode
@@ -26,82 +26,82 @@ from PyMaSC.core.models import (
 
 class TestBAMFileProcessor(unittest.TestCase):
     """Test BAM file processing functionality."""
-    
+
     def setUp(self):
         """Set up test fixtures."""
         self.test_bam = os.path.join(
-            os.path.dirname(__file__), 
+            os.path.dirname(__file__),
             '../data/ENCFF000RMB-test.bam'
         )
-    
+
     def test_bam_processor_creation(self):
         """Test BAM processor can be created."""
         processor = BAMFileProcessor(self.test_bam)
         self.assertEqual(processor.path, self.test_bam)
         self.assertFalse(processor.is_stdin)
-    
+
     def test_bam_validation_success(self):
         """Test successful BAM file validation."""
         processor = BAMFileProcessor(self.test_bam)
         metadata = processor.validate_and_open()
-        
+
         self.assertIsInstance(metadata, BAMMetadata)
         self.assertEqual(metadata.path, self.test_bam)
         self.assertTrue(metadata.has_index)
         self.assertGreater(len(metadata.references), 0)
         self.assertGreater(len(metadata.filtered_references), 0)
-    
+
     def test_bam_validation_with_filter(self):
         """Test BAM validation with chromosome filter."""
         # Test with known chromosome
         processor = BAMFileProcessor(self.test_bam)
         # Use the correct format: List[Tuple[bool, List[str]]]
         metadata = processor.validate_and_open(chromfilter=[(True, ['chr1', 'chr2'])])
-        
+
         self.assertEqual(len(metadata.filtered_references), 2)
         self.assertIn('chr1', metadata.filtered_references)
         self.assertIn('chr2', metadata.filtered_references)
         processor.close()
-        
+
         # Test with non-existent chromosome
         processor2 = BAMFileProcessor(self.test_bam)
         with self.assertRaises(BAMValidationError):
             processor2.validate_and_open(chromfilter=[(True, ['chrNonExistent'])])
-    
+
     def test_bam_validation_error(self):
         """Test BAM validation error handling."""
         with tempfile.NamedTemporaryFile(suffix='.bam') as tmp:
             processor = BAMFileProcessor(tmp.name)
             with self.assertRaises(BAMValidationError):
                 processor.validate_and_open()
-    
+
     def test_chromosome_size_validation(self):
         """Test chromosome size validation."""
         processor = BAMFileProcessor(self.test_bam)
         metadata = processor.validate_and_open()
-        
+
         # Test with matching sizes
         external_sizes = {
             'chr1': metadata.filtered_lengths[0]
         }
         updated = processor.validate_chromosome_sizes(external_sizes)
         self.assertEqual(updated['chr1'], metadata.filtered_lengths[0])
-        
+
         # Test with mismatched sizes
         external_sizes = {
             'chr1': metadata.filtered_lengths[0] + 1000
         }
         updated = processor.validate_chromosome_sizes(external_sizes)
         self.assertEqual(updated['chr1'], metadata.filtered_lengths[0] + 1000)
-    
+
     def test_multiprocess_compatibility_check(self):
         """Test multiprocess compatibility checking."""
         processor = BAMFileProcessor(self.test_bam)
         processor.validate_and_open()
-        
+
         # Should pass with index
         self.assertTrue(processor.check_multiprocess_compatibility())
-    
+
     def test_context_manager(self):
         """Test BAM processor as context manager."""
         with BAMFileProcessor(self.test_bam) as processor:
@@ -111,45 +111,45 @@ class TestBAMFileProcessor(unittest.TestCase):
 
 class TestProgressCoordinator(unittest.TestCase):
     """Test progress coordination functionality."""
-    
+
     def test_single_line_reporter(self):
         """Test single-line progress reporter."""
         reporter = SingleLineProgressReporter()
-        
+
         # Should not raise any exceptions
         reporter.start_chromosome('chr1', 1000)
         reporter.update('chr1', 500)
         reporter.finish_chromosome('chr1')
         reporter.cleanup()
-    
+
     def test_multi_line_reporter(self):
         """Test multi-line progress reporter."""
         reporter = MultiLineProgressReporter()
-        
+
         # Should not raise any exceptions
         reporter.start_chromosome('chr1', 1000)
         reporter.update('chr1', 500)
         reporter.finish_chromosome('chr1')
         reporter.cleanup()
-    
+
     def test_null_reporter(self):
         """Test null progress reporter."""
         reporter = NullProgressReporter()
-        
+
         # All methods should be no-ops
         reporter.start_chromosome('chr1', 1000)
-        reporter.update('chr1', 500) 
+        reporter.update('chr1', 500)
         reporter.finish_chromosome('chr1')
         reporter.cleanup()
-    
+
     def test_progress_coordinator_single_process(self):
         """Test progress coordinator for single process."""
         coordinator = ProgressCoordinator.create_for_single_process()
         reporter = coordinator.setup_single_process()
-        
+
         self.assertIsNotNone(reporter)
         self.assertIsInstance(reporter, SingleLineProgressReporter)
-    
+
     def test_progress_coordinator_with_observer(self):
         """Test progress coordinator with observer mode."""
         mock_observer = Mock()
@@ -158,34 +158,34 @@ class TestProgressCoordinator(unittest.TestCase):
             observers=[mock_observer]
         )
         reporter = coordinator.setup_single_process()
-        
+
         self.assertIsInstance(reporter, ObserverProgressReporter)
-    
+
     def test_progress_coordinator_multiprocess(self):
         """Test progress coordinator for multiprocess."""
         coordinator = ProgressCoordinator.create_for_multiprocess()
-        
+
         mock_queue = Mock()
         mock_lock = Mock()
         coordinator.setup_multiprocess(mock_queue, mock_lock)
-        
+
         reporter = coordinator.get_reporter()
         self.assertIsInstance(reporter, MultiLineProgressReporter)
-    
+
     def test_multiprocess_report_handling(self):
         """Test handling of multiprocess progress reports."""
         from multiprocessing import Lock
-        
+
         coordinator = ProgressCoordinator.create_for_multiprocess()
-        
+
         mock_queue = Mock()
         real_lock = Lock()  # Use real lock instead of mock
         coordinator.setup_multiprocess(mock_queue, real_lock)
-        
+
         # Test progress update
         is_progress = coordinator.handle_multiprocess_report(None, ('chr1', 500))
         self.assertTrue(is_progress)
-        
+
         # Test result (not progress)
         is_progress = coordinator.handle_multiprocess_report('chr1', (1, 2, 3))
         self.assertFalse(is_progress)
@@ -194,16 +194,16 @@ class TestProgressCoordinator(unittest.TestCase):
 # Deprecated test class removed - functionality has been integrated into ResultAggregator
 
 
-class TestUnifiedCalcHandler(unittest.TestCase):
-    """Test refactored UnifiedCalcHandler."""
-    
+class TestCalcHandler(unittest.TestCase):
+    """Test refactored CalcHandler."""
+
     def setUp(self):
         """Set up test fixtures."""
         self.test_bam = os.path.join(
-            os.path.dirname(__file__), 
+            os.path.dirname(__file__),
             '../data/ENCFF000RMB-test.bam'
         )
-        
+
         self.calc_config = CalculationConfig(
             target=CalculationTarget.NCC,
             implementation=ImplementationAlgorithm.SUCCESSIVE,
@@ -211,88 +211,88 @@ class TestUnifiedCalcHandler(unittest.TestCase):
             mapq_criteria=0,
             skip_ncc=False
         )
-        
+
         self.exec_config = ExecutionConfig(
             mode=ExecutionMode.SINGLE_PROCESS,
             worker_count=1
         )
-    
+
     def test_handler_initialization(self):
         """Test handler can be initialized."""
-        handler = UnifiedCalcHandler(
+        handler = CalcHandler(
             self.test_bam,
             self.calc_config,
             self.exec_config
         )
-        
+
         self.assertEqual(handler.path, self.test_bam)
         self.assertIsNotNone(handler.references)
         self.assertIsNotNone(handler.lengths)
         self.assertGreater(len(handler.references), 0)
-    
+
     def test_handler_backward_compatibility(self):
         """Test backward compatibility properties."""
-        handler = UnifiedCalcHandler(
+        handler = CalcHandler(
             self.test_bam,
             self.calc_config,
             self.exec_config
         )
-        
+
         # Test properties
         self.assertEqual(handler.skip_ncc, False)
         self.assertEqual(handler.max_shift, 100)
         self.assertEqual(handler.mapq_criteria, 0)
         self.assertEqual(handler.nworker, 1)
-    
+
     def test_handler_read_length_estimation(self):
         """Test read length estimation."""
-        handler = UnifiedCalcHandler(
+        handler = CalcHandler(
             self.test_bam,
             self.calc_config,
             self.exec_config
         )
-        
+
         # Set explicit read length
         handler.set_or_estimate_readlen(50)
         self.assertEqual(handler.read_len, 50)
         self.assertEqual(handler.config.read_length, 50)
-    
+
     def test_handler_with_invalid_bam(self):
         """Test handler with invalid BAM file."""
         with tempfile.NamedTemporaryFile(suffix='.bam') as tmp:
             with self.assertRaises(ValueError) as cm:
-                UnifiedCalcHandler(
+                CalcHandler(
                     tmp.name,
                     self.calc_config,
                     self.exec_config
                 )
             self.assertIn("File has no sequences defined", str(cm.exception))
-    
+
     def test_handler_progress_observer_methods(self):
         """Test progress observer methods."""
-        handler = UnifiedCalcHandler(
+        handler = CalcHandler(
             self.test_bam,
             self.calc_config,
             self.exec_config
         )
-        
+
         mock_observer = Mock()
-        
+
         # Test attach
         handler.attach_progress_observer(mock_observer)
         self.assertIn(mock_observer, handler._progress_observers)
-        
+
         # Test detach
         handler.detach_progress_observer(mock_observer)
         self.assertNotIn(mock_observer, handler._progress_observers)
-        
+
         # Test enable/disable
         handler.enable_observer_progress(False)
         self.assertFalse(handler.use_observer_progress)
-        
+
         handler.enable_observer_progress(True)
         self.assertTrue(handler.use_observer_progress)
-    
+
     @patch('pysam.AlignmentFile')
     def test_handler_multiprocess_fallback(self, mock_alignfile):
         """Test fallback to single process when no index."""
@@ -302,18 +302,18 @@ class TestUnifiedCalcHandler(unittest.TestCase):
         mock_file.references = ['chr1']
         mock_file.lengths = [1000]
         mock_alignfile.return_value = mock_file
-        
+
         exec_config = ExecutionConfig(
             mode=ExecutionMode.MULTI_PROCESS,
             worker_count=4
         )
-        
-        handler = UnifiedCalcHandler(
+
+        handler = CalcHandler(
             self.test_bam,
             self.calc_config,
             exec_config
         )
-        
+
         # Should fall back to single process
         self.assertEqual(handler.execution_config.mode, ExecutionMode.SINGLE_PROCESS)
         self.assertEqual(handler.execution_config.worker_count, 1)

@@ -11,17 +11,17 @@ from tests.utils.test_data_generator import create_mock_reference_data
 
 
 class TestUnifiedHandler:
-    """Test UnifiedCalcHandler functionality."""
+    """Test CalcHandler functionality."""
 
     def test_unified_handler_import(self):
         """Test that unified handler imports correctly."""
-        from PyMaSC.handler.unified import UnifiedCalcHandler
-        assert UnifiedCalcHandler is not None
+        from PyMaSC.handler.calc import CalcHandler
+        assert CalcHandler is not None
 
     @patch('pysam.AlignmentFile')
     def test_unified_handler_basic_initialization(self, mock_alignment_file):
         """Test basic initialization of unified handler."""
-        from PyMaSC.handler.unified import UnifiedCalcHandler
+        from PyMaSC.handler.calc import CalcHandler
 
         # Mock AlignmentFile
         mock_bam = Mock()
@@ -46,7 +46,7 @@ class TestUnifiedHandler:
         )
 
         # Initialize handler
-        handler = UnifiedCalcHandler(
+        handler = CalcHandler(
             path="test.bam",
             config=calc_config,
             execution_config=exec_config
@@ -61,7 +61,7 @@ class TestUnifiedHandler:
     @patch('pysam.AlignmentFile')
     def test_unified_handler_with_mappability(self, mock_alignment_file):
         """Test unified handler with mappability configuration."""
-        from PyMaSC.handler.unified import UnifiedCalcHandler
+        from PyMaSC.handler.calc import CalcHandler
 
         # Mock AlignmentFile
         mock_bam = Mock()
@@ -87,7 +87,7 @@ class TestUnifiedHandler:
         )
 
         # Initialize handler
-        handler = UnifiedCalcHandler(
+        handler = CalcHandler(
             path="test.bam",
             config=calc_config,
             execution_config=ExecutionConfig(),
@@ -99,7 +99,7 @@ class TestUnifiedHandler:
     @patch('pysam.AlignmentFile')
     def test_unified_handler_multiprocess_fallback(self, mock_alignment_file):
         """Test that multiprocess falls back to single process without index."""
-        from PyMaSC.handler.unified import UnifiedCalcHandler
+        from PyMaSC.handler.calc import CalcHandler
 
         # Mock AlignmentFile without index
         mock_bam = Mock()
@@ -122,7 +122,7 @@ class TestUnifiedHandler:
             worker_count=4
         )
 
-        handler = UnifiedCalcHandler(
+        handler = CalcHandler(
             path="test.bam",
             config=calc_config,
             execution_config=exec_config
@@ -135,7 +135,7 @@ class TestUnifiedHandler:
     @patch('pysam.AlignmentFile')
     def test_unified_handler_with_empty_bam(self, mock_alignment_file):
         """Test handler with empty BAM file."""
-        from PyMaSC.handler.unified import UnifiedCalcHandler
+        from PyMaSC.handler.calc import CalcHandler
 
         # Mock pysam to raise ValueError for empty file
         mock_alignment_file.side_effect = ValueError("File has no sequences defined.")
@@ -149,7 +149,7 @@ class TestUnifiedHandler:
 
         # Should raise ValueError for empty file
         with pytest.raises(ValueError, match="File has no sequences"):
-            UnifiedCalcHandler(
+            CalcHandler(
                 path="empty.bam",
                 config=calc_config
             )
@@ -157,7 +157,7 @@ class TestUnifiedHandler:
     @patch('pysam.AlignmentFile')
     def test_unified_handler_chromosome_filtering(self, mock_alignment_file):
         """Test chromosome filtering in unified handler."""
-        from PyMaSC.handler.unified import UnifiedCalcHandler, NothingToCalc
+        from PyMaSC.handler.calc import CalcHandler, NothingToCalc
 
         # Mock AlignmentFile
         mock_bam = Mock()
@@ -177,28 +177,28 @@ class TestUnifiedHandler:
 
         # Should raise NothingToCalc
         with pytest.raises(NothingToCalc):
-            UnifiedCalcHandler(
+            CalcHandler(
                 path="test.bam",
                 config=calc_config
             )
 
     def test_unified_handler_set_or_estimate_readlen(self):
         """Test read length setting."""
-        from PyMaSC.handler.unified import UnifiedCalcHandler
+        from PyMaSC.handler.calc import CalcHandler
 
         # Create mock handler
-        handler = Mock(spec=UnifiedCalcHandler)
+        handler = Mock(spec=CalcHandler)
         handler.read_len = None
         handler.config = Mock(max_shift=500)
 
         # Manually set read length
-        UnifiedCalcHandler.set_or_estimate_readlen(handler, readlen=100)
+        CalcHandler.set_or_estimate_readlen(handler, readlen=100)
         assert handler.read_len == 100
 
     @patch('pysam.AlignmentFile')
     def test_unified_handler_backward_compatible_properties(self, mock_alignment_file):
         """Test backward compatible properties."""
-        from PyMaSC.handler.unified import UnifiedCalcHandler
+        from PyMaSC.handler.calc import CalcHandler
 
         # Mock AlignmentFile
         mock_bam = Mock()
@@ -222,7 +222,7 @@ class TestUnifiedHandler:
             worker_count=2
         )
 
-        handler = UnifiedCalcHandler(
+        handler = CalcHandler(
             path="test.bam",
             config=calc_config,
             execution_config=exec_config
@@ -244,7 +244,7 @@ class TestHandlerIntegration:
     @patch('pysam.AlignmentFile')
     def test_unified_handler_strategy_selection(self, mock_alignment_file, mock_context):
         """Test that unified handler selects correct strategy."""
-        from PyMaSC.handler.unified import UnifiedCalcHandler
+        from PyMaSC.handler.calc import CalcHandler
 
         # Mock AlignmentFile
         mock_bam = Mock()
@@ -272,7 +272,7 @@ class TestHandlerIntegration:
             # Reset mock
             mock_context.create_from_config.reset_mock()
 
-            handler = UnifiedCalcHandler(
+            handler = CalcHandler(
                 path="test.bam",
                 config=calc_config
             )
@@ -283,7 +283,7 @@ class TestHandlerIntegration:
     @patch('pysam.AlignmentFile')
     def test_handler_result_collection(self, mock_alignment_file):
         """Test result collection in unified handler."""
-        from PyMaSC.handler.unified import UnifiedCalcHandler
+        from PyMaSC.handler.calc import CalcHandler
 
         # Mock AlignmentFile
         mock_bam = Mock()
@@ -301,7 +301,7 @@ class TestHandlerIntegration:
             mapq_criteria=20
         )
 
-        handler = UnifiedCalcHandler(
+        handler = CalcHandler(
             path="test.bam",
             config=calc_config
         )

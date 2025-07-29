@@ -30,7 +30,7 @@ import numpy as np
 from PyMaSC.core.ncc import ReadUnsortedError
 from PyMaSC.utils.progress import ProgressBar
 
-from PyMaSC.core.interfaces.result import NCCResult, MSCCResult, BothChromResult, BothGenomeWideResult
+from PyMaSC.core.result import NCCResult, MSCCResult, BothChromResult, BothGenomeWideResult
 
 logger = logging.getLogger(__name__)
 

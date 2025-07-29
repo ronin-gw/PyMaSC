@@ -4,7 +4,7 @@ from typing import Optional, List
 from multiprocessing.synchronize import Lock
 
 from .interfaces.calculator import MSCCCalculatorModel
-from .interfaces.result import MSCCResult, MSCCGenomeWideResult
+from .result import MSCCResult, MSCCGenomeWideResult
 
 from PyMaSC.reader.bigwig import BigWigReader
 

@@ -26,7 +26,7 @@ from .utils cimport int64_min
 import numpy as np
 
 from .exceptions import ReadUnsortedError
-from .interfaces.result import NCCResult, NCCGenomeWideResult
+from .result import NCCResult, NCCGenomeWideResult
 
 logger = logging.getLogger(__name__)
 

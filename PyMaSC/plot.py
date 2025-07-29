@@ -19,19 +19,28 @@ import os
 import sys
 import json
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Set, Optional, Tuple, Union
 
 from pysam import AlignmentFile
 
 from PyMaSC import entrypoint, logging_version
+from PyMaSC.core.exceptions import ReadsTooFew
 from PyMaSC.utils.parsearg import get_plot_parser
 from PyMaSC.utils.logfmt import set_rootlogger
 from PyMaSC.utils.calc import filter_chroms
 from PyMaSC.pymasc import prepare_output, PLOTFILE_SUFFIX
-from PyMaSC.output.stats import load_stats, output_stats, STATSFILE_SUFFIX
-from PyMaSC.output.table import (load_cc, load_masc, load_nreads_table, output_cc, output_mscc,
+from PyMaSC.reader.stats import load_stats
+from PyMaSC.reader.table import CCData, NreadData, load_cc_table, load_nreads_table
+from PyMaSC.core.interfaces.result import GenomeWideResultModel
+from PyMaSC.core.interfaces.output import (
+    OutputStats,
+    NCCResult, MSCCResult,
+    NCCGenomeWideResult, MSCCGenomeWideResult, BothGenomeWideResult
+)
+from PyMaSC.core.stats import make_genome_wide_stat
+from PyMaSC.output.stats import output_stats, STATSFILE_SUFFIX
+from PyMaSC.output.table import (output_cc, output_mscc,
                                  CCOUTPUT_SUFFIX, MSCCOUTPUT_SUFFIX, NREADOUTPUT_SUFFIX)
-from PyMaSC.core.statistics import StatisticsResult
 from PyMaSC.output.figure import plot_figures
 
 logger = logging.getLogger(__name__)
@@ -75,7 +84,7 @@ def _parse_args() -> argparse.Namespace:
     if args.statfile:
         for attr, suffix in zip(("stats", "cc", "masc", "nreads"),
                                 (STATSFILE_SUFFIX, CCOUTPUT_SUFFIX, MSCCOUTPUT_SUFFIX, NREADOUTPUT_SUFFIX)):
-            _complete_path_arg(args, attr, args.statfile + suffix)
+            _complete_path_arg(args, attr, args.statfile.with_name(args.statfile.stem + suffix))
 
     #
     if not args.stats:
@@ -141,42 +150,99 @@ def main() -> None:
     data files without re-running the cross-correlation calculations.
     """
     args = _parse_args()
-    read_len = _prepare_stats(args)
-    (ref2cc, ref2genomelen, ref2masc, ref2mappable_len, references,
-     (forward_sum, reverse_sum, mappable_forward_sum, mappable_reverse_sum)) = _load_tables(args)
+
+    #
+    stats = _prepare_stats(args)
+    read_len = stats.stats.read_len
+    ref2genomelen = _load_chrom_sizes(args.sizes)
+    genomelen = sum(c for c in ref2genomelen.values())
+
+    #
+    try:
+        cc, masc, nread, references, ref2mappable_len = _load_tables(args, set(ref2genomelen.keys()))
+    except (IOError, KeyError, IndexError, StopIteration):
+        logger.critical("Failed to load tables.")
+        sys.exit(1)
     references = list(filter_chroms(references, args.chromfilter))
     checked_suffixes = _prepare_outputs(args)
 
-    # Create StatisticsResult from file data using new unified statistics system
-    stats_result = StatisticsResult.from_file_data(
-        mv_avr_filter_len=args.smooth_window,
-        chi2_pval=args.chi2_pval,
-        filter_mask_len=args.mask_size,
-        min_calc_width=args.bg_avr_width,
-        expected_library_len=args.library_length,
-        read_len=read_len,
-        references=references,
-        ref2genomelen=ref2genomelen,
-        ref2forward_sum=forward_sum,
-        ref2reverse_sum=reverse_sum,
-        ref2cc=ref2cc,
-        ref2mappable_len=ref2mappable_len,
-        mappable_ref2forward_sum=mappable_forward_sum,
-        mappable_ref2reverse_sum=mappable_reverse_sum,
-        ref2masc=ref2masc
-    )
+    #
+    assert cc is not None or masc is not None, "At least one of CC or MSCC tables must be provided."
+
+    if cc is not None:
+        chrom2ccresult: Dict[str, NCCResult] = {
+            chrom: NCCResult(
+                read_len=read_len,
+                genomelen=ref2genomelen[chrom],
+                forward_sum=nread.forward_sum[chrom],
+                reverse_sum=nread.reverse_sum[chrom],
+                cc=cc
+            ) for chrom, cc in cc.chrom.items()
+        }
+        forward_sum = sum(r.forward_sum for r in chrom2ccresult.values())
+        reverse_sum = sum(r.reverse_sum for r in chrom2ccresult.values())
+
+    if masc is not None:
+        assert ref2mappable_len is not None
+        chrom2mascresult: Dict[str, MSCCResult] = {
+            chrom: MSCCResult(
+                read_len=read_len,
+                genomelen=ref2genomelen[chrom],
+                forward_sum=nread.mappable_forward[chrom],
+                reverse_sum=nread.mappable_reverse[chrom],
+                cc=cc,
+                mappable_len=tuple(ref2mappable_len[chrom])
+            ) for chrom, cc in masc.chrom.items()
+        }
+
+    #
+    result: GenomeWideResultModel
+    if cc is not None and masc is not None:
+        result = BothGenomeWideResult(
+            genomelen=genomelen,
+            forward_sum=forward_sum,
+            reverse_sum=reverse_sum,
+            chroms=chrom2ccresult,
+            mappable_chroms=chrom2mascresult
+        )
+    elif cc is not None:
+        result = NCCGenomeWideResult(
+            genomelen=genomelen,
+            forward_sum=forward_sum,
+            reverse_sum=reverse_sum,
+            chroms=chrom2ccresult
+        )
+    else:
+        result = MSCCGenomeWideResult(
+            genomelen=genomelen,
+            chroms=chrom2mascresult
+        )
+
+    try:
+        stats_result = make_genome_wide_stat(
+            result,
+            read_len=read_len,
+            mv_avr_filter_len=args.smooth_window,
+            expected_library_len=args.library_length,
+            filter_mask_len=args.mask_size,
+            min_calc_width=args.bg_avr_width,
+            output_warnings=True
+        )
+    except ReadsTooFew:
+        logger.critical("Failed to process result.")
+        sys.exit(1)
 
     #
     for outputfunc, suffix in zip((output_stats, output_cc, output_mscc),
                                   (STATSFILE_SUFFIX, CCOUTPUT_SUFFIX, MSCCOUTPUT_SUFFIX)):
         if suffix in checked_suffixes:
-            outputfunc(str(args.outdir / args.name), stats_result)
+            outputfunc(args.outdir / args.name, stats_result)
 
     #
-    plot_figures(str(args.outdir / (args.name + PLOTFILE_SUFFIX)), stats_result)
+    plot_figures(args.outdir / (args.name + PLOTFILE_SUFFIX), stats_result)
 
 
-def _prepare_stats(args: argparse.Namespace) -> int:
+def _prepare_stats(args: argparse.Namespace) -> OutputStats:
     """Load and validate statistics from stats file.
 
     Loads essential statistics including read length, library length,
@@ -194,54 +260,25 @@ def _prepare_stats(args: argparse.Namespace) -> int:
     """
     #
     try:
-        statattrs = load_stats(args.stats, ("name", "library_len", "read_len"))
+        stat = load_stats(args.stats)
     except (IOError, ):
         logger.critical("Failed to load stats.")
         sys.exit(1)
 
-    if "library_len" in statattrs and not args.library_length:
-        args.library_length = statattrs["library_len"]
-
-    if "read_len" not in statattrs:
-        logger.critical("Mandatory attribute 'Read length' not found in '{}'.".format(args.stats))
-        sys.exit(1)
-    read_len: int = statattrs["read_len"]
+    if stat.stats.expected_lib_len != 'nan' and not args.library_length:
+        args.library_length = stat.stats.expected_lib_len
 
     #
-    if "name" in statattrs:
-        args.name = statattrs.pop("name")
-    if not args.name:
-        logger.critical("Mandatory attribute 'Name' not found in '{}'. "
-                        "Set name manually with -n/--name option.".format(args.stats))
-        sys.exit(1)
+    if args.name is None:
+        args.name = stat.stats.name
 
-    return read_len
+    return stat
 
 
-def _load_table(path: str, load_fun: Callable[[str], Any]) -> Any:
-    """Generic table loading with error handling.
-
-    Loads a data table using the specified loading function with
-    comprehensive error handling and logging.
-
-    Args:
-        path: File path to load
-        load_fun: Function to use for loading the table
-
-    Returns:
-        Loaded table data
-
-    Raises:
-        SystemExit: If table loading fails
-    """
-    try:
-        return load_fun(path)
-    except (IOError, KeyError, IndexError, StopIteration):
-        logger.critical("Failed to load tables.")
-        sys.exit(1)
-
-
-def _load_tables(args: argparse.Namespace) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, int]], Optional[Dict[str, Any]], Optional[Dict[str, int]], List[str], Tuple[Dict[str, int], Dict[str, int], Dict[str, int], Dict[str, int]]]:
+def _load_tables(
+    args: argparse.Namespace,
+    references: Set[str]
+) -> Tuple[Optional[CCData], Optional[CCData], NreadData, list[str], Optional[Dict[str, List[int]]]]:
     """Load all required data tables for plotting.
 
     Loads cross-correlation tables, MSCC tables, read count tables,
@@ -263,21 +300,25 @@ def _load_tables(args: argparse.Namespace) -> Tuple[Optional[Dict[str, Any]], Op
     Raises:
         SystemExit: If table loading fails or chromosome names are incompatible
     """
+    #
+    cc = None
+    cc_references = set()
+
     if args.cc:
-        cc_table = _load_table(args.cc, load_cc)
-        cc_references = set(cc_table.keys())
-        ref2genomelen = _load_chrom_sizes(args.sizes)
+        cc = load_cc_table(args.cc)
+        cc_references = set(cc.chrom.keys())
         for ref in cc_references:
-            if ref not in ref2genomelen:
+            if ref not in references:
                 logger.critical("Reference '{}' not found in '{}'.".format(ref, args.sizes))
                 sys.exit(1)
-    else:
-        cc_table = ref2genomelen = None
-        cc_references = set()
+
+    #
+    masc = ref2mappable_len = None
+    masc_references = set()
 
     if args.masc:
-        masc_table = _load_table(args.masc, load_masc)
-        masc_references = set(masc_table.keys())
+        masc = load_cc_table(args.masc)
+        masc_references = set(masc.chrom.keys())
         try:
             ref2mappable_len = _load_mappable_lengths(args.mappability_stats)
         except json.JSONDecodeError as e:
@@ -288,17 +329,14 @@ def _load_tables(args: argparse.Namespace) -> Tuple[Optional[Dict[str, Any]], Op
             if ref not in ref2mappable_len:
                 logger.critical("Reference '{}' not found in '{}'.".format(ref, args.mappability_stats))
                 sys.exit(1)
-    else:
-        masc_table = ref2mappable_len = None
-        masc_references = set()
 
-    dicts = forward_sum, reverse_sum, mappable_forward_sum, mappable_reverse_sum = _load_table(args.nreads, load_nreads_table)
-    if forward_sum and reverse_sum:
-        nreads_refs = set(forward_sum.keys())
-        assert nreads_refs == set(reverse_sum.keys())
+    nread = load_nreads_table(args.nreads)
+    if nread.forward_sum and nread.reverse_sum:
+        nreads_refs = set(nread.forward_sum.keys())
+        assert nreads_refs == set(nread.reverse_sum.keys())
     else:
-        nreads_refs = set(mappable_forward_sum.keys())
-        assert nreads_refs == set(mappable_reverse_sum.keys())
+        nreads_refs = set(nread.mappable_forward.keys())
+        assert nreads_refs == set(nread.mappable_reverse.keys())
     nreads_refs.discard("whole")
 
     refsets = [s for s in (cc_references, masc_references) if s]
@@ -309,7 +347,7 @@ def _load_tables(args: argparse.Namespace) -> Tuple[Optional[Dict[str, Any]], Op
         logger.warning("Chromosome names in tables are unmatched.")
         logger.warning("Trying use common names anyway: {}".format(intersection))
 
-    return cc_table, ref2genomelen, masc_table, ref2mappable_len, sorted(intersection), dicts
+    return cc, masc, nread, sorted(intersection), ref2mappable_len
 
 
 def _prepare_outputs(args: argparse.Namespace) -> List[str]:
@@ -381,18 +419,25 @@ def _load_chrom_sizes(path: Union[str, os.PathLike[str]]) -> Dict[str, int]:
         ValueError: If file format is invalid
     """
     try:
-        with AlignmentFile(path) as f:
+        with AlignmentFile(str(path)) as f:
             return {r: l for r, l in zip(f.references, f.lengths)}
     except ValueError:
         ref2len: Dict[str, int] = {}
         with open(path) as f:
-            for l in f:
-                chrom, length, _ = l.split('\t', 2)
-                ref2len[chrom] = int(length)
+            for line in f:
+                cols = line.split('\t')
+                try:
+                    chrom = cols[0]
+                    length = cols[1]
+                    ref2len[chrom] = int(length)
+                except (IndexError, ValueError) as e:
+                    logger.error('Error occurred while parsing chromosome sizes file: %s', e)
+                    logger.critical('Failed to parse chrom size file.')
+                    sys.exit(1)
             return ref2len
 
 
-def _load_mappable_lengths(path: os.PathLike[str]) -> Dict[str, int]:
+def _load_mappable_lengths(path: os.PathLike[str]) -> Dict[str, List[int]]:
     """Load mappable lengths from JSON statistics file.
 
     Loads pre-calculated mappable length statistics from a JSON file
@@ -410,5 +455,5 @@ def _load_mappable_lengths(path: os.PathLike[str]) -> Dict[str, int]:
         KeyError: If required 'references' key is missing
     """
     with open(path) as f:
-        references: Dict[str, int] = json.load(f)["references"]
+        references: Dict[str, List[int]] = json.load(f)["references"]
         return references

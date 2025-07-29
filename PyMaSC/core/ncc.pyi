@@ -4,7 +4,7 @@ from typing import Optional, List, Any
 from multiprocessing.synchronize import Lock
 
 from .interfaces.calculator import NCCCalculatorModel
-from .interfaces.result import NCCResult, NCCGenomeWideResult
+from .result import NCCResult, NCCGenomeWideResult
 
 
 class ReadUnsortedError(IndexError):

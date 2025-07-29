@@ -19,15 +19,23 @@ from __future__ import annotations
 import logging
 import os
 import csv
+
 from collections import defaultdict
 from functools import partial
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, TextIO, Tuple, Union, Literal
+from typing import Any, Callable, Dict, List, Optional, TextIO, Tuple, Union, Literal, cast
+
+import sys
+if sys.version_info >= (3, 9):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 import numpy as np
 
 from PyMaSC.core.interfaces.stats import GenomeWideStats, WholeGenomeStats, ChromosomeStats
 from PyMaSC.utils.output import catch_IOError
+from typing import TypeVar
 
 
 CCOUTPUT_SUFFIX = "_cc.tab"
@@ -37,20 +45,36 @@ NREADOUTPUT_SUFFIX = "_nreads.tab"
 logger = logging.getLogger(__name__)
 
 
-class TableIO(object):
-    """Generic tab-delimited table I/O handler.
+class TableIOBase:
+    path: os.PathLike[str]
+    mode: str
+    fp: Optional[TextIO]
 
-    Provides basic functionality for reading and writing tab-delimited tables
-    with standardized format and error handling. Used as base class for
-    specialized table handlers.
+    def open(self) -> None:
+        """Open file for table operations."""
+        self.fp = cast(TextIO, open(self.path, self.mode, newline=''))
 
-    Attributes:
-        DIALECT: CSV dialect for tab-delimited format
-        path: File path for I/O operations
-        mode: File access mode ('r' or 'w')
-        fp: File pointer for operations
-    """
-    DIALECT = "excel-tab"
+    def __enter__(self) -> Self:
+        """Context manager entry.
+
+        Returns:
+            Self for use in with statements
+        """
+        self.open()
+        return self
+
+    def __exit__(self, _ex_type: Optional[type], _ex_value: Optional[Exception], _trace: Optional[Any]) -> None:
+        """Context manager exit with file cleanup.
+
+        Args:
+            ex_type: Exception type
+            ex_value: Exception value
+            trace: Exception traceback
+        """
+        if self.fp is not None:
+            self.fp.close()
+
+    close = __exit__
 
     def __init__(self, path: os.PathLike[str], mode: str = 'r') -> None:
         """Initialize table I/O handler.
@@ -69,33 +93,25 @@ class TableIO(object):
         if mode not in ('r', 'w'):
             raise NotImplementedError(f"Unsupported mode: {mode}")
 
-    def open(self) -> None:
-        """Open file for table operations."""
-        self.fp = open(self.path, self.mode, newline='')
 
-    def __enter__(self) -> 'TableIO':
-        """Context manager entry.
+class TableIO(TableIOBase):
+    """Generic tab-delimited table I/O handler.
 
-        Returns:
-            Self for use in with statements
-        """
-        self.open()
-        return self
+    Provides basic functionality for reading and writing tab-delimited tables
+    with standardized format and error handling. Used as base class for
+    specialized table handlers.
 
-    def __exit__(self, ex_type: Optional[type], ex_value: Optional[Exception], trace: Optional[Any]) -> None:
-        """Context manager exit with file cleanup.
+    Attributes:
+        DIALECT: CSV dialect for tab-delimited format
+        path: File path for I/O operations
+        mode: File access mode ('r' or 'w')
+        fp: File pointer for operations
+    """
+    DIALECT = "excel-tab"
 
-        Args:
-            ex_type: Exception type
-            ex_value: Exception value
-            trace: Exception traceback
-        """
-        if self.fp is not None:
-            self.fp.close()
+    T = TypeVar('T')
 
-    close = __exit__
-
-    def read(self, typefunc: Callable[[str], Any]) -> Dict[str, List[Any]]:
+    def read(self, typefunc: Callable[[str], T]) -> Dict[str, List[T]]:
         """Read table data with type conversion.
 
         Args:
@@ -198,7 +214,7 @@ output_cc = partial(_output_cctable, suffix=CCOUTPUT_SUFFIX, target_attr="ncc")
 output_mscc = partial(_output_cctable, suffix=MSCCOUTPUT_SUFFIX, target_attr="mscc")
 
 
-class NReadsIO(TableIO):
+class NReadsIO(TableIOBase):
     """Specialized I/O for read count tables.
 
     Handles reading and writing of read count tables that contain

@@ -47,7 +47,14 @@ class StoreLoggingLevel(argparse.Action):
     Converts string logging level names (e.g., 'INFO', 'DEBUG') to their
     corresponding logging module constants for use in log level configuration.
     """
-    def __call__(self, parser: argparse.ArgumentParser, namespace: argparse.Namespace, values: Union[str, Sequence[Any], None], option_string: Optional[str] = None) -> None:
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: Union[Any, Sequence[Any], None],
+        option_string: Optional[str] = None
+    ) -> None:
+        assert isinstance(values, str), "Logging level must be a string"
         setattr(namespace, self.dest, getattr(logging, values))
 
 
@@ -57,7 +64,14 @@ class ForceNaturalNumber(argparse.Action):
     Ensures that integer arguments are positive (> 0) and provides
     clear error messages for invalid values.
     """
-    def __call__(self, parser: argparse.ArgumentParser, namespace: argparse.Namespace, values: Union[str, Sequence[Any], None], option_string: Optional[str] = None) -> None:
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: Union[Any, Sequence[Any], None],
+        option_string: Optional[str] = None
+    ) -> None:
+        assert isinstance(values, int), "Argument must be an integer"
         if values < 1:
             parser.error("argument {} must be > 0.".format('/'.join(self.option_strings)))
         setattr(namespace, self.dest, values)

@@ -16,9 +16,14 @@ functionality with consistent error reporting and recovery.
 import os
 from functools import wraps
 from pathlib import Path
+from typing import Any, Callable, TypeVar, Union
+import logging
 
 
-def catch_IOError(logger):
+F = TypeVar('F', bound=Callable[..., Any])
+
+
+def catch_IOError(logger: logging.Logger) -> Callable[[F], F]:
     """Decorator for I/O error handling.
 
     Creates a decorator that wraps functions to provide consistent
@@ -37,9 +42,9 @@ def catch_IOError(logger):
             with open(path, 'w') as f:
                 f.write(data)
     """
-    def _inner(func):
+    def _inner(func: F) -> F:
         @wraps(func)
-        def _io_func(*args, **kwargs):
+        def _io_func(*args: Any, **kwargs: Any) -> Any:
             try:
                 return func(*args, **kwargs)
             except IOError as e:
@@ -50,11 +55,11 @@ def catch_IOError(logger):
             except (IndexError, StopIteration) as e:
                 logger.error("Invalid input file: {}".format(e))
                 raise e
-        return _io_func
+        return _io_func  # type: ignore
     return _inner
 
 
-def prepare_outdir(outdir, logger):
+def prepare_outdir(outdir: Union[str, Path], logger: logging.Logger) -> bool:
     """Create and validate output directory.
 
     Ensures the output directory exists, is writable, and is actually
@@ -75,17 +80,17 @@ def prepare_outdir(outdir, logger):
     if outdir_path.exists():
         if not outdir_path.is_dir():
             logger.critical("Specified path as a output directory is not directory.")
-            logger.critical(outdir)
+            logger.critical(str(outdir))
             return False
     else:
         logger.info("Make output directory: {}".format(outdir))
         try:
             outdir_path.mkdir(parents=True, exist_ok=True)
         except IOError as e:
-            logger.critical("Faild to make output directory: [Errno {}] {}".format(e.errno, e.message))
+            logger.critical("Faild to make output directory: [Errno {}] {}".format(e.errno, getattr(e, "message", "")))
             return False
 
-    if not os.access(outdir, os.W_OK):
+    if not os.access(str(outdir), os.W_OK):
         logger.critical("Output directory '{}' is not writable.".format(outdir))
         return False
 

@@ -15,11 +15,12 @@ across different output scenarios.
 """
 import logging
 import sys
+from typing import Optional, Dict
 
-LOGGING_FORMAT = "[%(asctime)s | %(levelname)s] %(name)10s : %(message)s"
+LOGGING_FORMAT: str = "[%(asctime)s | %(levelname)s] %(name)10s : %(message)s"
 
 
-def set_rootlogger(args_color, log_level):
+def set_rootlogger(args_color: Optional[str], log_level: int) -> logging.Logger:
     """Configure root logger with color support.
 
     Sets up the root logger with appropriate formatting and color settings
@@ -53,7 +54,7 @@ def set_rootlogger(args_color, log_level):
     return rl
 
 
-class StrFormatStyle(object):
+class StrFormatStyle:
     """String format style for logging.
 
     Provides string formatting functionality for log messages using
@@ -65,17 +66,17 @@ class StrFormatStyle(object):
         asctime_format: Format string for timestamps
         asctime_search: Search pattern for timestamp detection
     """
-    default_format = '{message}'
-    asctime_format = '{asctime}'
-    asctime_search = '{asctime'
+    default_format: str = '{message}'
+    asctime_format: str = '{asctime}'
+    asctime_search: str = '{asctime'
 
-    def __init__(self, fmt):
+    def __init__(self, fmt: Optional[str]) -> None:
         self._fmt = fmt or self.default_format
 
-    def usesTime(self):
+    def usesTime(self) -> bool:
         return self._fmt.find(self.asctime_search) >= 0
 
-    def format(self, record):
+    def format(self, record: logging.LogRecord) -> str:
         print(self._fmt)
         return self._fmt.format(**record.__dict__)
 
@@ -98,14 +99,14 @@ class ColorfulFormatter(logging.Formatter):
         LOGLEVEL2COLOR: Mapping of log levels to color codes
         colorize: Whether to apply color formatting
     """
-    DEFAULT_COLOR = 39
-    LOGLEVEL2COLOR = {20: 36, 30: 33, 40: 31, 50: 35}
+    DEFAULT_COLOR: int = 39
+    LOGLEVEL2COLOR: Dict[int, int] = {20: 36, 30: 33, 40: 31, 50: 35}
 
-    @classmethod
-    def bleach(cls):
-        cls._fmt = cls._monofmt
+    # @classmethod
+    # def bleach(cls) -> None:
+    #     cls._fmt = cls._monofmt
 
-    def __init__(self, fmt=None, datefmt=None, colorize=True):
+    def __init__(self, fmt: Optional[str] = None, datefmt: Optional[str] = None, colorize: bool = True) -> None:
         super(ColorfulFormatter, self).__init__(fmt=fmt, datefmt=datefmt)
         self.colorize = colorize
         if colorize:
@@ -117,13 +118,13 @@ class ColorfulFormatter(logging.Formatter):
         else:
             self._fmt = self._fmt.replace("%(levelname)s", "%(levelname)8s")
 
-    def fill_format(self, record):
+    def fill_format(self, record: logging.LogRecord) -> str:
         fmt = self._fmt.format(
             col=self.LOGLEVEL2COLOR.get(record.levelno, self.DEFAULT_COLOR),
             msg=0 if record.levelno < 40 else 1)
         return fmt % record.__dict__
 
-    def format(self, record):
+    def format(self, record: logging.LogRecord) -> str:
         record.message = record.getMessage()
         if self.usesTime():
             record.asctime = self.formatTime(record, self.datefmt)

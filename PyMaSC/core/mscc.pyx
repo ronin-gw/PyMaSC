@@ -28,7 +28,7 @@ from .utils cimport int64_min, int64_max
 import numpy as np
 from .ncc import ReadUnsortedError
 from .mappability import ContinueCalculation
-from .interfaces.result import MSCCResult, MSCCGenomeWideResult
+from .result import MSCCResult, MSCCGenomeWideResult
 
 logger = logging.getLogger(__name__)
 

@@ -29,7 +29,7 @@ from PyMaSC.core.models import (
 )
 from PyMaSC.core.bam_processor import BAMFileProcessor, BAMValidationError
 from PyMaSC.core.progress_coordinator import ProgressCoordinator
-from PyMaSC.core.interfaces.result import (
+from PyMaSC.core.result import (
     ChromResult, GenomeWideResult
 )
 from PyMaSC.core.result import aggregate_results
@@ -37,7 +37,7 @@ from PyMaSC.core.readlen import estimate_readlen
 from PyMaSC.core.progress_adapter import ProgressManager
 from PyMaSC.core.worker import UnifiedWorker
 from PyMaSC.utils.calc import exec_worker_pool
-from PyMaSC.utils.read_processing import create_read_processor
+from PyMaSC.handler.read import create_read_processor
 
 logger = logging.getLogger(__name__)
 

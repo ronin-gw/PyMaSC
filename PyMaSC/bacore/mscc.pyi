@@ -4,7 +4,7 @@ from typing import Optional, List, Any
 from multiprocessing.synchronize import Lock
 
 from PyMaSC.core.interfaces.calculator import BothCalculatorModel
-from PyMaSC.core.interfaces.result import BothChromResult, BothGenomeWideResult
+from PyMaSC.core.result import BothChromResult, BothGenomeWideResult
 from PyMaSC.reader.bigwig import BigWigReader
 
 

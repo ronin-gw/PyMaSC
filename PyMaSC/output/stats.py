@@ -16,8 +16,14 @@ from __future__ import annotations, print_function
 import logging
 import os
 from pathlib import Path
-from typing import Any, Dict, Tuple, Union, TypeVar, Literal, Optional, TextIO
+from typing import overload, Union, TypeVar, Literal
 
+from PyMaSC.core.interfaces.output import (
+    StatLabels,
+    SummaryItems,
+    CorrelationStats, CorrelationItems, NCC_LABELS, MSCC_LABELS,
+    OutputStats
+)
 from PyMaSC.utils.output import catch_IOError
 from PyMaSC.core.interfaces.stats import GenomeWideStats, CCStats
 
@@ -25,64 +31,16 @@ logger = logging.getLogger(__name__)
 
 STATSFILE_SUFFIX = "_stats.tab"
 
-STAT_ATTR = (
-    "genomelen_repr",
-    "forward_reads_repr",
-    "reverse_reads_repr",
-    "cc_min",
-    "ccrl"
-)
-
-QC_ATTR = (
-    "ccfl",
-    "nsc",
-    "rsc",
-    "fwhm",
-    "vsn"
-)
-
-NCC_LABELS = (
-    "Genome length",
-    "Forward reads",
-    "Reverse reads",
-    "Minimum NCC",
-    "NCC at read length",
-    "NCC at expected library length",
-    "NCC at estimated library length",
-    "NSC",
-    "RSC",
-    "Estimated NSC",
-    "Estimated RSC",
-    "FWHM",
-    "VSN",
-    "Estimated FWHM",
-    "Estimated VSN"
-)
+T = TypeVar('T', str, int, float)
 
 
-MSCC_LABELS = (
-    "DMP length",
-    "Forward reads in DMP",
-    "Reverse reads in DMP",
-    "Minimum MSCC",
-    "MSCC at read length",
-    "MSCC at expected library length",
-    "MSCC at estimated library length",
-    "MSCC NSC",
-    "MSCC RSC",
-    "Estimated MSCC NSC",
-    "Estimated MSCC RSC",
-    "MSCC FWHM",
-    "MSCC VSN",
-    "Estimated MSCC FWHM",
-    "Estimated MSCC VSN"
-)
+@overload
+def _none2nan(value: None) -> Literal["nan"]: ...
+@overload
+def _none2nan(value: T) -> T: ...
 
 
-T = TypeVar('T')
-
-
-def _none2nan(value: T) -> Union[T, Literal["nan"]]:
+def _none2nan(value: Union[T, None]) -> Union[T, Literal["nan"]]:
     """Convert None to 'nan' string for output."""
     return "nan" if value is None else value
 
@@ -100,62 +58,99 @@ def output_stats(outfile: os.PathLike[str], stats_result: GenomeWideStats) -> No
         stats_result: StatisticsResult object containing analysis results
     """
     outfile_path = Path(outfile)
-    basename = outfile_path.name
     outfile_with_suffix = str(outfile_path) + STATSFILE_SUFFIX
     logger.info("Output '{}'".format(outfile_with_suffix))
 
+    output = make_output_from_results(outfile_path.name, stats_result)
+
     with open(outfile_with_suffix, 'w') as f:
         #
-        print(f"Name\t{basename}", file=f)
-        print(f"Read length\t{stats_result.read_len}", file=f)
-        print(f"Expected library length\t{_none2nan(stats_result.expected_lib_len)}", file=f)
-        print(f"Estimated library length\t{_none2nan(stats_result.est_lib_len)}", file=f)
+        for attr, value in output.get_with_labels():
+            print(attr, value, sep='\t', file=f)
 
         #
-        ncc_stats = None if stats_result.whole_ncc_stats is None else stats_result.whole_ncc_stats.stats
-        mscc_stats = None if stats_result.whole_mscc_stats is None else stats_result.whole_mscc_stats.stats
-        _print_stats(ncc_stats, NCC_LABELS, f)
-        _print_stats(mscc_stats, MSCC_LABELS, f)
+        for attr, value in output.ncc_stats.get_with_labels():
+            print(attr, value, sep='\t', file=f)
+
+        #
+        for attr, value in output.mscc_stats.get_with_labels():
+            print(attr, value, sep='\t', file=f)
 
 
-def _print_stats(stats: Optional[CCStats], labels: Tuple[str, ...], output: TextIO) -> None:
-    """Print statistics for a given CCStats object."""
-    #
-    if stats is None:
-        values = ["nan"] * len(labels)
-    else:
-        values = [_none2nan(getattr(stats, attr)) for attr in STAT_ATTR]
-        ccfl, nsc, rsc, fwhm, vsn = (
-            _none2nan(getattr(stats.metrics_at_expected_length, attr)) for attr in QC_ATTR
-        )
-        ccfl_exp, nsc_exp, rsc_exp, fwhm_exp, vsn_exp = (
-            _none2nan(getattr(stats.metrics_at_estimated_length, attr)) for attr in QC_ATTR
-        )
-        values += [
-            ccfl, ccfl_exp,
-            nsc, rsc, nsc_exp, rsc_exp,
-            fwhm, vsn, fwhm_exp, vsn_exp
-        ]
+def make_output_from_results(name: str, result: GenomeWideStats) -> OutputStats:
+    """Create OutputStats from GenomeWideStats for output.
 
-    #
-    for label, value in zip(labels, values):
-        print(f"{label}\t{value}", file=output)
+    Args:
+        result: GenomeWideStats object containing analysis results
 
-
-@catch_IOError(logger)
-def load_stats(path: os.PathLike[str], names: Tuple[str, ...]) -> Dict[str, Any]:
-    """WIP
+    Returns:
+        OutputStats object ready for output
     """
-    logger.info("Load statistics from '{}'.".format(path))
-    stat2attr = {k: v for k, v in STAT_ATTR if v in names}
-    attrs = {}
-    with open(path) as f:
-        for line in f:
-            row, val = line.split('\t', 1)
-            if row == "Name":
-                attrs["name"] = val.rstrip()
-            if row in stat2attr:
-                val_converted: Union[int, None] = int(val) if val.strip().isdigit() else None
-                val = val_converted
-                attrs[stat2attr[row]] = val
-    return attrs
+    if result.whole_ncc_stats is not None:
+        ncc_stats = _make_corr_output_stats(result.whole_ncc_stats.stats, NCC_LABELS)
+    else:
+        ncc_stats = _make_nan_output_stats(NCC_LABELS)
+
+    if result.whole_mscc_stats is not None:
+        mscc_stats = _make_corr_output_stats(result.whole_mscc_stats.stats, MSCC_LABELS)
+    else:
+        mscc_stats = _make_nan_output_stats(MSCC_LABELS)
+
+    return OutputStats(
+        stats=SummaryItems(
+            name,
+            result.read_len,
+            _none2nan(result.expected_lib_len),
+            _none2nan(result.est_lib_len)
+        ),
+        ncc_stats=ncc_stats,
+        mscc_stats=mscc_stats
+    )
+
+
+def _make_corr_output_stats(stats: CCStats, labels: StatLabels) -> CorrelationStats:
+    expected_len_qc = stats.metrics_at_expected_length
+    estimated_len_qc = stats.metrics_at_estimated_length
+    return CorrelationStats(
+        stats=CorrelationItems(
+            _none2nan(stats.genomelen_repr),
+            _none2nan(stats.forward_reads_repr),
+            _none2nan(stats.reverse_reads_repr),
+            _none2nan(stats.cc_min),
+            _none2nan(stats.ccrl),
+            _none2nan(expected_len_qc.ccfl),
+            _none2nan(estimated_len_qc.ccfl),
+            _none2nan(expected_len_qc.nsc),
+            _none2nan(expected_len_qc.rsc),
+            _none2nan(estimated_len_qc.nsc),
+            _none2nan(estimated_len_qc.rsc),
+            _none2nan(expected_len_qc.fwhm),
+            _none2nan(expected_len_qc.vsn),
+            _none2nan(estimated_len_qc.fwhm),
+            _none2nan(estimated_len_qc.vsn)
+        ),
+        labels=labels
+    )
+
+
+def _make_nan_output_stats(labels: StatLabels) -> CorrelationStats:
+    return CorrelationStats(
+        stats=CorrelationItems(
+            'nan',
+            'nan',
+            'nan',
+            'nan',
+            'nan',
+            'nan',
+            'nan',
+            'nan',
+            'nan',
+            'nan',
+            'nan',
+            'nan',
+            'nan',
+            'nan',
+            'nan'
+        ),
+        labels=labels
+    )

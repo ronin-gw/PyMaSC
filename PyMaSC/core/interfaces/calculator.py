@@ -2,7 +2,8 @@ from abc import ABC, abstractmethod
 from typing import Optional
 from multiprocessing.synchronize import Lock
 
-from .result import (
+# Calculators use result models that support cc calculation from ccbins.
+from ..result import (
     ChromResult, NCCResult, MSCCResult, BothChromResult,
     GenomeWideResult, NCCGenomeWideResult, MSCCGenomeWideResult, BothGenomeWideResult
 )

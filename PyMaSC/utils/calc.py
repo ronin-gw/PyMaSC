@@ -1,7 +1,7 @@
 import fnmatch
 from itertools import groupby, chain
 import logging
-from typing import Any, Iterable, List, Optional, Set, Tuple, Union
+from typing import Any, Iterable, List, Sequence, Optional, Set, Tuple, Union
 from functools import wraps
 from multiprocessing import Process
 from multiprocessing.queues import Queue
@@ -99,7 +99,7 @@ class exec_worker_pool(object):
         tasks: List of tasks to distribute to workers
         task_queue: Queue for distributing tasks to workers
     """
-    def __init__(self, workers: List[Process], tasks: List[Any], task_queue: Queue) -> None:
+    def __init__(self, workers: Sequence[Process], tasks: List[Any], task_queue: Queue) -> None:
         """Initialize worker pool manager.
 
         Args:

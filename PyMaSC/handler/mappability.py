@@ -83,9 +83,9 @@ class NumpyEncoder(json.JSONEncoder):
         Raises:
             TypeError: If object type is not supported
         """
-        if isinstance(obj, (np.int64, np.floating, np.float_)):
+        if isinstance(obj, np.floating):
             return float(obj)
-        elif isinstance(obj, (np.uint, np.int32, np.int64)):
+        elif isinstance(obj, np.integer):
             return int(obj)
         else:
             return super(NumpyEncoder, self).default(obj)
@@ -200,7 +200,7 @@ class MappabilityHandler(MappableLengthCalculator):
         except IOError as e:
             logger.error("Failed to read '{}'".format(self.map_path))
             logger.error("[Errno {}] {}".format(e.errno, str(e)))
-        except (TypeError, OverflowError, ValueError, KeyError, IndexError) as e:
+        except (TypeError, OverflowError, ValueError, KeyError, IndexError):
             logger.error("Failed to load json file: '{}'".format(self.map_path))
         except NeedUpdate:
             pass
@@ -279,7 +279,7 @@ class MappabilityHandler(MappableLengthCalculator):
 
         self.need_save_stats = False
 
-    def calc_mappability(self) -> None:
+    def calc_mappability(self, _chrom: Optional[str] = None) -> None:
         """Calculate mappability statistics using parallel workers.
 
         Orchestrates parallel calculation of mappability statistics
@@ -303,7 +303,7 @@ class MappabilityHandler(MappableLengthCalculator):
         logger_lock = Lock()
         progress = MultiLineProgressManager()
 
-        workers = [MappabilityCalcWorker(self.path, self.max_shift, order_queue, report_queue, logger_lock)
+        workers = [MappabilityCalcWorker(Path(self.path), self.max_shift, order_queue, report_queue, logger_lock)
                    for _ in range(min(self.nworker, len(target_chroms)))]
 
         with exec_worker_pool(workers, target_chroms, order_queue):

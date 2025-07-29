@@ -6,9 +6,9 @@ import numpy as np
 import numpy.typing as npt
 
 from .interfaces.result import (
-    NCCResult, MSCCResult,
-    GenomeWideResult,
-    NCCGenomeWideResult, MSCCGenomeWideResult, BothGenomeWideResult
+    NCCResultModel, MSCCResultModel,
+    GenomeWideResultModel,
+    NCCGenomeWideResultModel, MSCCGenomeWideResultModel, BothGenomeWideResultModel
 )
 from .interfaces.stats import (
     CCQualityMetrics as CCQualityMetricsModel,
@@ -246,7 +246,7 @@ class CorrParams(CorrLike):
 
 @overload
 def _prepare_chromosome_stat(
-    result: NCCResult,
+    result: NCCResultModel,
     read_len: int,
     stats_type: None = None,
     mv_avr_filter_len: int = ...,
@@ -260,7 +260,7 @@ def _prepare_chromosome_stat(
 
 @overload
 def _prepare_chromosome_stat(
-    result: MSCCResult,
+    result: MSCCResultModel,
     read_len: int,
     stats_type: None = None,
     mv_avr_filter_len: int = ...,
@@ -328,7 +328,7 @@ def _prepare_chromosome_stat(
     )
 
     stats: Union[NCCStats, MSCCStats, TStats]
-    if isinstance(result, NCCResult):
+    if isinstance(result, NCCResultModel):
         stats = NCCStats(
             read_len=read_len,
             genomelen=result.genomelen,
@@ -339,7 +339,7 @@ def _prepare_chromosome_stat(
             metrics_at_expected_length=metrics_at_expected_length,
             metrics_at_estimated_length=metrics_at_estimated_length
         )
-    elif isinstance(result, MSCCResult):
+    elif isinstance(result, MSCCResultModel):
         stats = MSCCStats(
             read_len=read_len,
             genomelen=np.array(result.mappable_len, dtype=np.int64),
@@ -369,7 +369,7 @@ def _prepare_chromosome_stat(
 
 
 def make_chromosome_stat(
-    result: Union[NCCResult, MSCCResult],
+    result: Union[NCCResultModel, MSCCResultModel],
     read_len: int,
     mv_avr_filter_len: int = 15,
     expected_library_len: Optional[int] = None,
@@ -507,7 +507,7 @@ def make_whole_genome_stat(
 
 
 def make_genome_wide_stat(
-    result: GenomeWideResult,
+    result: GenomeWideResultModel,
     read_len: int,
     mv_avr_filter_len: int,
     expected_library_len: Optional[int],
@@ -520,7 +520,7 @@ def make_genome_wide_stat(
     ncc_stats = mscc_stats = None
 
     #
-    if isinstance(result, MSCCGenomeWideResult):
+    if isinstance(result, MSCCGenomeWideResultModel):
         mscc_stats = {
             chrom: make_chromosome_stat(
                 chromres,
@@ -532,7 +532,7 @@ def make_genome_wide_stat(
             )
             for chrom, chromres in result.chroms.items()
         }
-    elif isinstance(result, BothGenomeWideResult):
+    elif isinstance(result, BothGenomeWideResultModel):
         mscc_stats = {
             chrom: make_chromosome_stat(
                 chromres,
@@ -546,7 +546,7 @@ def make_genome_wide_stat(
         }
 
     #
-    if isinstance(result, NCCGenomeWideResult):
+    if isinstance(result, NCCGenomeWideResultModel):
         ncc_stats = {
             chrom: make_chromosome_stat(
                 chromres,
@@ -558,8 +558,8 @@ def make_genome_wide_stat(
             )
             for chrom, chromres in result.chroms.items()
         }
-    elif isinstance(result, BothGenomeWideResult):
-        assert mscc_stats is not None, "MSCC stats must be available for BothGenomeWideResult."
+    elif isinstance(result, BothGenomeWideResultModel):
+        assert mscc_stats is not None, "MSCC stats must be available for BothGenomeWideResultModel."
         ncc_stats = {}
         for chrom, chromres in result.chroms.items():
             if chrom in mscc_stats:

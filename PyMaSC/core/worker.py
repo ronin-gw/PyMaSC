@@ -22,7 +22,7 @@ from pysam import AlignmentFile
 from PyMaSC.core.interfaces.calculator import CrossCorrelationCalculator
 from PyMaSC.core.models import WorkerConfig
 from PyMaSC.utils.progress import ProgressHook
-from PyMaSC.utils.read_processing import ReadProcessor, create_read_processor
+from PyMaSC.handler.read import ReadProcessor, create_read_processor
 
 logger = logging.getLogger(__name__)
 

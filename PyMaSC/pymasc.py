@@ -168,6 +168,7 @@ def prepare_output(reads: List[str], names: List[Optional[str]], outdir: str, su
 
         for suffix in suffixes:
             expect_outfile = Path(str(output_basename) + suffix)
+            print(expect_outfile)
             if expect_outfile.exists():
                 logger.warning("Existing file '{}' will be overwritten.".format(expect_outfile))
         basenames.append(output_basename)
@@ -310,6 +311,7 @@ def run_calculation(args: argparse.Namespace, handler: CalcHandler, output_basen
 
     try:
         # Use new statistics system with container-based data access
+        assert handler.read_len is not None
         return make_genome_wide_stat(
             result,
             read_len=handler.read_len,

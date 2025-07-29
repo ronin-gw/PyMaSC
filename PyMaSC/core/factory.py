@@ -14,7 +14,7 @@ import logging
 from typing import Optional, Any
 from multiprocessing.synchronize import Lock
 
-from PyMaSC.core.interfaces.result import BothChromResult, BothGenomeWideResult
+from PyMaSC.core.result import BothChromResult, BothGenomeWideResult
 
 from .interfaces.calculator import CrossCorrelationCalculator, BothCalculatorModel
 from .models import (

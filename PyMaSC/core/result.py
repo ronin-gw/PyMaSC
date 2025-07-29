@@ -1,11 +1,121 @@
-from typing import Dict, cast, Any
-from dataclasses import dataclass, asdict
+from typing import List, Dict, Any, Union, Optional, cast
+from dataclasses import dataclass, field, asdict
 from abc import abstractmethod
 
+import numpy as np
+import numpy.typing as npt
+
 from .interfaces.result import (
-    ChromResult, NCCResult, MSCCResult, BothChromResult,
-    GenomeWideResult, NCCGenomeWideResult, MSCCGenomeWideResult, BothGenomeWideResult
+    CorrelationResultModel,
+    ChromResult, NCCResultModel, MSCCResultModel, BothChromResultModel,
+    GenomeWideResultModel, NCCGenomeWideResultModel, MSCCGenomeWideResultModel, BothGenomeWideResultModel
 )
+from PyMaSC.utils.calc import npcalc_with_logging_warn
+
+
+@dataclass
+class CorrelationResult(CorrelationResultModel):
+    ccbins: Union[List[float], npt.NDArray[np.int64]]
+    cc: npt.NDArray[np.float64] = field(init=False)
+
+    @abstractmethod
+    def calc_cc(self) -> None:
+        pass
+
+    @staticmethod
+    @npcalc_with_logging_warn
+    def _calc_cc(
+        forward_sum: Union[float, npt.NDArray[np.float64]],
+        reverse_sum: Union[float, npt.NDArray[np.float64]],
+        ccbins: Union[List[float], npt.NDArray[np.int64]],
+        totlen: Union[int, npt.NDArray[np.float64]],
+        denom: npt.NDArray[np.float64],
+    ) -> npt.NDArray[np.float64]:
+        """Calculate normalized cross-correlation using binomial variance model."""
+        ccbins = np.array(ccbins, dtype=np.int64)
+        #
+        if ccbins.sum() == 0:
+            return np.full_like(ccbins, np.nan, dtype=np.float64)
+
+        forward_mean = forward_sum / totlen
+        reverse_mean = reverse_sum / totlen
+
+        forward_var = forward_mean * (1 - forward_mean)
+        reverse_var = reverse_mean * (1 - reverse_mean)
+
+        sum_prod = forward_mean * reverse_mean
+        var_geomean: Union[float, npt.NDArray[np.float64]] = (forward_var * reverse_var) ** 0.5
+        return (ccbins / denom - sum_prod) / var_geomean
+
+
+@dataclass
+class NCCResult(NCCResultModel, CorrelationResult):
+    forward_read_len_sum: int
+    reverse_read_len_sum: int
+    ccbins: Union[List[float], npt.NDArray[np.int64]]
+
+    def calc_cc(self) -> None:
+        denom = self.genomelen - np.array(range(self.max_shift + 1), dtype=np.float64)
+        self.cc = self._calc_cc(
+            float(self.forward_sum),
+            float(self.reverse_sum),
+            self.ccbins[:self.max_shift + 1],
+            self.genomelen,
+            denom
+        )
+
+
+@dataclass
+class MSCCResult(MSCCResultModel, CorrelationResult):
+    forward_read_len_sum: Optional[int]
+    reverse_read_len_sum: Optional[int]
+    ccbins: Union[List[float], npt.NDArray[np.int64]]
+
+    def calc_cc(self) -> None:
+        assert self.mappable_len is not None, "mappable_len must be set before calculating CC."
+        totlen = np.array(self.mappable_len, dtype=np.float64)
+        totlen = np.concatenate((
+            totlen[:self.read_len][::-1], totlen[1:]
+        ))[:self.max_shift + 1]
+
+        self.cc = self._calc_cc(
+            np.array(self.forward_sum[:self.max_shift + 1], dtype=np.float64),
+            np.array(self.reverse_sum[:self.max_shift + 1], dtype=np.float64),
+            self.ccbins[:self.max_shift + 1],
+            totlen,
+            totlen
+        )
+
+
+@dataclass
+class BothChromResult(BothChromResultModel):
+    """For multiprocessing workers"""
+
+    chrom: NCCResult
+    mappable_chrom: MSCCResult
+
+
+@dataclass
+class GenomeWideResult(GenomeWideResultModel):
+    forward_read_len_sum: int
+    reverse_read_len_sum: int
+
+
+@dataclass
+class NCCGenomeWideResult(NCCGenomeWideResultModel, GenomeWideResult):
+    forward_sum: int
+    reverse_sum: int
+    chroms: Dict[str, NCCResult]
+
+
+@dataclass
+class MSCCGenomeWideResult(MSCCGenomeWideResultModel, GenomeWideResult):
+    chroms: Dict[str, MSCCResult]
+
+
+@dataclass
+class BothGenomeWideResult(BothGenomeWideResultModel, GenomeWideResult):
+    mappable_chroms: Dict[str, MSCCResult]
 
 
 def aggregate_results(results: Dict[str, ChromResult]) -> GenomeWideResult:

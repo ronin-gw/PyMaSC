@@ -555,22 +555,20 @@ class TestComprehensiveGoldenPatterns:
         }
 
     @pytest.mark.parametrize("algorithm,calculation,process_mode", [
-        # bitarray algorithm (4/6 working after mscc.pyx fixes)
-        ("bitarray", "ncc_only", "single"),   # ✅ Fixed! Now working
-        pytest.param("bitarray", "ncc_only", "multi", 
-                    marks=pytest.mark.xfail(reason="Still times out - needs investigation")),
+        # bitarray algorithm (6/6 ALL WORKING! 🎉)
+        ("bitarray", "ncc_only", "single"),   # ✅ Working
+        ("bitarray", "ncc_only", "multi"),    # ✅ Working (queue processing fixed)
         ("bitarray", "ncc_mscc", "single"),   # ✅ Working (existing golden test)
-        pytest.param("bitarray", "ncc_mscc", "multi", 
-                    marks=pytest.mark.xfail(reason="New issue: AssertionError about NCCResult instances")),
-        ("bitarray", "mscc_only", "single"),  # ✅ Working (verified)
-        ("bitarray", "mscc_only", "multi"),   # ✅ Fixed! Now working
-        # successive algorithm (6 patterns - all working)
-        ("successive", "ncc_only", "single"),  # ✅ Working (verified)
-        ("successive", "ncc_only", "multi"),   # ✅ Working (verified)
-        ("successive", "ncc_mscc", "single"),  # ✅ Working (verified)
-        ("successive", "ncc_mscc", "multi"),   # ✅ Working (verified)
-        ("successive", "mscc_only", "single"), # ✅ Working (verified)
-        ("successive", "mscc_only", "multi"),  # ✅ Working (verified)
+        ("bitarray", "ncc_mscc", "multi"),    # ✅ Working (result aggregation fixed!)
+        ("bitarray", "mscc_only", "single"),  # ✅ Working
+        ("bitarray", "mscc_only", "multi"),   # ✅ Working (result aggregation fixed!)
+        # successive algorithm (6/6 ALL WORKING! 🎉)
+        ("successive", "ncc_only", "single"),  # ✅ Working
+        ("successive", "ncc_only", "multi"),   # ✅ Working
+        ("successive", "ncc_mscc", "single"),  # ✅ Working
+        ("successive", "ncc_mscc", "multi"),   # ✅ Working
+        ("successive", "mscc_only", "single"), # ✅ Working
+        ("successive", "mscc_only", "multi"),  # ✅ Working
     ])
     def test_pattern_consistency(self, test_data_paths, algorithm, calculation, process_mode):
         """Test that all 12 patterns produce consistent, reproducible results."""
@@ -598,12 +596,13 @@ class TestComprehensiveGoldenPatterns:
             print(f"✅ Pattern {algorithm}+{calculation}+{process_mode} validated")
 
     @pytest.mark.parametrize("algorithm,calculation", [
-        # Only test patterns where both single and multi modes work
-        ("bitarray", "mscc_only"), # ✅ Both single and multi now working
-        ("successive", "ncc_only"), # ✅ Working (both single and multi)
-        ("successive", "ncc_mscc"), # ✅ Working (both single and multi)
-        ("successive", "mscc_only"), # ✅ Working (both single and multi)
-        # Skip: bitarray + ncc_only (multi times out), bitarray + ncc_mscc (multi has assertion error)
+        # All patterns now work in both single and multi modes! 🎉
+        ("bitarray", "ncc_only"),   # ✅ Both single and multi working
+        ("bitarray", "ncc_mscc"),   # ✅ Both single and multi working (FIXED!)
+        ("bitarray", "mscc_only"),  # ✅ Both single and multi working (FIXED!)
+        ("successive", "ncc_only"), # ✅ Both single and multi working
+        ("successive", "ncc_mscc"), # ✅ Both single and multi working
+        ("successive", "mscc_only"), # ✅ Both single and multi working
     ])
     def test_process_mode_consistency(self, test_data_paths, algorithm, calculation):
         """Test that single-process and multi-process modes produce identical results."""
@@ -646,11 +645,13 @@ class TestComprehensiveGoldenPatterns:
             print(f"✅ Process consistency validated for {pattern_name}")
 
     @pytest.mark.parametrize("process_mode,calculation", [
-        # Only test patterns where both algorithms work in the same process mode
+        # All patterns now work for both algorithms! 🎉
+        ("single", "ncc_only"),  # bitarray ✅, successive ✅
+        ("multi", "ncc_only"),   # bitarray ✅, successive ✅
         ("single", "ncc_mscc"),  # bitarray ✅, successive ✅
+        ("multi", "ncc_mscc"),   # bitarray ✅, successive ✅ (FIXED!)
         ("single", "mscc_only"), # bitarray ✅, successive ✅
-        ("multi", "mscc_only"),  # bitarray ✅, successive ✅
-        # Skip: ncc_only (bitarray single only works), ncc_mscc multi (bitarray has assertion error)
+        ("multi", "mscc_only"),  # bitarray ✅, successive ✅ (FIXED!)
     ])
     def test_algorithm_consistency(self, test_data_paths, process_mode, calculation):
         """Test that bitarray and successive algorithms produce consistent results."""

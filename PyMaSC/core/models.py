@@ -105,12 +105,10 @@ class ExecutionConfig:
     Attributes:
         mode: Execution mode (single or multi-process)
         worker_count: Number of worker processes
-        timeout: Worker timeout in seconds
         chrom_filter: Chromosome filtering patterns
     """
     mode: ExecutionMode = ExecutionMode.SINGLE_PROCESS
     worker_count: int = 1
-    timeout: Optional[float] = None
     chrom_filter: Optional[Dict[str, Any]] = None
 
     def __post_init__(self) -> None:

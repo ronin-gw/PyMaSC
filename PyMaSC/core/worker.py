@@ -7,7 +7,7 @@ all calculation algorithms.
 Key components:
 - BaseWorker: Abstract base class with common worker functionality
 - ReadProcessor: Protocol for read processing logic
-- UnifiedWorker: Single worker implementation using strategy pattern
+- CalcWorker: Single worker implementation using strategy pattern
 - Result collectors for different calculation types
 """
 import logging
@@ -158,7 +158,7 @@ class BaseWorker(Process, ABC):
         pass
 
 
-class UnifiedWorker(BaseWorker):
+class CalcWorker(BaseWorker):
     """Unified worker implementation using strategy pattern.
 
     This single worker class replaces all the specific worker classes

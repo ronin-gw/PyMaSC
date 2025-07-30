@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import Mock
 from multiprocessing import Queue, Lock
 
-from PyMaSC.core.worker import UnifiedWorker
+from PyMaSC.core.worker import CalcWorker
 from PyMaSC.core.models import (
     WorkerConfig, CalculationConfig, MappabilityConfig,
     CalculationTarget, ImplementationAlgorithm
@@ -12,8 +12,8 @@ from PyMaSC.core.models import (
 # Worker compatibility classes have been removed
 
 
-class TestUnifiedWorker(unittest.TestCase):
-    """Test cases for UnifiedWorker class."""
+class TestCalcWorker(unittest.TestCase):
+    """Test cases for CalcWorker class."""
 
     def setUp(self):
         """Set up test fixtures."""
@@ -40,8 +40,8 @@ class TestUnifiedWorker(unittest.TestCase):
         )
 
     def test_unified_worker_initialization(self):
-        """Test UnifiedWorker initialization."""
-        worker = UnifiedWorker(
+        """Test CalcWorker initialization."""
+        worker = CalcWorker(
             self.worker_config,
             self.order_queue,
             self.report_queue,
@@ -56,7 +56,7 @@ class TestUnifiedWorker(unittest.TestCase):
         self.assertIsNone(worker._processor)
 
     def test_unified_worker_with_mappability(self):
-        """Test UnifiedWorker with mappability configuration."""
+        """Test CalcWorker with mappability configuration."""
         map_config = MappabilityConfig(
             mappability_path="/test/mappability.bw",
             read_len=50
@@ -79,7 +79,7 @@ class TestUnifiedWorker(unittest.TestCase):
             logger_lock=self.logger_lock
         )
 
-        worker = UnifiedWorker(
+        worker = CalcWorker(
             worker_config,
             self.order_queue,
             self.report_queue,

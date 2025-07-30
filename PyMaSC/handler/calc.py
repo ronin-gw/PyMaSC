@@ -35,7 +35,7 @@ from PyMaSC.core.result import (
 from PyMaSC.core.result import aggregate_results
 from PyMaSC.core.readlen import estimate_readlen
 from PyMaSC.core.progress_adapter import ProgressManager
-from PyMaSC.core.worker import UnifiedWorker
+from PyMaSC.core.worker import CalcWorker
 from PyMaSC.utils.calc import exec_worker_pool
 from PyMaSC.handler.read import create_read_processor
 
@@ -73,7 +73,7 @@ class CalcHandler:
     def __init__(self,
                  path: os.PathLike[str],
                  config: CalculationConfig,
-                 execution_config: Optional[ExecutionConfig] = None,
+                 execution_config: ExecutionConfig,
                  mappability_config: Optional[MappabilityConfig] = None):
         """Initialize handler with configuration.
 
@@ -89,7 +89,7 @@ class CalcHandler:
         """
         self.path = str(path)
         self.config = config
-        self.execution_config = execution_config or ExecutionConfig()
+        self.execution_config = execution_config
         self.mappability_config = mappability_config
 
         # Initialize calculation context with appropriate strategy
@@ -124,11 +124,11 @@ class CalcHandler:
         self.config.lengths = self.lengths
 
         # Check for index in multiprocess mode
-        if (self.execution_config.mode == ExecutionMode.MULTI_PROCESS and
+        if (self.execution_config.mode is ExecutionMode.MULTI_PROCESS and
                 not self.bam_processor.check_multiprocess_compatibility()):
             self.execution_config.mode = ExecutionMode.SINGLE_PROCESS
             self.execution_config.worker_count = 1
-        elif self.execution_config.mode == ExecutionMode.MULTI_PROCESS:
+        elif self.execution_config.mode is ExecutionMode.MULTI_PROCESS:
             self.bam_processor.close()
 
         # For backward compatibility, maintain align_file access
@@ -201,7 +201,7 @@ class CalcHandler:
 
     def run_calculation(self) -> GenomeWideResult:
         """Execute cross-correlation calculation workflow."""
-        if self.execution_config.mode == ExecutionMode.MULTI_PROCESS:
+        if self.execution_config.mode is ExecutionMode.MULTI_PROCESS:
             # Setup progress coordinator for multiprocess
             self._progress_coordinator = ProgressCoordinator.create_for_multiprocess()
             return self._run_multiprocess_calculation()
@@ -299,7 +299,7 @@ class CalcHandler:
         workers = []
         num_workers = min(self.execution_config.worker_count, len(self.references))
         for _ in range(num_workers):
-            worker = UnifiedWorker(
+            worker = CalcWorker(
                 worker_config,
                 self._order_queue,
                 self._report_queue,

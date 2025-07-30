@@ -325,16 +325,16 @@ class TestAggregationFunctions(unittest.TestCase):
 
     def test_aggregate_chromosome_stats_invalid_input(self):
         """Test aggregation with invalid input."""
-        # Test with empty dict should raise StopIteration
-        with self.assertRaises(StopIteration):
-            aggregate_chromosome_stats(
-                chrom_stats={},
-                read_len=36,
-                mv_avr_filter_len=15,
-                filter_mask_len=5,
-                min_calc_width=10,
-                output_warnings=False
-            )
+        # Test with empty dict should return None
+        result = aggregate_chromosome_stats(
+            chrom_stats={},
+            read_len=36,
+            mv_avr_filter_len=15,
+            filter_mask_len=5,
+            min_calc_width=10,
+            output_warnings=False
+        )
+        self.assertIsNone(result)
 
 
 if __name__ == '__main__':

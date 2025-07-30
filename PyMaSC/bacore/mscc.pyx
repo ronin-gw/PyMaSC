@@ -30,7 +30,7 @@ import numpy as np
 from PyMaSC.core.ncc import ReadUnsortedError
 from PyMaSC.utils.progress import ProgressBar
 
-from PyMaSC.core.result import NCCResult, MSCCResult, BothChromResult, BothGenomeWideResult
+from PyMaSC.core.result import NCCResult, MSCCResult, BothChromResult, BothGenomeWideResult, EmptyNCCResult, EmptyMSCCResult
 
 logger = logging.getLogger(__name__)
 
@@ -187,17 +187,9 @@ cdef class CCBitArrayCalculator(object):
         self._chr = chrom
 
         if chrom not in self.ref2ncc_result:
-            result = self.ref2ncc_result[self._chr] = NCCResult(
-                max_shift=self.max_shift,
-                read_len=self.read_len,
-                genomelen=self.ref2genomelen[self._chr],
-                forward_sum=0,
-                reverse_sum=0,
-                forward_read_len_sum=0,
-                reverse_read_len_sum=0,
-                ccbins=zero_bins.copy()
+            result = self.ref2ncc_result[self._chr] = EmptyNCCResult.create_empty(
+                self.ref2genomelen[self._chr], self.max_shift, self.read_len
             )
-            result.calc_cc()
 
         if chrom in self.ref2mscc_result:
             return 0
@@ -207,16 +199,8 @@ cdef class CCBitArrayCalculator(object):
         except KeyError:
             return 0
 
-        result = self.ref2mscc_result[self._chr] = MSCCResult(
-            max_shift=self.max_shift,
-            read_len=self.read_len,
-            genomelen=self.ref2genomelen[self._chr],
-            forward_sum=zero_bins.copy(),
-            reverse_sum=zero_bins.copy(),
-            forward_read_len_sum=0,
-            reverse_read_len_sum=0,
-            ccbins=zero_bins.copy(),
-            mappable_len=[]
+        result = self.ref2mscc_result[self._chr] = EmptyMSCCResult.create_empty(
+            self.ref2genomelen[self._chr], self.max_shift, self.read_len
         )
 
         mappable_len = result.mappable_len

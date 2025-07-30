@@ -1,11 +1,18 @@
 from typing import List, Dict, Any, Union, Optional, cast
 from dataclasses import dataclass, field, asdict
-from abc import abstractmethod
+from abc import ABC, abstractmethod
+
+import sys
+if sys.version_info >= (3, 9):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 import numpy as np
 import numpy.typing as npt
 
 from .interfaces.result import (
+    AbstractDataclass,
     CorrelationResultModel,
     ChromResult, NCCResultModel, MSCCResultModel, BothChromResultModel,
     GenomeWideResultModel, NCCGenomeWideResultModel, MSCCGenomeWideResultModel, BothGenomeWideResultModel
@@ -97,6 +104,136 @@ class BothChromResult(BothChromResultModel):
     mappable_chrom: MSCCResult
 
 
+class EmptyResult(ChromResult, ABC):
+    """Base class for empty results.
+
+    This is used to create empty results for chromosomes with no data,
+    ensuring consistent genome length handling in parallel processing.
+    """
+
+    @classmethod
+    @abstractmethod
+    def create_empty(cls, genome_length: int, max_shift: int, read_len: int) -> Self:
+        """Create an empty result with zero/NaN values but correct chromosome info."""
+        pass
+
+
+@dataclass
+class EmptyNCCResult(EmptyResult, NCCResult):
+    """Empty NCC result for chromosomes with no data.
+
+    Used in parallel processing to ensure genome length consistency
+    when chromosomes have no reads but need to be included in statistics.
+    """
+
+    @classmethod
+    def create_empty(cls, genome_length: int, max_shift: int, read_len: int) -> Self:
+        """Create an empty NCC result for a chromosome with no data.
+
+        Args:
+            chromosome: Chromosome name
+            genome_length: Length of the chromosome
+            max_shift: Maximum shift value
+            read_len: Read length
+
+        Returns:
+            EmptyNCCResult with zero/NaN values but correct chromosome info
+        """
+        # Create zero ccbins array
+        ccbins = [0.0] * (max_shift + 1)
+
+        result = cls(
+            genomelen=genome_length,
+            max_shift=max_shift,
+            read_len=read_len,
+            forward_sum=0,
+            reverse_sum=0,
+            forward_read_len_sum=0,
+            reverse_read_len_sum=0,
+            ccbins=ccbins
+        )
+
+        # Calculate CC (will be all NaN due to zero sums)
+        result.calc_cc()
+        return result
+
+
+@dataclass
+class EmptyMSCCResult(EmptyResult, MSCCResult):
+    """Empty MSCC result for chromosomes with no data.
+
+    Used in parallel processing to ensure genome length consistency
+    when chromosomes have no reads but need to be included in statistics.
+    """
+
+    @classmethod
+    def create_empty(cls, genome_length: int, max_shift: int, read_len: int) -> Self:
+        """Create an empty MSCC result for a chromosome with no data.
+
+        Args:
+            chromosome: Chromosome name
+            genome_length: Length of the chromosome
+            max_shift: Maximum shift value
+            read_len: Read length
+
+        Returns:
+            EmptyMSCCResult with zero/NaN values but correct chromosome info
+        """
+        # Create zero arrays - MSCC requires numpy arrays for proper aggregation
+        ccbins = [0.0] * (max_shift + 1)
+        forward_sum = np.zeros(max_shift + 1, dtype=np.int64)
+        reverse_sum = np.zeros(max_shift + 1, dtype=np.int64)
+        # For empty results, mappable_len should represent the full chromosome length
+        # at all shift positions (no mappability filtering applied)
+        # Must be tuple to match MSCCResultModel.mappable_len type definition
+        mappable_len = tuple([genome_length] * (max_shift + 1))
+
+        result = cls(
+            genomelen=genome_length,
+            max_shift=max_shift,
+            read_len=read_len,
+            forward_sum=forward_sum,
+            reverse_sum=reverse_sum,
+            forward_read_len_sum=0,
+            reverse_read_len_sum=0,
+            ccbins=ccbins,
+            mappable_len=mappable_len
+        )
+
+        # Calculate CC (will be all NaN due to zero sums)
+        result.calc_cc()
+        return result
+
+
+@dataclass
+class EmptyBothChromResult(EmptyResult, BothChromResult):
+    """Empty Both result for chromosomes with no data.
+
+    Contains both empty NCC and MSCC results for complete coverage.
+    """
+
+    @classmethod
+    def create_empty(cls, genome_length: int, max_shift: int, read_len: int) -> 'EmptyBothChromResult':
+        """Create an empty Both result for a chromosome with no data.
+
+        Args:
+            chromosome: Chromosome name
+            genome_length: Length of the chromosome
+            max_shift: Maximum shift value
+            read_len: Read length
+
+        Returns:
+            EmptyBothChromResult with empty NCC and MSCC components
+        """
+        empty_ncc = EmptyNCCResult.create_empty(genome_length, max_shift, read_len)
+        empty_mscc = EmptyMSCCResult.create_empty(genome_length, max_shift, read_len)
+
+        return cls(
+            chrom=empty_ncc,
+            mappable_chrom=empty_mscc
+        )
+
+
 @dataclass
 class GenomeWideResult(GenomeWideResultModel):
     forward_read_len_sum: int
@@ -121,20 +258,48 @@ class BothGenomeWideResult(BothGenomeWideResultModel, GenomeWideResult):
 
 
 def aggregate_results(results: Dict[str, ChromResult]) -> GenomeWideResult:
-    """Aggregate results from multiple chromosomes into a genome-wide result."""
+    """Aggregate results from multiple chromosomes into a genome-wide result.
+
+    This function handles both regular and empty results seamlessly. Empty results
+    (EmptyNCCResult, EmptyMSCCResult, EmptyBothChromResult) are treated as their
+    parent types for aggregation, ensuring genome length consistency in parallel
+    processing scenarios where some chromosomes have no data.
+
+    Args:
+        results: Dictionary mapping chromosome names to their calculation results
+
+    Returns:
+        GenomeWideResult containing aggregated statistics across all chromosomes
+
+    Note:
+        Empty results contribute their genome length to totals but have zero/NaN
+        statistical values, which is the desired behavior for maintaining
+        consistency between single-process and parallel processing modes.
+    """
+    if not results:
+        raise ValueError("Cannot aggregate empty results dictionary")
+
     first_item = next(iter(results.values()))
 
+    # Check result type hierarchy - Empty classes inherit from base classes
+    # so isinstance checks work correctly for mixed regular/empty results
     if isinstance(first_item, NCCResult):
-        assert all(isinstance(res, NCCResult) for res in results.values())
+        # This includes both NCCResult and EmptyNCCResult instances
+        assert all(isinstance(res, NCCResult) for res in results.values()), \
+            "All results must be NCCResult instances (including EmptyNCCResult)"
         return _aggregate_ncc_results(cast(Dict[str, NCCResult], results))
     elif isinstance(first_item, MSCCResult):
-        assert all(isinstance(res, MSCCResult) for res in results.values())
+        # This includes both MSCCResult and EmptyMSCCResult instances
+        assert all(isinstance(res, MSCCResult) for res in results.values()), \
+            "All results must be MSCCResult instances (including EmptyMSCCResult)"
         return _aggregate_mscc_results(cast(Dict[str, MSCCResult], results))
     elif isinstance(first_item, BothChromResult):
-        assert all(isinstance(res, BothChromResult) for res in results.values())
+        # This includes both BothChromResult and EmptyBothChromResult instances
+        assert all(isinstance(res, BothChromResult) for res in results.values()), \
+            "All results must be BothChromResult instances (including EmptyBothChromResult)"
         return _aggregate_both_results(cast(Dict[str, BothChromResult], results))
     else:
-        raise TypeError("Unknown result type")
+        raise TypeError(f"Unknown result type: {type(first_item)}")
 
 
 @dataclass

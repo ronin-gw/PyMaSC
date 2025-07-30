@@ -30,7 +30,7 @@ class CorrelationResultModel(AbstractDataclass):
     cc: npt.NDArray[np.float64]
 
 
-class ChromResult:
+class ChromResult(ABC):
     pass
 
 

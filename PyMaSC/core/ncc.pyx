@@ -26,7 +26,7 @@ from .utils cimport int64_min
 import numpy as np
 
 from .exceptions import ReadUnsortedError
-from .result import NCCResult, NCCGenomeWideResult
+from .result import NCCResult, NCCGenomeWideResult, EmptyNCCResult
 
 logger = logging.getLogger(__name__)
 
@@ -302,9 +302,19 @@ cdef class NaiveCCCalculator(object):
 
         Finalizes the calculation by flushing any remaining data in buffers
         and ensuring all cross-correlation results are properly stored.
+        Creates empty results for chromosomes with no data to maintain
+        genome length consistency.
         Called at the end of the analysis workflow.
         """
         self.flush()
+
+        # Create empty results for chromosomes with no data
+        for ref in self.ref2genomelen.keys():
+            if ref not in self.ref2ncc_result:
+                empty_result = EmptyNCCResult.create_empty(
+                    self.ref2genomelen[ref], self.max_shift, self._forward_buff_size
+                )
+                self.ref2ncc_result[ref] = empty_result
 
     def get_result(self, chrom: str) -> NCCResult:
         return self.ref2ncc_result[chrom]

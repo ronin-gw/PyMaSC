@@ -28,7 +28,7 @@ from .utils cimport int64_min, int64_max
 import numpy as np
 from .ncc import ReadUnsortedError
 from .mappability import ContinueCalculation
-from .result import MSCCResult, MSCCGenomeWideResult
+from .result import MSCCResult, MSCCGenomeWideResult, EmptyMSCCResult
 
 logger = logging.getLogger(__name__)
 
@@ -482,18 +482,11 @@ cdef class MSCCCalculator(object):
         cdef np.ndarray zero_bins = np.zeros(zero_bins_size, dtype=np.int64)
         for ref in self.references:
             if ref in self._bwfeeder.chrom2mappable_len and ref not in self.ref2mscc_result:
-                result = self.ref2mscc_result[ref] = MSCCResult(
-                    max_shift=self.max_shift,
-                    read_len=self.read_len,
-                    genomelen=self.ref2genomelen[ref],
-                    forward_sum=zero_bins.copy(),
-                    reverse_sum=zero_bins.copy(),
-                    forward_read_len_sum=0,
-                    reverse_read_len_sum=0,
-                    ccbins=zero_bins.copy(),
-                    mappable_len=self._bwfeeder.chrom2mappable_len[ref]
+                result = self.ref2mscc_result[ref] = EmptyMSCCResult.create_empty(
+                    self.ref2genomelen[ref], self.max_shift, self.read_len
                 )
-                result.calc_cc()
+                # Update mappable_len with actual mappability data if available
+                result.mappable_len = self._bwfeeder.chrom2mappable_len[ref]
 
     def get_result(self, chrom: str) -> MSCCResult:
         return self.ref2mscc_result[chrom]

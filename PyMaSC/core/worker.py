@@ -20,7 +20,8 @@ from typing import Optional, Any
 from pysam import AlignmentFile
 
 from PyMaSC.core.interfaces.calculator import CrossCorrelationCalculator
-from PyMaSC.core.models import WorkerConfig
+from PyMaSC.core.models import WorkerConfig, CalculationTarget
+from PyMaSC.core.result import EmptyResult, EmptyNCCResult, EmptyMSCCResult, EmptyBothChromResult
 from PyMaSC.utils.progress import ProgressHook
 from PyMaSC.handler.read import ReadProcessor, create_read_processor
 
@@ -231,14 +232,51 @@ class UnifiedWorker(BaseWorker):
         return self._processor
 
     def _report_result(self, chrom: str) -> None:
+        """Report result to main process, creating empty result if no data processed.
+
+        This method ensures that all chromosomes produce a result, even if they
+        contain no reads. Empty results maintain genome length consistency
+        between single-process and parallel processing modes.
+        """
         assert self._calculator is not None
         self._calculator.flush(chrom)
-        #
+
         try:
             result = self._calculator.get_result(chrom)
         except KeyError:
-            result = None
+            # No data was processed for this chromosome
+            # Create appropriate empty result to maintain genome length consistency
+            result = self._create_empty_result(chrom)
+
         self.report_queue.put((chrom, result))
+
+    def _create_empty_result(self, chrom: str) -> EmptyResult:
+        """Create empty result for chromosomes with no data.
+
+        Args:
+            chrom: Chromosome name
+
+        Returns:
+            Appropriate empty result based on calculation target
+        """
+        calc_config = self.config.calculation_config
+        genome_length = self._ref2genomelen[chrom]
+        max_shift = calc_config.max_shift
+        read_len = calc_config.read_length
+
+        # read_length is required to create meaningful empty results
+        if read_len is None:
+            raise ValueError(f"read_length is required to create empty result for chromosome {chrom}")
+
+        # Create appropriate empty result based on calculation target
+        if calc_config.target == CalculationTarget.NCC:
+            return EmptyNCCResult.create_empty(genome_length, max_shift, read_len)
+        elif calc_config.target == CalculationTarget.MSCC:
+            return EmptyMSCCResult.create_empty(genome_length, max_shift, read_len)
+        elif calc_config.target == CalculationTarget.BOTH:
+            return EmptyBothChromResult.create_empty(genome_length, max_shift, read_len)
+        else:
+            raise ValueError(f"Unknown calculation target: {calc_config.target}")
 
     def _cleanup(self) -> None:
         """Clean up resources."""

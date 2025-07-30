@@ -10,6 +10,7 @@ from .interfaces.result import (
     GenomeWideResultModel,
     NCCGenomeWideResultModel, MSCCGenomeWideResultModel, BothGenomeWideResultModel
 )
+from .result import EmptyNCCResult, EmptyMSCCResult, EmptyBothChromResult
 from .interfaces.stats import (
     CCQualityMetrics as CCQualityMetricsModel,
     CCStats as CCStatsModel,
@@ -49,6 +50,23 @@ class CCQualityMetrics(CCQualityMetricsModel):
         self.rsc = (self.ccfl - stats.cc_min) / (stats.ccrl - stats.cc_min)
         if self.fwhm is not None:
             self.vsn = 2 * self.ccfl * self.fwhm / (stats.forward_reads_repr + stats.reverse_reads_repr)
+
+
+@dataclass
+class EmptyChromosomeStats:
+    """Represents statistics for a chromosome with no data.
+
+    This class is used to explicitly mark chromosomes that had no reads
+    but need to be tracked for genome length consistency in parallel processing.
+    """
+    genomelen_repr: int  # Representative genome length for this chromosome
+
+    # These attributes maintain interface compatibility with ChromosomeStats
+    stats: None = None
+    cc: None = None
+    avr_cc: None = None
+    est_lib_len: int = 0
+    mv_avr_filter_len: int = 0
 
 
 @dataclass
@@ -377,7 +395,14 @@ def make_chromosome_stat(
     min_calc_width: int = 10,
     output_warnings: bool = True,
     estimated_library_len: Optional[int] = None
-) -> ChromosomeStats:
+) -> Union[ChromosomeStats, EmptyChromosomeStats]:
+    """Create chromosome statistics, returning EmptyChromosomeStats for empty results."""
+
+    # Use class-based detection for consistency with aggregate_chromosome_stats
+    if isinstance(result, (EmptyNCCResult, EmptyMSCCResult, EmptyBothChromResult)):
+        return EmptyChromosomeStats(genomelen_repr=result.genomelen)
+
+    # For regular results, proceed with normal statistical processing
     stats, cc_container = _prepare_chromosome_stat(
         result,
         read_len,
@@ -400,7 +425,7 @@ def make_chromosome_stat(
 
 
 def aggregate_chromosome_stats(
-    chrom_stats: Optional[Dict[str, ChromosomeStats[TStats]]],
+    chrom_stats: Optional[Dict[str, Union[ChromosomeStats[TStats], EmptyChromosomeStats]]],
     read_len: int,
     mv_avr_filter_len: int,
     filter_mask_len: int,
@@ -412,19 +437,36 @@ def aggregate_chromosome_stats(
     if chrom_stats is None:
         return None
 
+    # Separate empty results from regular results using clear class-based identification
+    regular_stats: Dict[str, ChromosomeStats[TStats]] = {}
+    empty_genomelen_contributions: List[int] = []  # Store only for tracking, not for calculation
+
+    for chrom, stats_obj in chrom_stats.items():
+        if isinstance(stats_obj, EmptyChromosomeStats):
+            # EmptyChromosomeStats: exclude from statistical processing
+            empty_genomelen_contributions.append(stats_obj.genomelen_repr)
+        else:
+            # ChromosomeStats: participate in full statistical aggregation
+            assert stats_obj.stats is not None, f"Stats for chromosome {chrom} is None."
+            regular_stats[chrom] = stats_obj
+
+    # If no regular stats, return None (should not happen in normal cases)
+    if not regular_stats:
+        return None
+
     #
-    first_stats = next(iter(chrom_stats.values())).stats
+    first_stats = next(iter(regular_stats.values())).stats
     assert first_stats is not None, "No stats available for aggregation."
     stats_type = type(first_stats)
 
-    # Prepare data for aggregation
+    # Prepare data for aggregation (only regular results)
     genome_lengths: List[Union[int, npt.NDArray[np.int64]]] = []
     forward_reads: List[Union[int, npt.NDArray[np.int64]]] = []
     reverse_reads: List[Union[int, npt.NDArray[np.int64]]] = []
     cc_arrays: List[npt.NDArray[np.float64]] = []
     representative_genome_lengths: List[int] = []  # For cc merging
 
-    for chrom, stats_obj in chrom_stats.items():
+    for chrom, stats_obj in regular_stats.items():
         assert stats_obj.stats is not None, f"Stats for chromosome {chrom} is None."
 
         genome_lengths.append(stats_obj.stats.genomelen)
@@ -435,12 +477,25 @@ def aggregate_chromosome_stats(
         assert stats_obj.cc is not None, f"cross-correlation for chromosome {chrom} is None."
         cc_arrays.append(stats_obj.cc)
 
-    # Aggregate basic statistics
-    total_genomelen: Union[int, npt.NDArray[np.int64]] = np.sum(np.asarray(genome_lengths, dtype=np.int64), axis=0)
+    # Aggregate basic statistics from regular results
+    regular_genomelen: Union[int, npt.NDArray[np.int64]] = np.sum(np.asarray(genome_lengths, dtype=np.int64), axis=0)
     total_forward_reads: Union[int, npt.NDArray[np.int64]] = np.sum(np.asarray(forward_reads, dtype=np.int64), axis=0)
     total_reverse_reads: Union[int, npt.NDArray[np.int64]] = np.sum(np.asarray(reverse_reads, dtype=np.int64), axis=0)
 
-    # Aggregate raw cross-correlation using Fisher z-transformation
+    # Add EmptyChromosomeStats genome lengths to maintain consistency with single-process mode
+    # EmptyChromosomeStats represent chromosomes with no reads but valid genome lengths
+    total_genomelen: Union[int, npt.NDArray[np.int64]]
+    if isinstance(regular_genomelen, np.ndarray):
+        # For MSCC: EmptyChromosomeStats don't contribute to mappable length calculation
+        # because they represent chromosomes with no actual mappable data
+        # Only regular results with actual mappability data should be included
+        total_genomelen = regular_genomelen
+    else:
+        # For NCC: add empty contributions to total genome length
+        empty_genomelen_total = sum(empty_genomelen_contributions)
+        total_genomelen = regular_genomelen + empty_genomelen_total
+
+    # Aggregate raw cross-correlation using Fisher z-transformation (only regular results)
     aggregated_cc, interval_lower, interval_upper = merge_correlations(
         np.array(representative_genome_lengths, dtype=np.int64),
         cc_arrays,
@@ -631,9 +686,18 @@ def make_genome_wide_stat(
                 logger.error(errormsg)
                 raise ReadsTooFew
 
+    #
+    cleaned_ncc_stats = cleaned_mscc_stats = None
+    if ncc_stats is not None:
+        cleaned_ncc_stats = {chrom: stats for chrom, stats in ncc_stats.items()
+                             if not isinstance(stats, EmptyChromosomeStats)}
+    if mscc_stats is not None:
+        cleaned_mscc_stats = {chrom: stats for chrom, stats in mscc_stats.items()
+                              if not isinstance(stats, EmptyChromosomeStats)}
+
     return GenomeWideStats(
         whole_ncc_stats=whole_ncc_stats,
         whole_mscc_stats=whole_mscc_stats,
-        ncc_stats=ncc_stats,
-        mscc_stats=mscc_stats
+        ncc_stats=cleaned_ncc_stats,
+        mscc_stats=cleaned_mscc_stats
     )

@@ -53,6 +53,7 @@ class NCCResult(NCCResultModel, CorrelationResult):
     forward_read_len_sum: int
     reverse_read_len_sum: int
     ccbins: Union[List[float], npt.NDArray[np.int64]]
+    cc: npt.NDArray[np.float64] = field(init=False)
 
     def calc_cc(self) -> None:
         denom = self.genomelen - np.array(range(self.max_shift + 1), dtype=np.float64)
@@ -70,6 +71,7 @@ class MSCCResult(MSCCResultModel, CorrelationResult):
     forward_read_len_sum: Optional[int]
     reverse_read_len_sum: Optional[int]
     ccbins: Union[List[float], npt.NDArray[np.int64]]
+    cc: npt.NDArray[np.float64] = field(init=False)
 
     def calc_cc(self) -> None:
         assert self.mappable_len is not None, "mappable_len must be set before calculating CC."

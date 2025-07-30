@@ -20,8 +20,7 @@ from __future__ import annotations
 import logging
 import os
 import json
-from multiprocessing import Process, Lock
-from multiprocessing.queues import Queue
+from multiprocessing import Queue, Process, Lock
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
@@ -344,7 +343,8 @@ class MappabilityCalcWorker(Process):
     and reports results back to the main process.
 
     Attributes:
-        calculator: MappableLengthCalculator instance
+        path: Path to BigWig mappability file
+        max_shift: Maximum shift distance for calculation
         order_queue: Queue for receiving chromosome assignments
         report_queue: Queue for sending results and progress updates
         logger_lock: Lock for thread-safe logging
@@ -362,12 +362,11 @@ class MappabilityCalcWorker(Process):
         """
         super(MappabilityCalcWorker, self).__init__()
 
-        self.calculator = MappableLengthCalculator(os.fspath(path), max_shift, logger_lock)
-        self.calculator._progress.disable_bar()
+        self.path = os.fspath(path)
+        self.max_shift = max_shift
         self.order_queue = order_queue
         self.report_queue = report_queue
         self.logger_lock = logger_lock
-        self.calculator._progress = ProgressHook(report_queue)
 
     def run(self) -> None:
         """Execute worker process main loop.
@@ -380,19 +379,24 @@ class MappabilityCalcWorker(Process):
         The worker maintains thread-safe logging and handles proper
         cleanup of resources upon completion.
         """
-        with self.logger_lock:
-            logger.debug("{}: Hello. My pid is {}.".format(self.name, os.getpid()))
+        super().run()
 
-        while True:
-            chrom = self.order_queue.get()
-            if chrom is None:
-                break
+        # Create calculator instance in the worker process to avoid pickle issues
+        calculator = MappableLengthCalculator(self.path, self.max_shift, self.logger_lock)
+        calculator._progress.disable_bar()
+        calculator._progress = ProgressHook(self.report_queue)
 
+        try:
+            while True:
+                chrom = self.order_queue.get()
+                if chrom is None:
+                    break
+
+                with self.logger_lock:
+                    logger.debug("{}: Process {}...".format(self.name, chrom))
+                calculator.calc_mappability(chrom)
+                self.report_queue.put((chrom, calculator.chrom2mappable_len[chrom]))
+        finally:
             with self.logger_lock:
-                logger.debug("{}: Process {}...".format(self.name, chrom))
-            self.calculator.calc_mappability(chrom)
-            self.report_queue.put((chrom, self.calculator.chrom2mappable_len[chrom]))
-
-        with self.logger_lock:
-            logger.debug("{}: Goodbye.".format(self.name))
-        self.calculator.close()
+                logger.debug("{}: Goodbye.".format(self.name))
+            calculator.close()

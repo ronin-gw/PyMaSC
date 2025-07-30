@@ -291,7 +291,10 @@ class TestMigrationIntegration:
     def test_unified_handler_integration(self):
         """Test integration with CalcHandler."""
         from PyMaSC.handler.calc import CalcHandler
-        from PyMaSC.core.models import CalculationConfig, CalculationTarget, ImplementationAlgorithm
+        from PyMaSC.core.models import (
+            CalculationConfig, CalculationTarget, ImplementationAlgorithm,
+            ExecutionConfig, ExecutionMode
+        )
 
         # Mock file
         with patch('pysam.AlignmentFile') as mock_af:
@@ -309,7 +312,12 @@ class TestMigrationIntegration:
                 mapq_criteria=20
             )
 
-            handler = CalcHandler("test.bam", config)
+            exec_config = ExecutionConfig(
+                mode=ExecutionMode.SINGLE_PROCESS,
+                worker_count=1
+            )
+
+            handler = CalcHandler("test.bam", config, exec_config)
 
             # Check observer support
             assert hasattr(handler, 'attach_progress_observer')

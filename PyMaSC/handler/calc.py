@@ -1,12 +1,13 @@
-"""Unified calculation handler using strategy pattern.
+"""Unified calculation handler using factory pattern.
 
 This module provides a handler that replaces both CCCalcHandler
-and BACalcHandler using the strategy pattern. It delegates algorithm-specific
-logic to strategies while maintaining a single, consistent interface.
+and BACalcHandler by directly using the factory pattern for calculator creation.
+This eliminates unnecessary abstraction layers while maintaining a single,
+consistent interface.
 
 Key components:
-- CalcHandler: Main handler that uses strategies for algorithm selection
-- Integrates with factory pattern for calculator and worker creation
+- CalcHandler: Main handler that uses factory for calculator creation
+- Direct integration with CalculatorFactory for optimal performance
 - Maintains backward compatibility while simplifying the architecture
 """
 from __future__ import annotations
@@ -22,7 +23,7 @@ if TYPE_CHECKING:
     from PyMaSC.core.observer import ProgressObserver
 
 from PyMaSC.core.exceptions import InputUnseekable, NothingToCalc
-from PyMaSC.core.strategy import CalculationContext
+from PyMaSC.core.factory import CalculatorFactory
 from PyMaSC.core.models import (
     CalculationConfig, MappabilityConfig, ExecutionConfig,
     ExecutionMode, WorkerConfig
@@ -46,12 +47,12 @@ class CalcHandler:
     """Cross-correlation calculation handler.
 
     This handler replaces both CCCalcHandler and BACalcHandler by using
-    the strategy pattern for algorithm-specific logic. It maintains the
-    same public interface as the original handlers while delegating
-    algorithm selection to strategies.
+    the factory pattern for direct calculator creation. It maintains the
+    same public interface as the original handlers while providing
+    optimized performance through reduced abstraction layers.
 
     The handler coordinates:
-    - Algorithm strategy selection
+    - Direct calculator creation via CalculatorFactory
     - BAM file processing and validation (via BAMFileProcessor)
     - Calculator and worker creation via factories
     - Result collection and aggregation
@@ -65,7 +66,6 @@ class CalcHandler:
         references: List of target chromosome names
         lengths: List of chromosome lengths
         read_len: Estimated or specified read length
-        calc_context: Calculation context with current strategy
         bam_processor: BAM file processor for file operations
         bam_metadata: BAM file metadata
     """
@@ -92,8 +92,6 @@ class CalcHandler:
         self.execution_config = execution_config
         self.mappability_config = mappability_config
 
-        # Initialize calculation context with appropriate strategy
-        self.calc_context = CalculationContext.create_from_config(config)
 
         # Initialize BAM file processor
         self.bam_processor = BAMFileProcessor(self.path)
@@ -215,8 +213,10 @@ class CalcHandler:
 
     def _run_singleprocess_calculation(self) -> GenomeWideResult:
         """Execute calculation in single process mode."""
-        # Create calculator using strategy
-        calculator = self.calc_context.create_calculator(
+        # Create calculator using factory
+        calculator = CalculatorFactory.create_calculator(
+            self.config.target,
+            self.config.implementation,
             self.config,
             self.mappability_config
         )

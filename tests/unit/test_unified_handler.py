@@ -147,11 +147,17 @@ class TestUnifiedHandler:
             mapq_criteria=20
         )
 
+        exec_config = ExecutionConfig(
+            mode=ExecutionMode.SINGLE_PROCESS,
+            worker_count=1
+        )
+
         # Should raise ValueError for empty file
         with pytest.raises(ValueError, match="File has no sequences"):
             CalcHandler(
                 path="empty.bam",
-                config=calc_config
+                config=calc_config,
+                execution_config=exec_config
             )
 
     @patch('pysam.AlignmentFile')
@@ -175,11 +181,17 @@ class TestUnifiedHandler:
         )
         calc_config.chromfilter = [(True, ['chr99'])]  # Non-existent chromosome
 
+        exec_config = ExecutionConfig(
+            mode=ExecutionMode.SINGLE_PROCESS,
+            worker_count=1
+        )
+
         # Should raise NothingToCalc
         with pytest.raises(NothingToCalc):
             CalcHandler(
                 path="test.bam",
-                config=calc_config
+                config=calc_config,
+                execution_config=exec_config
             )
 
     def test_unified_handler_set_or_estimate_readlen(self):

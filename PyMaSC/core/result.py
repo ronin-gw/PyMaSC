@@ -12,7 +12,6 @@ import numpy as np
 import numpy.typing as npt
 
 from .interfaces.result import (
-    AbstractDataclass,
     CorrelationResultModel,
     ChromResult, NCCResultModel, MSCCResultModel, BothChromResultModel,
     GenomeWideResultModel, NCCGenomeWideResultModel, MSCCGenomeWideResultModel, BothGenomeWideResultModel
@@ -186,7 +185,7 @@ class EmptyMSCCResult(EmptyResult, MSCCResult):
         # For empty results, mappable_len should represent the full chromosome length
         # at all shift positions (no mappability filtering applied)
         # Must be tuple to match MSCCResultModel.mappable_len type definition
-        mappable_len = tuple([genome_length] * (max_shift + 1))
+        mappable_len = tuple([0] * (max_shift + 1))
 
         result = cls(
             genomelen=genome_length,

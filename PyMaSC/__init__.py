@@ -13,7 +13,9 @@ The module provides:
 These utilities ensure consistent version reporting and error handling across
 all PyMaSC applications.
 """
+import logging
 import sys
+import traceback
 from functools import wraps
 from typing import Any, Callable
 
@@ -66,5 +68,7 @@ def entrypoint(logger: Any) -> Callable[[Callable[[], None]], Callable[[], None]
                 sys.stderr.write("\r\033[K")
                 sys.stderr.flush()
                 logger.info("Got KeyboardInterrupt. bye")
+                if logger.level <= logging.DEBUG:
+                    traceback.print_exc()
         return _inner
     return _entrypoint_wrapper_base

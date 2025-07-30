@@ -4,8 +4,8 @@ from multiprocessing.synchronize import Lock
 
 # Calculators use result models that support cc calculation from ccbins.
 from ..result import (
-    ChromResult, NCCResult, MSCCResult, BothChromResult,
-    GenomeWideResult, NCCGenomeWideResult, MSCCGenomeWideResult, BothGenomeWideResult
+    ChromResult, NCCResult, MSCCResult,
+    GenomeWideResult, NCCGenomeWideResult, MSCCGenomeWideResult
 )
 
 
@@ -104,9 +104,9 @@ class BothCalculatorModel(CrossCorrelationCalculator):
     skip_ncc: bool
 
     @abstractmethod
-    def get_result(self, chrom: str) -> BothChromResult:
+    def get_result(self, chrom: str) -> ChromResult:
         pass
 
     @abstractmethod
-    def get_whole_result(self) -> BothGenomeWideResult:
+    def get_whole_result(self) -> GenomeWideResult:
         pass

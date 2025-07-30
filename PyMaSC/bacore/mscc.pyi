@@ -4,7 +4,7 @@ from typing import Optional, List, Any
 from multiprocessing.synchronize import Lock
 
 from PyMaSC.core.interfaces.calculator import BothCalculatorModel
-from PyMaSC.core.result import BothChromResult, BothGenomeWideResult
+from PyMaSC.core.result import BothChromResult, GenomeWideResult
 from PyMaSC.reader.bigwig import BigWigReader
 
 
@@ -118,7 +118,7 @@ class CCBitArrayCalculator(BothCalculatorModel):
     def get_result(self, chrom: str) -> BothChromResult:
         ...
 
-    def get_whole_result(self) -> BothGenomeWideResult:
+    def get_whole_result(self) -> GenomeWideResult:
         """Get the genome-wide NCC and MSCC calculation results.
 
         Returns:

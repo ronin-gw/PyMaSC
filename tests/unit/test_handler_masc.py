@@ -6,7 +6,7 @@ from unittest.mock import Mock, patch
 from tests.utils.test_data_generator import create_mock_reference_data
 from PyMaSC.handler.calc import CalcHandler
 from PyMaSC.core.models import CalculationConfig, ExecutionConfig, CalculationTarget, ImplementationAlgorithm, ExecutionMode
-from PyMaSC.handler.base import NothingToCalc
+from PyMaSC.core.exceptions import NothingToCalc
 
 
 def create_test_handler(path="test.bam", esttype="ncc", max_shift=200, mapq_criteria=20,
@@ -36,8 +36,8 @@ class TestCCCalcHandlerBasics:
 
     def test_handler_module_import(self):
         """Test that handler modules import correctly."""
-        from PyMaSC.handler import unified
-        assert unified is not None
+        from PyMaSC.handler import calc
+        assert calc is not None
 
     def test_cchandler_class_exists(self):
         """Test that CalcHandler class is available."""
@@ -46,7 +46,7 @@ class TestCCCalcHandlerBasics:
 
     def test_exceptions_defined(self):
         """Test that custom exceptions are defined."""
-        from PyMaSC.handler.unified import InputUnseekable
+        from PyMaSC.core.exceptions import InputUnseekable
 
         assert issubclass(InputUnseekable, Exception)
         assert issubclass(NothingToCalc, Exception)
@@ -71,10 +71,10 @@ class TestCCCalcHandlerBasics:
             )
 
             assert handler.path == "mock_path.bam"
-            assert handler.esttype == "ncc"
-            assert handler.max_shift == 200
-            assert handler.mapq_criteria == 20
-            assert handler.nworker == 1  # default
+            assert handler.config.esttype == "ncc"
+            assert handler.config.max_shift == 200
+            assert handler.config.mapq_criteria == 20
+            assert handler.execution_config.worker_count == 1  # default
 
         except Exception as e:
             # May fail due to file validation or other requirements
@@ -100,7 +100,7 @@ class TestCCCalcHandlerBasics:
                 nworker=4
             )
 
-            assert handler.nworker == 4
+            assert handler.execution_config.worker_count == 4
 
         except Exception:
             pytest.skip("Handler initialization failed")
@@ -142,7 +142,7 @@ class TestCCCalcHandlerConfiguration:
                     max_shift=200,
                     mapq_criteria=20
                 )
-                assert handler.esttype == esttype
+                assert handler.config.esttype == esttype
 
             except Exception:
                 pytest.skip(f"EstType {esttype} not supported or requires setup")
@@ -168,7 +168,7 @@ class TestCCCalcHandlerConfiguration:
                     max_shift=200,
                     mapq_criteria=mapq
                 )
-                assert handler.mapq_criteria == mapq
+                assert handler.config.mapq_criteria == mapq
 
             except Exception:
                 pytest.skip("Handler requires specific setup")
@@ -192,7 +192,7 @@ class TestCCCalcHandlerConfiguration:
                 mapq_criteria=20,
                 skip_ncc=True
             )
-            assert handler.skip_ncc is True
+            assert handler.config.skip_ncc is True
 
         except Exception:
             pytest.skip("Handler requires specific setup")
@@ -316,7 +316,7 @@ class TestCCCalcHandlerFileHandling:
 
     def test_seekable_file_requirement(self):
         """Test that handler checks for seekable files when needed."""
-        from PyMaSC.handler.unified import InputUnseekable
+        from PyMaSC.core.exceptions import InputUnseekable
 
         # This tests the seekability requirement for parallel processing
         # Implementation details may vary
@@ -346,7 +346,7 @@ class TestCCCalcHandlerWorkerManagement:
                 nworker=1
             )
 
-            assert handler.nworker == 1
+            assert handler.execution_config.worker_count == 1
 
         except Exception:
             pytest.skip("Handler requires specific setup")
@@ -371,7 +371,7 @@ class TestCCCalcHandlerWorkerManagement:
                 nworker=4
             )
 
-            assert handler.nworker == 4
+            assert handler.execution_config.worker_count == 4
 
         except Exception:
             pytest.skip("Handler requires specific setup")
@@ -394,7 +394,7 @@ class TestCCCalcHandlerWorkerManagement:
                 )
 
                 # If no error, should have corrected to valid value
-                assert handler.nworker >= 1
+                assert handler.execution_config.worker_count >= 1
 
             except (ValueError, TypeError):
                 # Expected for invalid worker count

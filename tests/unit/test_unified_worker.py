@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import Mock
 from multiprocessing import Queue, Lock
 
-from PyMaSC.core.worker import UnifiedWorker, StandardReadProcessor, DualReadProcessor
+from PyMaSC.core.worker import UnifiedWorker
 from PyMaSC.core.models import (
     WorkerConfig, CalculationConfig, MappabilityConfig,
     CalculationTarget, ImplementationAlgorithm
@@ -91,116 +91,9 @@ class TestUnifiedWorker(unittest.TestCase):
         self.assertEqual(worker.config.mappability_config, map_config)
 
 
-class TestStandardReadProcessor(unittest.TestCase):
-    """Test cases for StandardReadProcessor class."""
-
-    def setUp(self):
-        """Set up test fixtures."""
-        self.calculator = Mock()
-        self.processor = StandardReadProcessor(self.calculator, mapq_criteria=20)
-
-    def test_should_skip_read_criteria(self):
-        """Test read filtering criteria."""
-        # Mock read that should be skipped
-        read = Mock()
-        read.is_read2 = True
-        read.mapping_quality = 30
-        read.is_unmapped = False
-        read.is_duplicate = False
-
-        self.assertTrue(self.processor.should_skip_read(read))
-
-        # Mock read that should be processed
-        read.is_read2 = False
-        read.mapping_quality = 30
-        read.is_unmapped = False
-        read.is_duplicate = False
-
-        self.assertFalse(self.processor.should_skip_read(read))
-
-    def test_process_forward_read(self):
-        """Test processing forward read."""
-        read = Mock()
-        read.is_reverse = False
-        read.reference_name = "chr1"
-        read.reference_start = 100
-        read.infer_query_length.return_value = 50
-        # Add required attributes for filtering
-        read.is_read2 = False
-        read.mapping_quality = 30
-        read.is_unmapped = False
-        read.is_duplicate = False
-
-        self.processor.process_read(read)
-
-        self.calculator.feed_forward_read.assert_called_once_with("chr1", 101, 50)
-
-    def test_process_reverse_read(self):
-        """Test processing reverse read."""
-        read = Mock()
-        read.is_reverse = True
-        read.reference_name = "chr1"
-        read.reference_start = 200
-        read.infer_query_length.return_value = 50
-        # Add required attributes for filtering
-        read.is_read2 = False
-        read.mapping_quality = 30
-        read.is_unmapped = False
-        read.is_duplicate = False
-
-        self.processor.process_read(read)
-
-        self.calculator.feed_reverse_read.assert_called_once_with("chr1", 201, 50)
-
-
-class TestDualReadProcessor(unittest.TestCase):
-    """Test cases for DualReadProcessor class."""
-
-    def setUp(self):
-        """Set up test fixtures."""
-        self.primary_calculator = Mock()
-        self.secondary_calculator = Mock()
-        self.processor = DualReadProcessor(
-            self.primary_calculator,
-            self.secondary_calculator,
-            mapq_criteria=20
-        )
-
-    def test_process_forward_read_dual(self):
-        """Test processing forward read with dual calculators."""
-        read = Mock()
-        read.is_reverse = False
-        read.reference_name = "chr1"
-        read.reference_start = 100
-        read.infer_query_length.return_value = 50
-        # Add required attributes for filtering
-        read.is_read2 = False
-        read.mapping_quality = 30
-        read.is_unmapped = False
-        read.is_duplicate = False
-
-        self.processor.process_read(read)
-
-        self.primary_calculator.feed_forward_read.assert_called_once_with("chr1", 101, 50)
-        self.secondary_calculator.feed_forward_read.assert_called_once_with("chr1", 101, 50)
-
-    def test_process_reverse_read_dual(self):
-        """Test processing reverse read with dual calculators."""
-        read = Mock()
-        read.is_reverse = True
-        read.reference_name = "chr1"
-        read.reference_start = 200
-        read.infer_query_length.return_value = 50
-        # Add required attributes for filtering
-        read.is_read2 = False
-        read.mapping_quality = 30
-        read.is_unmapped = False
-        read.is_duplicate = False
-
-        self.processor.process_read(read)
-
-        self.primary_calculator.feed_reverse_read.assert_called_once_with("chr1", 201, 50)
-        self.secondary_calculator.feed_reverse_read.assert_called_once_with("chr1", 201, 50)
+# Removed TestStandardReadProcessor and TestDualReadProcessor
+# These processor classes have been refactored into a unified ReadProcessor
+# architecture in PyMaSC.handler.read module
 
 
 if __name__ == '__main__':

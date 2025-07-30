@@ -158,7 +158,10 @@ class TestCrossCorrelationNumerics:
 
         # Verify calculator initialization
         assert calc.max_shift == max_shift
-        assert calc.genomelen == encode_read_data['lengths'][0]
+        
+        # Check genomelen through available methods
+        result = calc.get_whole_result()
+        assert result.genomelen == encode_read_data['lengths'][0]
 
         # Basic structural validation
         forward_pos = encode_read_data['forward']
@@ -324,7 +327,7 @@ class TestIntegrationWorkflow:
             # Handler should initialize successfully
             assert handler is not None
             assert handler.path == str(bam_path)
-            assert handler.max_shift == 200
+            assert handler.config.max_shift == 200
 
             print("Full workflow handler initialized successfully")
 

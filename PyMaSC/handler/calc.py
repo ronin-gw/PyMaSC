@@ -324,7 +324,10 @@ class CalcHandler:
                 chrom, obj = self._report_queue.get()
 
                 #
-                if chrom is None:
+                if chrom == '__ERROR__':
+                    raise RuntimeError(f"Worker error:\n{obj}")
+
+                elif chrom is None:
                     assert not isinstance(obj, ChromResult)
                     chrom_text, pos = obj
                     self._progress_coordinator.handle_multiprocess_report(chrom_text, pos)

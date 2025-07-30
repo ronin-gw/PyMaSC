@@ -137,6 +137,7 @@ class exec_worker_pool(object):
         for w in self.workers:
             if w.is_alive():
                 w.terminate()
+            w.join()
 
 
 P = ParamSpec('P')

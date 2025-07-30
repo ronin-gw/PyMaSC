@@ -32,7 +32,7 @@ from PyMaSC.utils.progress import ProgressBar
 from PyMaSC.core.result import (
     NCCResult, MSCCResult, BothChromResult,
     NCCGenomeWideResult, MSCCGenomeWideResult, BothGenomeWideResult,
-    EmptyNCCResult, EmptyMSCCResult
+    EmptyNCCResult, EmptyMSCCResult, EmptyBothChromResult
 )
 
 logger = logging.getLogger(__name__)
@@ -176,11 +176,9 @@ cdef class CCBitArrayCalculator(object):
         self._forward_read_len_sum = self._reverse_read_len_sum = 0
 
     def flush(self, chrom: Optional[str] = None):
-        noreads = self._forward_read_len_sum + self._reverse_read_len_sum == 0
-        if (chrom is not None and chrom != self._chr) or noreads:
-            self._fill_result(chrom)
-        elif self._chr != '' and not self._buff_flashed:
+        if self._chr != '' and not self._buff_flashed:
             self._calc_correlation()
+        self._fill_result(chrom)
 
         self._buff_flashed = True
 
@@ -189,22 +187,26 @@ cdef class CCBitArrayCalculator(object):
 
         self._chr = chrom
 
-        if not self.skip_ncc and chrom not in self.ref2ncc_result:
+        #
+        if chrom not in self.ref2ncc_result:
             result = self.ref2ncc_result[self._chr] = EmptyNCCResult.create_empty(
                 self.ref2genomelen[self._chr], self.max_shift, self.read_len
             )
 
+        #
         if chrom in self.ref2mscc_result:
-            return 0
-
-        try:
-            mappability = self._load_mappability()
-        except KeyError:
             return 0
 
         result = self.ref2mscc_result[self._chr] = EmptyMSCCResult.create_empty(
             self.ref2genomelen[self._chr], self.max_shift, self.read_len
         )
+
+        try:
+            mappability = self._load_mappability()
+            if mappability is None:
+                raise KeyError(self._chr)
+        except KeyError:
+            return 0
 
         mappable_len = []
         forward_mappability = mappability
@@ -215,7 +217,6 @@ cdef class CCBitArrayCalculator(object):
             mappable_len.append(forward_mappability.acount(reverse_mappability))
             reverse_mappability.rshift(1, 0)
         result.mappable_len = tuple(mappable_len)
-        result.calc_cc()
 
     cdef inline int _calc_correlation(self) except -1:
         chromsize = self.ref2genomelen[self._chr] + 1

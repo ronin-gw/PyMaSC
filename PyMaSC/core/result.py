@@ -282,7 +282,24 @@ def aggregate_results(results: Dict[str, ChromResult]) -> GenomeWideResult:
 
     # Check result type hierarchy - Empty classes inherit from base classes
     # so isinstance checks work correctly for mixed regular/empty results
-    if isinstance(first_item, NCCResult):
+
+    #
+    if isinstance(first_item, BothChromResult):
+        # This includes both BothChromResult and EmptyBothChromResult instances
+        assert all(isinstance(res, BothChromResult) for res in results.values()), \
+            "All results must be BothChromResult instances (including EmptyBothChromResult)"
+
+        _results = cast(Dict[str, BothChromResult], results)
+        if all(res.chrom is None for res in _results.values() if not isinstance(res, EmptyResult)):
+            results = {chrom: res.mappable_chrom for chrom, res in _results.items()}
+            return _aggregate_mscc_results(cast(Dict[str, MSCCResult], results))
+        elif all(res.mappable_chrom is None for res in _results.values() if not isinstance(res, EmptyResult)):
+            results = {chrom: res.chrom for chrom, res in _results.items()}
+            return _aggregate_ncc_results(cast(Dict[str, NCCResult], results))
+        else:
+            return _aggregate_both_results(cast(Dict[str, BothChromResult], results))
+
+    elif isinstance(first_item, NCCResult):
         # This includes both NCCResult and EmptyNCCResult instances
         assert all(isinstance(res, NCCResult) for res in results.values()), \
             "All results must be NCCResult instances (including EmptyNCCResult)"
@@ -292,11 +309,7 @@ def aggregate_results(results: Dict[str, ChromResult]) -> GenomeWideResult:
         assert all(isinstance(res, MSCCResult) for res in results.values()), \
             "All results must be MSCCResult instances (including EmptyMSCCResult)"
         return _aggregate_mscc_results(cast(Dict[str, MSCCResult], results))
-    elif isinstance(first_item, BothChromResult):
-        # This includes both BothChromResult and EmptyBothChromResult instances
-        assert all(isinstance(res, BothChromResult) for res in results.values()), \
-            "All results must be BothChromResult instances (including EmptyBothChromResult)"
-        return _aggregate_both_results(cast(Dict[str, BothChromResult], results))
+
     else:
         raise TypeError(f"Unknown result type: {type(first_item)}")
 

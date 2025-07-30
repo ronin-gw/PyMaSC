@@ -12,6 +12,8 @@ Key components:
 """
 import logging
 import os
+import traceback
+import sys
 from abc import ABC, abstractmethod
 from multiprocessing import Process, Queue
 from multiprocessing.synchronize import Lock
@@ -97,7 +99,12 @@ class BaseWorker(Process, ABC):
         except Exception as e:
             with self.logger_lock:
                 logger.error(f"{self.name}: Error in worker: {e}")
-            raise
+
+            tb = traceback.format_exc()
+            self.report_queue.put(('__ERROR__', tb))
+            sys.stderr.write(tb)
+            sys.stderr.flush()
+            os._exit(1)
 
         finally:
             with self.logger_lock:
@@ -247,7 +254,6 @@ class CalcWorker(BaseWorker):
             # No data was processed for this chromosome
             # Create appropriate empty result to maintain genome length consistency
             result = self._create_empty_result(chrom)
-
         self.report_queue.put((chrom, result))
 
     def _create_empty_result(self, chrom: str) -> EmptyResult:

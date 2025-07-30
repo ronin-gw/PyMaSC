@@ -17,6 +17,7 @@ with proper validation and helpful error messages.
 """
 import argparse
 import logging
+import sys
 from pathlib import Path
 from typing import Any, Optional, Sequence, Type, Union
 
@@ -77,6 +78,29 @@ class ForceNaturalNumber(argparse.Action):
         setattr(namespace, self.dest, values)
 
 
+class ToColorizeOption(argparse.Action):
+    """Custom argparse action for colorization options.
+
+    Converts 'TRUE'/'FALSE' strings to boolean values for colorization
+    preferences in logging output.
+    """
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: Union[Any, Sequence[Any], None],
+        option_string: Optional[str] = None
+    ) -> None:
+        assert isinstance(values, str), "Colorization option must be a string"
+        if values == "TRUE":
+            colorize = True
+        elif values == "FALSE":
+            colorize = False
+        else:
+            colorize = sys.stderr.isatty()
+        setattr(namespace, self.dest, colorize)
+
+
 def make_multistate_append_action(key: bool) -> Type[argparse.Action]:
     """Create multi-state argument action factory.
 
@@ -118,7 +142,7 @@ def add_common_args(parser: argparse.ArgumentParser) -> None:
         help="Disable progress bar"
     )
     parser.add_argument(
-        "--color", type=_make_upper, default=None, choices=("TRUE", "FALSE"),
+        "--color", type=_make_upper, default=True, action=ToColorizeOption, choices=("TRUE", "FALSE"),
         help="Coloring log. (Default: auto)"
     )
     parser.add_argument(

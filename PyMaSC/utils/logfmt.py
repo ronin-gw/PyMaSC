@@ -15,19 +15,23 @@ across different output scenarios.
 """
 import logging
 import sys
+import os
 from typing import Optional, Dict
+from abc import ABC, abstractmethod
+from multiprocessing import Process
+from multiprocessing.synchronize import Lock
 
 LOGGING_FORMAT: str = "[%(asctime)s | %(levelname)s] %(name)10s : %(message)s"
 
 
-def set_rootlogger(args_color: Optional[str], log_level: int) -> logging.Logger:
+def set_rootlogger(colorize: bool, log_level: int) -> logging.Logger:
     """Configure root logger with color support.
 
     Sets up the root logger with appropriate formatting and color settings
     based on user preferences and terminal capabilities.
 
     Args:
-        args_color: Color preference ('TRUE', 'FALSE', or None for auto-detect)
+        color: Color preference (True, False)
         log_level: Logging level (e.g., logging.INFO, logging.DEBUG)
 
     Returns:
@@ -36,13 +40,6 @@ def set_rootlogger(args_color: Optional[str], log_level: int) -> logging.Logger:
     Note:
         Automatically detects terminal capabilities when args_color is None
     """
-    if args_color == "TRUE":
-        colorize = True
-    elif args_color == "FALSE":
-        colorize = False
-    else:
-        colorize = sys.stderr.isatty()
-
     rl = logging.getLogger('')
 
     h = logging.StreamHandler()

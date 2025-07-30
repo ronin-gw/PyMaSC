@@ -168,7 +168,6 @@ def prepare_output(reads: List[str], names: List[Optional[str]], outdir: str, su
 
         for suffix in suffixes:
             expect_outfile = Path(str(output_basename) + suffix)
-            print(expect_outfile)
             if expect_outfile.exists():
                 logger.warning("Existing file '{}' will be overwritten.".format(expect_outfile))
         basenames.append(output_basename)

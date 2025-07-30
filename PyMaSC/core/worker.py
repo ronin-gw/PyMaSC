@@ -74,11 +74,6 @@ class BaseWorker(Process, ABC):
 
     def run(self) -> None:
         """Main worker process loop."""
-        from PyMaSC.utils.logfmt import set_rootlogger
-        set_rootlogger("TRUE", logging.DEBUG)
-        with self.logger_lock:
-            logger.debug(f"{self.name}: Starting worker, PID {os.getpid()}")
-
         try:
             # Initialize worker-specific components
             self._initialize()
@@ -288,7 +283,3 @@ class CalcWorker(BaseWorker):
         """Clean up resources."""
         if self._bwfeeder:
             self._bwfeeder.close()
-
-        # Call finishup on calculators if available
-        if self._calculator is not None:
-            self._calculator.finishup_calculation()

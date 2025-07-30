@@ -178,7 +178,8 @@ cdef class CCBitArrayCalculator(object):
     def flush(self, chrom: Optional[str] = None):
         if self._chr != '' and not self._buff_flashed:
             self._calc_correlation()
-        self._fill_result(chrom)
+        if chrom is not None:
+            self._fill_result(chrom)
 
         self._buff_flashed = True
 
@@ -188,13 +189,13 @@ cdef class CCBitArrayCalculator(object):
         self._chr = chrom
 
         #
-        if chrom not in self.ref2ncc_result:
+        if self._chr not in self.ref2ncc_result:
             result = self.ref2ncc_result[self._chr] = EmptyNCCResult.create_empty(
                 self.ref2genomelen[self._chr], self.max_shift, self.read_len
             )
 
         #
-        if chrom in self.ref2mscc_result:
+        if self._chr in self.ref2mscc_result:
             return 0
 
         result = self.ref2mscc_result[self._chr] = EmptyMSCCResult.create_empty(

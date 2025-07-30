@@ -393,7 +393,7 @@ def make_chromosome_stat(
     expected_library_len: Optional[int] = None,
     filter_mask_len: int = 5,
     min_calc_width: int = 10,
-    output_warnings: bool = True,
+    output_warnings: bool = False,
     estimated_library_len: Optional[int] = None
 ) -> Union[ChromosomeStats, EmptyChromosomeStats]:
     """Create chromosome statistics, returning EmptyChromosomeStats for empty results."""

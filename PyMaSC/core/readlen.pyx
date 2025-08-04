@@ -149,7 +149,7 @@ def estimate_readlen(path, esttype, unsigned int mapq_criteria):
 
             if chrom != _chrom:
                 chrom = _chrom
-                progress.set_chrom(chrom2length[chrom], chrom)
+                progress.set_chrom(chrom, chrom2length[chrom])
             progress.update(read.reference_start)
 
             if read.is_unmapped:

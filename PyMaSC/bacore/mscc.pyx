@@ -148,18 +148,13 @@ cdef class CCBitArrayCalculator(object):
         if self.logger_lock:
             self.logger_lock.release()
 
-    def _init_progress(self, body, prefix, suffix, maxval):
-        self._progress.body = body
-        self._progress.fmt = "\r" + prefix + "{:<" + str(len(body)) + "}" + suffix
-        self._progress.set(self._chr, maxval)
-
     def _init_mappability_progress(self):
         self._progress.enable_bar()
-        self._init_progress("@@@@@^" * 12, '^', ' ', self.ref2genomelen[self._chr])
+        self._progress.reset_progress("@@@@@^" * 12, '^', ' ', self._chr, self.ref2genomelen[self._chr])
 
     def _init_bitarray_progress(self):
         if self._allow_bitarray_progress:
-            self._init_progress("xxxxxX" * 12, 'X', ' ', self.max_shift)
+            self._progress.reset_progress("xxxxxX" * 12, 'X', ' ', self._chr, self.max_shift)
         else:
             self._progress.disable_bar()
 

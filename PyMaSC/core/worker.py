@@ -91,6 +91,10 @@ class BaseWorker(Process, ABC):
                     # Report results
                     self._report_result(chrom)
 
+        except KeyboardInterrupt:
+            if 0 < logger.level <= logging.DEBUG:
+                raise
+
         except Exception as e:
             with self.logger_lock:
                 logger.error(f"{self.name}: Error in worker: {e}")
@@ -116,7 +120,8 @@ class BaseWorker(Process, ABC):
         # Update progress tracking
         if self._progress and chrom != self._current_chrom:
             self._current_chrom = chrom
-            self._progress.set(chrom, self._ref2genomelen[chrom])
+            self._progress.enable_bar()
+            self._progress.reset_progress("<1II1>" * 12, '>', '<', chrom, self._ref2genomelen[chrom])
 
         with self.logger_lock:
             logger.debug(f"{self.name}: Processing {chrom}")
@@ -126,6 +131,7 @@ class BaseWorker(Process, ABC):
 
         # Process reads
         for read in alignfile.fetch(chrom):
+            # Update progress (always call if progress exists)
             if self._progress:
                 self._progress.update(read.reference_start)
 
@@ -241,6 +247,7 @@ class CalcWorker(BaseWorker):
         between single-process and parallel processing modes.
         """
         assert self._calculator is not None
+
         self._calculator.flush(chrom)
 
         try:

@@ -11,11 +11,6 @@ from unittest.mock import Mock, patch, MagicMock
 import numpy as np
 
 from PyMaSC.core.bam_processor import BAMFileProcessor, BAMValidationError, BAMMetadata
-from PyMaSC.core.progress_coordinator import (
-    ProgressCoordinator, ProgressMode, ProgressConfig,
-    SingleLineProgressReporter, MultiLineProgressReporter,
-    ObserverProgressReporter, NullProgressReporter
-)
 # ResultAggregator functionality has been integrated into the main codebase
 from PyMaSC.handler.calc import CalcHandler
 from PyMaSC.core.models import (
@@ -109,88 +104,6 @@ class TestBAMFileProcessor(unittest.TestCase):
             self.assertIsNotNone(metadata)
 
 
-class TestProgressCoordinator(unittest.TestCase):
-    """Test progress coordination functionality."""
-
-    def test_single_line_reporter(self):
-        """Test single-line progress reporter."""
-        reporter = SingleLineProgressReporter()
-
-        # Should not raise any exceptions
-        reporter.start_chromosome('chr1', 1000)
-        reporter.update('chr1', 500)
-        reporter.finish_chromosome('chr1')
-        reporter.cleanup()
-
-    def test_multi_line_reporter(self):
-        """Test multi-line progress reporter."""
-        reporter = MultiLineProgressReporter()
-
-        # Should not raise any exceptions
-        reporter.start_chromosome('chr1', 1000)
-        reporter.update('chr1', 500)
-        reporter.finish_chromosome('chr1')
-        reporter.cleanup()
-
-    def test_null_reporter(self):
-        """Test null progress reporter."""
-        reporter = NullProgressReporter()
-
-        # All methods should be no-ops
-        reporter.start_chromosome('chr1', 1000)
-        reporter.update('chr1', 500)
-        reporter.finish_chromosome('chr1')
-        reporter.cleanup()
-
-    def test_progress_coordinator_single_process(self):
-        """Test progress coordinator for single process."""
-        coordinator = ProgressCoordinator.create_for_single_process()
-        reporter = coordinator.setup_single_process()
-
-        self.assertIsNotNone(reporter)
-        self.assertIsInstance(reporter, SingleLineProgressReporter)
-
-    def test_progress_coordinator_with_observer(self):
-        """Test progress coordinator with observer mode."""
-        mock_observer = Mock()
-        coordinator = ProgressCoordinator.create_for_single_process(
-            use_observer=True,
-            observers=[mock_observer]
-        )
-        reporter = coordinator.setup_single_process()
-
-        self.assertIsInstance(reporter, ObserverProgressReporter)
-
-    def test_progress_coordinator_multiprocess(self):
-        """Test progress coordinator for multiprocess."""
-        coordinator = ProgressCoordinator.create_for_multiprocess()
-
-        mock_queue = Mock()
-        mock_lock = Mock()
-        coordinator.setup_multiprocess(mock_queue, mock_lock)
-
-        reporter = coordinator.get_reporter()
-        self.assertIsInstance(reporter, MultiLineProgressReporter)
-
-    def test_multiprocess_report_handling(self):
-        """Test handling of multiprocess progress reports."""
-        from multiprocessing import Lock
-
-        coordinator = ProgressCoordinator.create_for_multiprocess()
-
-        mock_queue = Mock()
-        real_lock = Lock()  # Use real lock instead of mock
-        coordinator.setup_multiprocess(mock_queue, real_lock)
-
-        # Test progress update - current implementation expects chrom and pos directly
-        coordinator.handle_multiprocess_report('chr1', 500)
-        # Just verify no exception was raised
-
-        # Test another progress update
-        coordinator.handle_multiprocess_report('chr2', 1000)
-        # Just verify no exception was raised
-
-
 # Deprecated test class removed - functionality has been integrated into ResultAggregator
 
 
@@ -268,30 +181,6 @@ class TestCalcHandler(unittest.TestCase):
                 )
             self.assertIn("File has no sequences defined", str(cm.exception))
 
-    def test_handler_progress_observer_methods(self):
-        """Test progress observer methods."""
-        handler = CalcHandler(
-            self.test_bam,
-            self.calc_config,
-            self.exec_config
-        )
-
-        mock_observer = Mock()
-
-        # Test attach
-        handler.attach_progress_observer(mock_observer)
-        self.assertIn(mock_observer, handler._progress_observers)
-
-        # Test detach
-        handler.detach_progress_observer(mock_observer)
-        self.assertNotIn(mock_observer, handler._progress_observers)
-
-        # Test enable/disable
-        handler.enable_observer_progress(False)
-        self.assertFalse(handler.use_observer_progress)
-
-        handler.enable_observer_progress(True)
-        self.assertTrue(handler.use_observer_progress)
 
     @patch('pysam.AlignmentFile')
     def test_handler_multiprocess_fallback(self, mock_alignfile):

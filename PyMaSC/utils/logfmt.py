@@ -74,7 +74,6 @@ class StrFormatStyle:
         return self._fmt.find(self.asctime_search) >= 0
 
     def format(self, record: logging.LogRecord) -> str:
-        print(self._fmt)
         return self._fmt.format(**record.__dict__)
 
 

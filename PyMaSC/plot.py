@@ -21,14 +21,13 @@ import json
 from pathlib import Path
 from typing import Dict, List, Set, Optional, Tuple, Union
 
-from pysam import AlignmentFile
-
 from PyMaSC import entrypoint, logging_version
 from PyMaSC.core.exceptions import ReadsTooFew
 from PyMaSC.utils.parsearg import get_plot_parser
 from PyMaSC.utils.logfmt import set_rootlogger
 from PyMaSC.utils.calc import filter_chroms
 from PyMaSC.pymasc import prepare_output, PLOTFILE_SUFFIX
+from PyMaSC.reader.bam import BAMFileProcessor
 from PyMaSC.reader.stats import load_stats
 from PyMaSC.reader.table import CCData, NreadData, load_cc_table, load_nreads_table
 from PyMaSC.core.interfaces.result import GenomeWideResultModel
@@ -419,7 +418,7 @@ def _load_chrom_sizes(path: Union[str, os.PathLike[str]]) -> Dict[str, int]:
         ValueError: If file format is invalid
     """
     try:
-        with AlignmentFile(str(path)) as f:
+        with BAMFileProcessor(str(path)) as f:
             return {r: l for r, l in zip(f.references, f.lengths)}
     except ValueError:
         ref2len: Dict[str, int] = {}

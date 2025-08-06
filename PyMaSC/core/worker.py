@@ -19,8 +19,7 @@ from multiprocessing import Process, Queue
 from multiprocessing.synchronize import Lock
 from typing import Optional, Any
 
-from pysam import AlignmentFile
-
+from PyMaSC.reader.bam import BAMFileProcessor, AlignmentLike
 from PyMaSC.core.interfaces.calculator import CrossCorrelationCalculator
 from PyMaSC.core.models import WorkerConfig, CalculationTarget
 from PyMaSC.core.result import EmptyResult, EmptyNCCResult, EmptyMSCCResult, EmptyBothChromResult
@@ -78,7 +77,7 @@ class BaseWorker(Process, ABC):
             # Initialize worker-specific components
             self._initialize()
 
-            with AlignmentFile(self.bam_path) as alignfile:
+            with BAMFileProcessor(self.bam_path) as alignfile:
                 while True:
                     # Get next chromosome to process
                     chrom = self.order_queue.get()
@@ -110,7 +109,7 @@ class BaseWorker(Process, ABC):
                 logger.debug(f"{self.name}: Shutting down worker")
             self._cleanup()
 
-    def _process_chromosome(self, alignfile: AlignmentFile, chrom: str) -> None:
+    def _process_chromosome(self, alignfile: AlignmentLike, chrom: str) -> None:
         """Process all reads from a chromosome.
 
         Args:

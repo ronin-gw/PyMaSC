@@ -17,15 +17,14 @@ import os
 from multiprocessing import Queue, Lock
 from typing import Optional, List, Tuple, Union, Any
 
-import pysam
-
+from PyMaSC.reader.bam import BAMFileProcessor, BAMNoReadsError, BAMNoTargetChroms
+from PyMaSC.handler.read import create_read_processor
 from PyMaSC.core.exceptions import InputUnseekable, NothingToCalc
 from PyMaSC.core.factory import CalculatorFactory
 from PyMaSC.core.models import (
     CalculationConfig, MappabilityConfig, ExecutionConfig,
     ExecutionMode, WorkerConfig
 )
-from PyMaSC.core.bam_processor import BAMFileProcessor, BAMValidationError
 from PyMaSC.core.result import (
     ChromResult, GenomeWideResult
 )
@@ -34,7 +33,6 @@ from PyMaSC.core.readlen import estimate_readlen
 from PyMaSC.core.worker import CalcWorker
 from PyMaSC.utils.calc import exec_worker_pool
 from PyMaSC.utils.progress import ProgressBar, ProgressHook, MultiLineProgressManager
-from PyMaSC.handler.read import create_read_processor
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +61,6 @@ class CalcHandler:
         lengths: List of chromosome lengths
         read_len: Estimated or specified read length
         bam_processor: BAM file processor for file operations
-        bam_metadata: BAM file metadata
     """
 
     def __init__(self,
@@ -94,27 +91,15 @@ class CalcHandler:
         # Validate BAM file and extract metadata
         try:
             chromfilter = getattr(config, 'chromfilter', None)
-            self.bam_metadata = self.bam_processor.validate_and_open(chromfilter)
-        except BAMValidationError as e:
-            if "no sequences defined" in str(e):
-                logger.error("File has no sequences defined.")
-                raise ValueError("File has no sequences defined.")
-            elif "No chromosomes match" in str(e):
-                logger.error("There is no targeted chromosomes.")
-                raise NothingToCalc
-            elif "no reference sequences" in str(e):
-                logger.error("There is no targeted chromosomes.")
-                raise NothingToCalc
-            else:
-                raise
-
-        # Extract filtered references and lengths
-        self.references = self.bam_metadata.filtered_references
-        self.lengths = self.bam_metadata.filtered_lengths
+            references, lengths = self.bam_processor.apply_chromfilter(chromfilter)
+        except BAMNoReadsError:
+            raise ValueError("File has no sequences defined.")
+        except BAMNoTargetChroms:
+            raise NothingToCalc
 
         # Update config with filtered references
-        self.config.references = self.references
-        self.config.lengths = self.lengths
+        self.references = self.config.references = list(references)
+        self.lengths = self.config.lengths = list(lengths)
 
         # Check for index in multiprocess mode
         if (self.execution_config.mode is ExecutionMode.MULTI_PROCESS and
@@ -123,9 +108,6 @@ class CalcHandler:
             self.execution_config.worker_count = 1
         elif self.execution_config.mode is ExecutionMode.MULTI_PROCESS:
             self.bam_processor.close()
-
-        # For backward compatibility, maintain align_file access
-        self.align_file: Optional[pysam.AlignmentFile] = None
 
         # Read length will be set later
         self.read_len: Optional[int] = None
@@ -215,13 +197,10 @@ class CalcHandler:
         # Setup progress tracking for single process
         ref2genomelen = dict(zip(self.references, self.lengths))
 
-        # Reopen file if needed
-        self.align_file = self.bam_processor.reopen()
-
         processed_bases = 0
         current_chrom = None
 
-        for read in self.align_file:
+        for read in self.bam_processor:
             chrom = read.reference_name
 
             if chrom is None or chrom not in self.references:

@@ -190,7 +190,7 @@ cdef class CCBitArrayCalculator(object):
             )
 
         #
-        if self._chr in self.ref2mscc_result:
+        if not self._bwfeeder or self._chr in self.ref2mscc_result:
             return 0
 
         result = self.ref2mscc_result[self._chr] = EmptyMSCCResult.create_empty(
@@ -434,18 +434,16 @@ cdef class CCBitArrayCalculator(object):
 
         self.flush(self._chr)
 
-        # calc mappability for references that there is no reads aligned
-        if not self._bwfeeder:
-            return None
-
         #
         for chrom in self.references:
             self._fill_result(chrom)
 
     def get_result(self, chrom: str) -> BothChromResult:
+        if chrom not in self.ref2ncc_result and chrom not in self.ref2mscc_result:
+            raise KeyError(chrom)
         return BothChromResult(
-            chrom=self.ref2ncc_result[chrom],
-            mappable_chrom=self.ref2mscc_result[chrom]
+            chrom=self.ref2ncc_result.get(chrom),
+            mappable_chrom=self.ref2mscc_result.get(chrom)
         )
 
     def get_whole_result(self):

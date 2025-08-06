@@ -58,7 +58,7 @@ test-all:
 # Parallel test commands (using pytest-xdist)
 # Run tests with coverage in parallel (auto-detect CPU count)
 test-parallel:
-	python -m pytest tests/ --verbose --tb=short --cov=PyMaSC --cov-report=term-missing --cov-report=html -n auto
+	python -m pytest tests/ --verbose --tb=short --cov=PyMaSC --cov-report=term-missing --cov-report=html -n auto --dist=loadgroup
 
 # Quick parallel test run (unit tests only, no coverage)
 test-quick-parallel:
@@ -68,13 +68,13 @@ test-quick-parallel:
 test-unit-parallel:
 	python -m pytest tests/unit/ -v -n auto
 
-# Run integration tests in parallel
+# Run integration tests in parallel with subprocess test grouping
 test-integration-parallel:
-	python -m pytest tests/integration/ -v -n auto
+	python -m pytest tests/integration/ -v -n auto --dist=loadgroup
 
-# Run all tests verbosely in parallel
+# Run all tests verbosely in parallel with subprocess test grouping
 test-all-parallel:
-	python -m pytest tests/ -v -n auto
+	python -m pytest tests/ -v -n auto --dist=loadgroup
 
 # Run tests with custom number of workers
 # Usage: make test-workers WORKERS=4
@@ -84,7 +84,7 @@ test-workers:
 		echo "Example: make test-workers WORKERS=4"; \
 		exit 1; \
 	fi
-	python -m pytest tests/ -v -n $(WORKERS)
+	python -m pytest tests/ -v -n $(WORKERS) --dist=loadgroup
 
 # Build Cython extensions in-place
 build:

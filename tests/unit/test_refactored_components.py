@@ -10,7 +10,7 @@ import os
 from unittest.mock import Mock, patch, MagicMock
 import numpy as np
 
-from PyMaSC.core.bam_processor import BAMFileProcessor, BAMValidationError, BAMMetadata
+from PyMaSC.reader.bam import BAMFileProcessor, BAMValidationError
 # ResultAggregator functionality has been integrated into the main codebase
 from PyMaSC.handler.calc import CalcHandler
 from PyMaSC.core.models import (
@@ -32,76 +32,69 @@ class TestBAMFileProcessor(unittest.TestCase):
     def test_bam_processor_creation(self):
         """Test BAM processor can be created."""
         processor = BAMFileProcessor(self.test_bam)
-        self.assertEqual(processor.path, self.test_bam)
-        self.assertFalse(processor.is_stdin)
+        self.assertEqual(processor._path, self.test_bam)
 
     def test_bam_validation_success(self):
         """Test successful BAM file validation."""
         processor = BAMFileProcessor(self.test_bam)
-        metadata = processor.validate_and_open()
+        filtered_refs, filtered_lengths = processor.apply_chromfilter()
 
-        self.assertIsInstance(metadata, BAMMetadata)
-        self.assertEqual(metadata.path, self.test_bam)
-        self.assertTrue(metadata.has_index)
-        self.assertGreater(len(metadata.references), 0)
-        self.assertGreater(len(metadata.filtered_references), 0)
+        self.assertTrue(processor.has_index())
+        self.assertGreater(len(processor.references), 0)
+        self.assertGreater(len(filtered_refs), 0)
+        self.assertEqual(len(filtered_refs), len(filtered_lengths))
 
     def test_bam_validation_with_filter(self):
         """Test BAM validation with chromosome filter."""
         # Test with known chromosome
         processor = BAMFileProcessor(self.test_bam)
         # Use the correct format: List[Tuple[bool, List[str]]]
-        metadata = processor.validate_and_open(chromfilter=[(True, ['chr1', 'chr2'])])
+        filtered_refs, filtered_lengths = processor.apply_chromfilter(chromfilter=[(True, ['chr1', 'chr2'])])
 
-        self.assertEqual(len(metadata.filtered_references), 2)
-        self.assertIn('chr1', metadata.filtered_references)
-        self.assertIn('chr2', metadata.filtered_references)
+        self.assertEqual(len(filtered_refs), 2)
+        self.assertIn('chr1', filtered_refs)
+        self.assertIn('chr2', filtered_refs)
         processor.close()
 
         # Test with non-existent chromosome
         processor2 = BAMFileProcessor(self.test_bam)
         with self.assertRaises(BAMValidationError):
-            processor2.validate_and_open(chromfilter=[(True, ['chrNonExistent'])])
+            processor2.apply_chromfilter(chromfilter=[(True, ['chrNonExistent'])])
 
     def test_bam_validation_error(self):
         """Test BAM validation error handling."""
         with tempfile.NamedTemporaryFile(suffix='.bam') as tmp:
-            processor = BAMFileProcessor(tmp.name)
-            with self.assertRaises(BAMValidationError):
-                processor.validate_and_open()
+            # pysam raises ValueError when opening invalid BAM file
+            with self.assertRaises(ValueError):
+                processor = BAMFileProcessor(tmp.name)
 
     def test_chromosome_size_validation(self):
         """Test chromosome size validation."""
         processor = BAMFileProcessor(self.test_bam)
-        metadata = processor.validate_and_open()
+        filtered_refs, filtered_lengths = processor.apply_chromfilter()
 
         # Test with matching sizes
         external_sizes = {
-            'chr1': metadata.filtered_lengths[0]
+            'chr1': filtered_lengths[0]
         }
         updated = processor.validate_chromosome_sizes(external_sizes)
-        self.assertEqual(updated['chr1'], metadata.filtered_lengths[0])
+        self.assertEqual(updated['chr1'], filtered_lengths[0])
 
         # Test with mismatched sizes
         external_sizes = {
-            'chr1': metadata.filtered_lengths[0] + 1000
+            'chr1': filtered_lengths[0] + 1000
         }
         updated = processor.validate_chromosome_sizes(external_sizes)
-        self.assertEqual(updated['chr1'], metadata.filtered_lengths[0] + 1000)
+        self.assertEqual(updated['chr1'], filtered_lengths[0] + 1000)
 
     def test_multiprocess_compatibility_check(self):
         """Test multiprocess compatibility checking."""
         processor = BAMFileProcessor(self.test_bam)
-        processor.validate_and_open()
+        processor.apply_chromfilter()
 
         # Should pass with index
         self.assertTrue(processor.check_multiprocess_compatibility())
 
-    def test_context_manager(self):
-        """Test BAM processor as context manager."""
-        with BAMFileProcessor(self.test_bam) as processor:
-            metadata = processor.validate_and_open()
-            self.assertIsNotNone(metadata)
 
 
 # Deprecated test class removed - functionality has been integrated into ResultAggregator
@@ -179,7 +172,7 @@ class TestCalcHandler(unittest.TestCase):
                     self.calc_config,
                     self.exec_config
                 )
-            self.assertIn("File has no sequences defined", str(cm.exception))
+            self.assertIn("file does not contain alignment data", str(cm.exception))
 
 
     @patch('pysam.AlignmentFile')

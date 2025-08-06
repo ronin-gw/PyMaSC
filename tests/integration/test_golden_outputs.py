@@ -541,6 +541,7 @@ pytestmark = [
 pytest.mark.parallel = pytest.mark.integration
 
 
+@pytest.mark.xdist_group(name="process_consistency_tests")
 class TestComprehensiveGoldenPatterns:
     """Comprehensive testing of all 12 algorithm/calculation/process patterns."""
 

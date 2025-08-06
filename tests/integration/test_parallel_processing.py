@@ -13,6 +13,7 @@ import csv
 import numpy as np
 
 
+@pytest.mark.xdist_group(name="process_consistency_tests")
 class TestParallelProcessingConsistency:
     """Test that parallel processing produces identical results to single-process mode."""
 

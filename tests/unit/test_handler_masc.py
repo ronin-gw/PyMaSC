@@ -275,8 +275,8 @@ class TestCCCalcHandlerReferenceHandling:
         mock_bam.lengths = []
         mock_alignment_file.return_value = mock_bam
 
-        # Should raise NothingToCalc for empty references (raised by CalcHandler)
-        with pytest.raises(NothingToCalc):
+        # Should raise ValueError for empty references (raised by CalcHandler)
+        with pytest.raises(ValueError, match="File has no sequences defined"):
             create_test_handler(
                 path="mock_path.bam",
                 esttype="ncc",

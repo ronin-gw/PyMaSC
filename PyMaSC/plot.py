@@ -234,9 +234,9 @@ def main() -> None:
             config=StatConfig(
                 read_length=read_len,
                 chi2_pval=args.chi2_pval,
-                mv_avr_filter_len=args.mv_avr_filter_len,
-                filter_mask_len=args.filter_mask_len,
-                min_calc_width=args.min_calc_width,
+                mv_avr_filter_len=args.smooth_window,
+                filter_mask_len=args.mask_size,
+                min_calc_width=args.bg_avr_width,
                 expected_library_length=args.library_length
             ),
             output_warnings=True

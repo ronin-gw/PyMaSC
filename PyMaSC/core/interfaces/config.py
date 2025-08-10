@@ -162,8 +162,7 @@ def mappability_configured(config: PyMaSCConfig) -> TypeGuard[MappabilityConfig]
     """Check if mappability path is set."""
     return (
         config.read_length is not None and
-        config.mappability_path is not None and
-        config.mappability_stats_path is not None
+        config.mappability_path is not None
     )
 
 

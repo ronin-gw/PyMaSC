@@ -168,8 +168,10 @@ def _load_table(path: os.PathLike[str], logfmt: str) -> Dict[str, List[float]]:
     return table
 
 
-load_cc = partial(_load_table, logfmt="Load CC table from '{}'")
-load_masc = partial(_load_table, logfmt="Load MSCC table from '{}'")
+TableLoader = Callable[[os.PathLike[str]], Dict[str, List[float]]]
+
+load_cc: TableLoader = partial(_load_table, logfmt="Load CC table from '{}'")
+load_masc: TableLoader = partial(_load_table, logfmt="Load MSCC table from '{}'")
 
 
 @catch_IOError(logger)
@@ -210,8 +212,10 @@ def _output_cctable(
         tab.write(["whole", ] + keys, ([cc] + [ref2cc[k][i] for k in keys] for i, cc in enumerate(cc)))
 
 
-output_cc = partial(_output_cctable, suffix=CCOUTPUT_SUFFIX, target_attr="ncc")
-output_mscc = partial(_output_cctable, suffix=MSCCOUTPUT_SUFFIX, target_attr="mscc")
+TableOutputFunc = Callable[[os.PathLike[str], GenomeWideStats], None]
+
+output_cc: TableOutputFunc = partial(_output_cctable, suffix=CCOUTPUT_SUFFIX, target_attr="ncc")
+output_mscc: TableOutputFunc = partial(_output_cctable, suffix=MSCCOUTPUT_SUFFIX, target_attr="mscc")
 
 
 class NReadsIO(TableIOBase):

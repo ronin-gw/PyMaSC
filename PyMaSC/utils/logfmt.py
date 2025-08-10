@@ -14,7 +14,6 @@ directed to a terminal or redirected to a file, ensuring compatibility
 across different output scenarios.
 """
 import logging
-import sys
 from typing import Optional, Dict
 
 LOGGING_FORMAT: str = "[%(asctime)s | %(levelname)s] %(name)10s : %(message)s"
@@ -97,6 +96,7 @@ class ColorfulFormatter(logging.Formatter):
     # @classmethod
     # def bleach(cls) -> None:
     #     cls._fmt = cls._monofmt
+    _fmt: str
 
     def __init__(self, fmt: Optional[str] = None, datefmt: Optional[str] = None, colorize: bool = True) -> None:
         super(ColorfulFormatter, self).__init__(fmt=fmt, datefmt=datefmt)
@@ -120,22 +120,15 @@ class ColorfulFormatter(logging.Formatter):
         record.message = record.getMessage()
         if self.usesTime():
             record.asctime = self.formatTime(record, self.datefmt)
-        try:
-            s = self.fill_format(record)
-        except UnicodeDecodeError as e:
-            try:
-                record.name = record.name.decode('utf-8')
-                s = self.fill_format(record)
-            except UnicodeDecodeError:
-                raise e
-        if record.exc_info:
-            if not record.exc_text:
-                record.exc_text = self.formatException(record.exc_info)
+
+        s = self.fill_format(record)
+
+        if record.exc_info and not record.exc_text:
+            record.exc_text = self.formatException(record.exc_info)
+
         if record.exc_text:
             if s[-1:] != "\n":
                 s = s + "\n"
-            try:
-                s = s + record.exc_text
-            except UnicodeError:
-                s = s + record.exc_text.decode(sys.getfilesystemencoding(), 'replace')
+            s = s + record.exc_text
+
         return s

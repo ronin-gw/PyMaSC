@@ -33,8 +33,8 @@ from PyMaSC.utils.output import catch_IOError
 logger = logging.getLogger(__name__)
 
 try:
-    import matplotlib.pyplot as plt
-    from matplotlib.backends.backend_pdf import PdfPages
+    import matplotlib.pyplot as plt  # type: ignore[import-untyped]
+    from matplotlib.backends.backend_pdf import PdfPages  # type: ignore[import-untyped]
 except Exception:
     logger.error("Failed to import matplotlib.")
     import traceback

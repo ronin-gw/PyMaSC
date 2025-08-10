@@ -554,7 +554,9 @@ def make_genome_wide_stat(
         ncc_stats = {}
         for chrom, chromres in result.chroms.items():
             if chrom in mscc_stats:
-                estimated_library_len = mscc_stats[chrom].stats.metrics_at_estimated_length.fragment_length
+                chromstat = mscc_stats[chrom]
+                assert not isinstance(chromstat, EmptyChromosomeStats)
+                estimated_library_len = chromstat.stats.metrics_at_estimated_length.fragment_length
             else:
                 estimated_library_len = None
 

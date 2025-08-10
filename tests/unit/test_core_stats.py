@@ -8,6 +8,8 @@ import unittest
 import numpy as np
 import numpy.testing as npt
 from unittest.mock import Mock
+from dataclasses import dataclass
+from typing import Optional
 
 from PyMaSC.stats import (
     CCQualityMetrics, CCStats, NCCStats, MSCCStats, CCContainer,
@@ -18,6 +20,16 @@ from PyMaSC.result import NCCResult, MSCCResult
 from PyMaSC.interfaces.result import (
     NCCGenomeWideResultModel, MSCCGenomeWideResultModel, BothGenomeWideResultModel
 )
+
+@dataclass
+class MockStatConfig:
+    """Mock StatConfig for testing."""
+    read_length: int
+    chi2_pval: float = 0.0001
+    mv_avr_filter_len: int = 50
+    filter_mask_len: int = 10
+    min_calc_width: int = 10
+    expected_library_length: Optional[int] = None
 
 
 class TestCCQualityMetrics(unittest.TestCase):
@@ -260,51 +272,52 @@ class TestStatisticsFunctions(unittest.TestCase):
         """Set up test fixtures."""
         # Create mock NCCResult
         self.mock_ncc_result = Mock(spec=NCCResult)
-        self.mock_ncc_result.cc = np.array([0.1, 0.2, 0.8, 0.4, 0.1])
+        # Create CC array large enough for expected_library_length=150 (need index 149)
+        cc_data = np.zeros(200)  # Create array with 200 elements to be safe
+        cc_data[35] = 0.8  # Peak at read length position (36)
+        cc_data[149] = 0.6  # Peak at expected library length position (150)
+        # Add some pattern around both peaks
+        cc_data[30:40] = np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.8, 0.6, 0.4, 0.3, 0.2])  # Around read length
+        cc_data[145:155] = np.array([0.2, 0.3, 0.4, 0.5, 0.6, 0.6, 0.5, 0.4, 0.3, 0.2])  # Around expected length
+        self.mock_ncc_result.cc = cc_data
         self.mock_ncc_result.genomelen = 3000000000
         self.mock_ncc_result.forward_sum = 50000
         self.mock_ncc_result.reverse_sum = 48000
 
     def test_make_chromosome_stat_basic(self):
         """Test basic chromosome statistics creation."""
-        try:
-            chrom_stat = make_chromosome_stat(
-                self.mock_ncc_result,
-                read_len=36,
-                output_warnings=False
-            )
-            
-            # Should return a ChromosomeStats object
-            self.assertIsNotNone(chrom_stat)
-            self.assertIsNotNone(chrom_stat.stats)
-            self.assertIsNotNone(chrom_stat.cc)
-            self.assertIsNotNone(chrom_stat.avr_cc)
-            
-        except Exception as e:
-            # If make_chromosome_stat requires specific result model types,
-            # this test may need adjustment
-            self.skipTest(f"make_chromosome_stat requires specific result type: {e}")
+        config = MockStatConfig(read_length=36)
+        
+        chrom_stat = make_chromosome_stat(
+            self.mock_ncc_result,
+            config=config,
+            output_warnings=False
+        )
+        
+        # Should return a ChromosomeStats object
+        self.assertIsNotNone(chrom_stat)
+        self.assertIsNotNone(chrom_stat.stats)
+        self.assertIsNotNone(chrom_stat.cc)
+        self.assertIsNotNone(chrom_stat.avr_cc)
 
     def test_make_chromosome_stat_with_expected_length(self):
         """Test chromosome statistics with expected library length."""
-        try:
-            chrom_stat = make_chromosome_stat(
-                self.mock_ncc_result,
-                read_len=36,
-                expected_library_len=150,
-                output_warnings=False
+        config = MockStatConfig(read_length=36, expected_library_length=150)
+        
+        chrom_stat = make_chromosome_stat(
+            self.mock_ncc_result,
+            config=config,
+            output_warnings=False,
+            estimated_library_len=150
+        )
+        
+        self.assertIsNotNone(chrom_stat)
+        # Should have metrics for expected length
+        if hasattr(chrom_stat.stats, 'metrics_at_expected_length'):
+            self.assertEqual(
+                chrom_stat.stats.metrics_at_expected_length.fragment_length,
+                150
             )
-            
-            self.assertIsNotNone(chrom_stat)
-            # Should have metrics for expected length
-            if hasattr(chrom_stat.stats, 'metrics_at_expected_length'):
-                self.assertEqual(
-                    chrom_stat.stats.metrics_at_expected_length.fragment_length,
-                    150
-                )
-                
-        except Exception as e:
-            self.skipTest(f"make_chromosome_stat test skipped: {e}")
 
 
 class TestAggregationFunctions(unittest.TestCase):

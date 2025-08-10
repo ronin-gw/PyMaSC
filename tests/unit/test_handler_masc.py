@@ -25,6 +25,10 @@ def create_test_handler(path="test.bam", esttype="MEDIAN", max_shift=200, mapq_c
     else:
         est_type = esttype
     
+    # Handle skip_ncc parameter - when skip_ncc=True, target should be MSCC
+    if skip_ncc:
+        target = CalculationTarget.MSCC
+    
     config = PyMaSCConfig(
         target=target,
         implementation=implementation,
@@ -82,10 +86,10 @@ class TestCCCalcHandlerBasics:
             )
 
             assert handler.path == "mock_path.bam"
-            assert handler.config.esttype == "ncc"
+            assert handler.config.esttype == EstimationType.MEDIAN  # "ncc" maps to MEDIAN
             assert handler.config.max_shift == 200
             assert handler.config.mapq_criteria == 20
-            assert handler.execution_config.worker_count == 1  # default
+            assert handler.config.nproc == 1  # default worker count
 
         except Exception as e:
             # May fail due to file validation or other requirements
@@ -111,7 +115,7 @@ class TestCCCalcHandlerBasics:
                 nworker=4
             )
 
-            assert handler.execution_config.worker_count == 4
+            assert handler.config.nproc == 4
 
         except Exception:
             pytest.skip("Handler initialization failed")
@@ -143,7 +147,8 @@ class TestCCCalcHandlerConfiguration:
         mock_bam.lengths = lengths
         mock_alignment_file.return_value = mock_bam
 
-        estimation_types = ["ncc", "mscc", "both"]
+        # Test with actual EstimationType enum values
+        estimation_types = [EstimationType.MEDIAN, EstimationType.MEAN, EstimationType.MODE]
 
         for esttype in estimation_types:
             try:
@@ -232,12 +237,10 @@ class TestCCCalcHandlerReferenceHandling:
                 mapq_criteria=20
             )
 
-            # Should have processed references
-            assert hasattr(handler, 'references')
-            assert hasattr(handler, 'lengths')
-
-            if hasattr(handler, 'references'):
-                assert len(handler.references) > 0
+            # Should have processed references (stored in config)
+            assert len(handler.config.references) > 0
+            assert len(handler.config.lengths) > 0
+            assert len(handler.config.references) == len(handler.config.lengths)
 
         except Exception:
             pytest.skip("Handler requires specific setup")
@@ -357,7 +360,7 @@ class TestCCCalcHandlerWorkerManagement:
                 nworker=1
             )
 
-            assert handler.execution_config.worker_count == 1
+            assert handler.config.nproc == 1
 
         except Exception:
             pytest.skip("Handler requires specific setup")
@@ -382,7 +385,7 @@ class TestCCCalcHandlerWorkerManagement:
                 nworker=4
             )
 
-            assert handler.execution_config.worker_count == 4
+            assert handler.config.nproc == 4
 
         except Exception:
             pytest.skip("Handler requires specific setup")
@@ -405,7 +408,7 @@ class TestCCCalcHandlerWorkerManagement:
                 )
 
                 # If no error, should have corrected to valid value
-                assert handler.execution_config.worker_count >= 1
+                assert handler.config.nproc >= 1
 
             except (ValueError, TypeError):
                 # Expected for invalid worker count

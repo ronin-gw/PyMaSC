@@ -252,51 +252,17 @@ class TestReadLengthIntegration:
             # Just test that function is callable
             assert callable(estimate_readlen)
 
-    @pytest.mark.parametrize("sample_size", [10, 50, 100])
-    def test_readlen_sample_sizes(self, sample_size):
-        """Test read length estimation with different sample sizes."""
-        from PyMaSC.core.readlen import estimate_readlen
-
-        # Create mock reads
-        mock_reads = []
-        for i in range(sample_size):
-            mock_read = Mock()
-            mock_read.query_length = 50
-            mock_read.mapping_quality = 30
-            mock_read.is_unmapped = False
-            mock_read.is_duplicate = False
-            mock_reads.append(mock_read)
-
-        mock_bam = Mock()
-        mock_bam.fetch.return_value = mock_reads
-
-        try:
-            # estimate_readlen expects (path, esttype, mapq_criteria) not a bam object
-            # This test is fundamentally flawed - mock objects can't substitute file paths
-            result = estimate_readlen("mock_path.bam", "MEAN", 20)
-
-            if result is not None:
-                # Larger sample sizes should give more confident estimates
-                assert isinstance(result, (int, float))
-                assert 40 <= result <= 60
-
-        except (FileNotFoundError, OSError):
-            # Expected: mock_path.bam doesn't exist
-            pytest.skip("Function requires actual BAM file path, not mock objects")
-        except Exception as e:
-            # Other unexpected errors
-            if sample_size < 10:
-                pass  # Small sample size might be rejected
-            else:
-                # Larger sample sizes should work
-                pytest.skip(f"Function requires specific parameters or dependencies: {e}")
+# Removed fundamentally flawed test_readlen_sample_sizes method
+    # It was trying to use mock file paths with estimate_readlen which requires real files
+    # The test_readlen_with_real_test_data method already provides adequate coverage
 
     def test_readlen_with_real_test_data(self):
         """Test read length estimation with real test BAM file."""
         import os
         from PyMaSC.core.readlen import estimate_readlen
 
-        test_bam = "/Users/anzawa/github/PyMaSC/tests/data/ENCFF000RMB-test.bam"
+        # Use relative path to test data
+        test_bam = os.path.join(os.path.dirname(__file__), '../data/ENCFF000RMB-test.bam')
 
         if not os.path.exists(test_bam):
             pytest.skip("Test BAM file not available")

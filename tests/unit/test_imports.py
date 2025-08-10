@@ -14,15 +14,15 @@ class TestBasicImports:
         """Test importing core algorithmic modules."""
         # These should work without BitArray dependencies
         import PyMaSC.core.mappability
-        import PyMaSC.core.ncc
-        import PyMaSC.core.mscc
+        import PyMaSC.core.successive.ncc
+        import PyMaSC.core.successive.mscc
         import PyMaSC.core.readlen
 
     def test_import_bitarray_modules(self):
         """Test importing BitArray-dependent modules (critical functionality)."""
         # These were the problematic modules that are now fixed
-        import PyMaSC.bacore.bitarray
-        import PyMaSC.bacore.mscc
+        import PyMaSC.core.bitarray.bitarray
+        import PyMaSC.core.bitarray.mscc
 
     def test_import_reader_modules(self):
         """Test importing reader modules."""
@@ -37,7 +37,7 @@ class TestBasicImports:
         """Test importing business logic handlers."""
         import PyMaSC.handler.calc  # Main calculation handler
         import PyMaSC.handler.mappability
-        import PyMaSC.core.stats  # Statistics module
+        import PyMaSC.stats  # Statistics module
 
     def test_import_entry_points(self):
         """Test importing main entry point modules."""
@@ -72,12 +72,12 @@ class TestCriticalFunctionality:
 
     def test_bitarray_module_accessible(self):
         """Test that BitArray functions can be called."""
-        import PyMaSC.bacore.bitarray as ba
+        import PyMaSC.core.bitarray.bitarray as ba
         # Just test that the module loads and has expected attributes
         # Full functional testing will be in integration tests
         assert hasattr(ba, '__file__')
 
     def test_mscc_module_accessible(self):
         """Test that MSCC (mappability-sensitive cross-correlation) module loads."""
-        import PyMaSC.bacore.mscc as mscc
+        import PyMaSC.core.bitarray.mscc as mscc
         assert hasattr(mscc, '__file__')

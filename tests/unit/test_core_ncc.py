@@ -2,7 +2,7 @@
 
 import pytest
 
-from PyMaSC.core.ncc import NaiveCCCalculator, ReadUnsortedError
+from PyMaSC.core.successive.ncc import NaiveCCCalculator, ReadUnsortedError
 from tests.utils.test_data_generator import (
     create_mock_read_data,
     create_mock_reference_data,

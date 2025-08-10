@@ -9,13 +9,13 @@ import numpy as np
 import numpy.testing as npt
 from unittest.mock import Mock
 
-from PyMaSC.core.stats import (
+from PyMaSC.stats import (
     CCQualityMetrics, CCStats, NCCStats, MSCCStats, CCContainer,
     CorrParams, make_chromosome_stat, aggregate_chromosome_stats,
     make_whole_genome_stat, make_genome_wide_stat
 )
-from PyMaSC.core.result import NCCResult, MSCCResult
-from PyMaSC.core.interfaces.result import (
+from PyMaSC.result import NCCResult, MSCCResult
+from PyMaSC.interfaces.result import (
     NCCGenomeWideResultModel, MSCCGenomeWideResultModel, BothGenomeWideResultModel
 )
 
@@ -312,7 +312,7 @@ class TestAggregationFunctions(unittest.TestCase):
 
     def test_aggregate_chromosome_stats_empty_input(self):
         """Test aggregation with empty input."""
-        from PyMaSC.core.interfaces.config import PyMaSCConfig, CalculationTarget, Algorithm, EstimationType
+        from PyMaSC.interfaces.config import PyMaSCConfig, CalculationTarget, Algorithm, EstimationType
         
         config = PyMaSCConfig(
             target=CalculationTarget.NCC,
@@ -338,7 +338,7 @@ class TestAggregationFunctions(unittest.TestCase):
 
     def test_aggregate_chromosome_stats_invalid_input(self):
         """Test aggregation with invalid input."""
-        from PyMaSC.core.interfaces.config import PyMaSCConfig, CalculationTarget, Algorithm, EstimationType
+        from PyMaSC.interfaces.config import PyMaSCConfig, CalculationTarget, Algorithm, EstimationType
         
         config = PyMaSCConfig(
             target=CalculationTarget.NCC,

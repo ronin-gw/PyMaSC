@@ -8,9 +8,9 @@ cross-correlation calculations using real Golden test data.
 import pytest
 import pysam
 import numpy as np
-from PyMaSC.core.mscc import MSCCCalculator
+from PyMaSC.core.successive.mscc import MSCCCalculator
 from PyMaSC.core.mappability import BWFeederWithMappableRegionSum
-from PyMaSC.core.ncc import ReadUnsortedError
+from PyMaSC.core.successive.ncc import ReadUnsortedError
 
 
 class TestMSCCCalculatorDetailed:
@@ -89,7 +89,7 @@ class TestMSCCCalculatorDetailed:
 
     def test_mscc_vs_ncc_initialization_comparison(self, bwfeeder):
         """Compare MSCC and NCC calculator initialization."""
-        from PyMaSC.core.ncc import NaiveCCCalculator
+        from PyMaSC.core.successive.ncc import NaiveCCCalculator
 
         max_shift = 50
 
@@ -171,7 +171,7 @@ class TestMSCCCalculatorDetailed:
 
     def test_mscc_vs_ncc_comparison(self, golden_reads, bwfeeder):
         """Compare MSCC and NCC results on same data."""
-        from PyMaSC.core.ncc import NaiveCCCalculator
+        from PyMaSC.core.successive.ncc import NaiveCCCalculator
 
         max_shift = 30
         test_reads = golden_reads['all_sorted'][:50]

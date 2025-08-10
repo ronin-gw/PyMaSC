@@ -9,7 +9,7 @@ import numpy as np
 import numpy.testing as npt
 from unittest.mock import Mock
 
-from PyMaSC.core.result import (
+from PyMaSC.result import (
     CorrelationResult, NCCResult, MSCCResult, BothChromResult,
     GenomeWideResult, NCCGenomeWideResult, MSCCGenomeWideResult, BothGenomeWideResult,
     AggregateItems, NCCAggregateItems, MSCCAggregateItems,

@@ -8,7 +8,7 @@ from typing import Any
 from dataclasses import dataclass
 import numpy as np
 
-from PyMaSC.core.interfaces.result import (
+from PyMaSC.interfaces.result import (
     AbstractDataclass, CorrelationResultModel, NCCResultModel, MSCCResultModel,
     BothChromResultModel, NCCGenomeWideResultModel, MSCCGenomeWideResultModel,
     BothGenomeWideResultModel

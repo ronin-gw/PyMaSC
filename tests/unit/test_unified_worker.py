@@ -4,8 +4,8 @@ import unittest
 from unittest.mock import Mock
 from multiprocessing import Queue, Lock
 
-from PyMaSC.core.worker import CalcWorker
-from PyMaSC.core.interfaces.config import (
+from PyMaSC.handler.worker import CalcWorker
+from PyMaSC.interfaces.config import (
     PyMaSCConfig, CalculationTarget, Algorithm, EstimationType
 )
 from pathlib import Path

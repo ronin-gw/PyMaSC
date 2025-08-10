@@ -6,10 +6,10 @@ with direct factory usage.
 """
 import pytest
 
-from PyMaSC.core.interfaces.config import (
+from PyMaSC.interfaces.config import (
     PyMaSCConfig, CalculationTarget, Algorithm, EstimationType
 )
-from PyMaSC.core.factory import create_calculator
+from PyMaSC.handler.factory import create_calculator
 
 
 class TestCalculationTarget:
@@ -95,7 +95,7 @@ class TestCalculatorFactory:
 
     def test_create_calculator_ncc_successive(self):
         """Test calculator creation for NCC with Successive."""
-        from PyMaSC.core.factory import create_calculator
+        from PyMaSC.handler.factory import create_calculator
         
         config = PyMaSCConfig(
             target=CalculationTarget.NCC,
@@ -117,7 +117,7 @@ class TestCalculatorFactory:
 
     def test_create_calculator_mscc_requires_mappability(self):
         """Test that MSCC calculation requires mappability configuration."""
-        from PyMaSC.core.factory import create_calculator
+        from PyMaSC.handler.factory import create_calculator
         
         config = PyMaSCConfig(
             target=CalculationTarget.MSCC,
@@ -213,7 +213,7 @@ class TestCalculatorFactory:
 
         assert calculator is not None
         # Verify it's the correct calculator type
-        from PyMaSC.bacore.mscc import CCBitArrayCalculator
+        from PyMaSC.core.bitarray.mscc import CCBitArrayCalculator
         assert isinstance(calculator, CCBitArrayCalculator)
 
 
@@ -290,5 +290,5 @@ class TestFactoryArchitectureIntegration:
 
         assert calculator is not None
         # Verify no strategy overhead
-        from PyMaSC.core.ncc import NaiveCCCalculator
+        from PyMaSC.core.successive.ncc import NaiveCCCalculator
         assert isinstance(calculator, NaiveCCCalculator)

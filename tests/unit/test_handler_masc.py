@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 
 from tests.utils.test_data_generator import create_mock_reference_data
 from PyMaSC.handler.calc import CalcHandler
-from PyMaSC.core.interfaces.config import PyMaSCConfig, CalculationTarget, Algorithm, EstimationType
+from PyMaSC.interfaces.config import PyMaSCConfig, CalculationTarget, Algorithm, EstimationType
 from PyMaSC.core.exceptions import NothingToCalc
 
 

@@ -8,7 +8,7 @@ calculations using real Golden test data.
 import pytest
 import pysam
 import numpy as np
-from PyMaSC.core.ncc import NaiveCCCalculator, ReadUnsortedError
+from PyMaSC.core.successive.ncc import NaiveCCCalculator, ReadUnsortedError
 
 
 class TestNaiveCCCalculatorDetailed:

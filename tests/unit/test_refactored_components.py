@@ -13,7 +13,7 @@ import numpy as np
 from PyMaSC.reader.bam import BAMFileProcessor, BAMValidationError
 # ResultAggregator functionality has been integrated into the main codebase
 from PyMaSC.handler.calc import CalcHandler
-from PyMaSC.core.interfaces.config import (
+from PyMaSC.interfaces.config import (
     PyMaSCConfig, CalculationTarget, Algorithm, EstimationType
 )
 

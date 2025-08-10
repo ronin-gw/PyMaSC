@@ -11,9 +11,9 @@ from pathlib import Path
 # Import PyMaSC components for testing
 # BigWigFile import removed - using pyBigWig implementation
 import pysam
-from PyMaSC.core.ncc import NaiveCCCalculator
+from PyMaSC.core.successive.ncc import NaiveCCCalculator
 from PyMaSC.handler.calc import CalcHandler
-from PyMaSC.core.interfaces.config import PyMaSCConfig, CalculationTarget, Algorithm, EstimationType
+from PyMaSC.interfaces.config import PyMaSCConfig, CalculationTarget, Algorithm, EstimationType
 
 
 class TestENCODEDataValidation:

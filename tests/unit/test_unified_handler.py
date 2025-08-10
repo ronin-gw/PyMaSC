@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import Mock, patch
 
-from PyMaSC.core.interfaces.config import (
+from PyMaSC.interfaces.config import (
     PyMaSCConfig, CalculationTarget, Algorithm, EstimationType
 )
 from pathlib import Path

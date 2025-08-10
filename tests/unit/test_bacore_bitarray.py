@@ -3,7 +3,7 @@
 import pytest
 
 # Import the BitArray module that we fixed
-import PyMaSC.bacore.bitarray as bitarray_module
+import PyMaSC.core.bitarray.bitarray as bitarray_module
 
 
 class TestBitArrayModuleBasics:
@@ -25,7 +25,7 @@ class TestBitArrayModuleBasics:
         """Test that BitArray module loads from correct location."""
         module_file = bitarray_module.__file__
         assert module_file is not None
-        assert 'PyMaSC/bacore' in module_file
+        assert 'PyMaSC/core/bitarray' in module_file
         assert module_file.endswith('.so')  # Compiled Cython extension
 
 
@@ -91,8 +91,8 @@ class TestBitArraySymbolResolution:
         """Test that multiple imports don't cause symbol issues."""
         # Import multiple times to ensure symbol linking is stable
         for i in range(3):
-            import PyMaSC.bacore.bitarray
-            assert PyMaSC.bacore.bitarray is not None
+            import PyMaSC.core.bitarray.bitarray
+            assert PyMaSC.core.bitarray.bitarray is not None
 
     def test_concurrent_import_safety(self):
         """Test that BitArray import is safe for concurrent access."""
@@ -103,7 +103,7 @@ class TestBitArraySymbolResolution:
 
         def import_bitarray():
             try:
-                import PyMaSC.bacore.bitarray as ba
+                import PyMaSC.core.bitarray.bitarray as ba
                 assert ba is not None
             except Exception as e:
                 errors.append(e)
@@ -136,8 +136,8 @@ class TestBitArrayPerformance:
 
         for i in range(10):
             import importlib
-            import PyMaSC.bacore.bitarray
-            importlib.reload(PyMaSC.bacore.bitarray)
+            import PyMaSC.core.bitarray.bitarray
+            importlib.reload(PyMaSC.core.bitarray.bitarray)
 
         end_time = time.time()
         elapsed = end_time - start_time
@@ -157,7 +157,7 @@ class TestBitArrayPerformance:
             mem_before = process.memory_info().rss
 
             # Import BitArray
-            import PyMaSC.bacore.bitarray
+            import PyMaSC.core.bitarray.bitarray
 
             # Get memory usage after import
             mem_after = process.memory_info().rss
@@ -219,7 +219,7 @@ class TestBitArrayArchitectureCompatibility:
         # If the module imports without symbol errors, the flags worked
 
         try:
-            import PyMaSC.bacore.bitarray
+            import PyMaSC.core.bitarray.bitarray
             # If we get here, the linker flags worked correctly
             assert True
 

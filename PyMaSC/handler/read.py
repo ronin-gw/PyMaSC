@@ -1,16 +1,12 @@
-"""Utilities for read processing and filtering.
+"""Read processing and filtering utilities.
 
-This module provides common read processing functionality used across
-all PyMaSC calculation workers and handlers, eliminating duplicate
-read filtering and processing logic.
+Provides common read processing functionality for PyMaSC calculations.
 
 Key features:
-- Standardized read filtering criteria
-- Common read validation patterns
-- Shared read feeding logic
-- Consistent error handling for read processing
-
-This eliminates 60-75 lines of duplicate code across workers.
+- Read filtering criteria
+- Read validation patterns
+- Read feeding logic
+- Error handling for read processing
 """
 import logging
 from typing import Protocol, runtime_checkable
@@ -34,11 +30,9 @@ class ReadCalculator(Protocol):
 
 
 class ReadFilter:
-    """Standardized read filtering based on PyMaSC criteria.
+    """Read filtering based on PyMaSC criteria.
 
-    Provides consistent read filtering logic used across all workers
-    and calculation modules. Centralizes the quality and type criteria
-    to ensure consistent behavior.
+    Filters reads by quality and type criteria.
 
     Attributes:
         mapq_criteria: Minimum mapping quality threshold
@@ -97,14 +91,22 @@ class ReadFilter:
 
 
 class ReadProcessor:
-    """
+    """Read processor that combines filtering and calculator feeding.
+
+    Standardizes read processing workflow by applying quality filters
+    and feeding valid reads to calculators. Used across all worker
+    implementations to ensure consistent read handling.
     """
 
     calculator: ReadCalculator
     read_filter: ReadFilter
 
     def __init__(self, calculator: ReadCalculator, read_filter: ReadFilter) -> None:
-        """
+        """Initialize read processor with calculator and filter.
+
+        Args:
+            calculator: Calculator to feed reads to
+            read_filter: Filter for read quality criteria
         """
         self.calculator = calculator
         self.read_filter = read_filter

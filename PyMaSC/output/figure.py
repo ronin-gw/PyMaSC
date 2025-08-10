@@ -1,8 +1,8 @@
 """Matplotlib-based plotting functions for PyMaSC visualization.
 
-This module provides comprehensive plotting functionality for PyMaSC analysis results,
-including cross-correlation plots, MSCC plots, and comparison visualizations.
-All plots are generated as multi-page PDF files for easy viewing and publication.
+Provides plotting functionality for PyMaSC analysis results including
+cross-correlation plots, MSCC plots, and comparison visualizations.
+Generates multi-page PDF files for viewing and publication.
 
 Key plot types:
 - Naive cross-correlation plots with quality metrics

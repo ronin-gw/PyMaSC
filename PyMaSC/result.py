@@ -1,3 +1,8 @@
+"""Result data structures and aggregation for cross-correlation calculations.
+
+Provides concrete implementations of result models and functions for
+combining cross-correlation results across chromosomes.
+"""
 from typing import List, Dict, Any, Union, Optional, cast
 from dataclasses import dataclass, field, asdict
 from abc import ABC, abstractmethod
@@ -21,11 +26,17 @@ from PyMaSC.utils.calc import npcalc_with_logging_warn
 
 @dataclass
 class CorrelationResult(CorrelationResultModel):
+    """Base class for cross-correlation calculation results.
+
+    Provides common functionality for calculating normalized cross-correlation
+    from read count data using binomial variance model.
+    """
     ccbins: Union[List[float], npt.NDArray[np.int64]]
     cc: npt.NDArray[np.float64] = field(init=False)
 
     @abstractmethod
     def calc_cc(self) -> None:
+        """Calculate cross-correlation values from count data."""
         pass
 
     @staticmethod
@@ -56,12 +67,18 @@ class CorrelationResult(CorrelationResultModel):
 
 @dataclass
 class NCCResult(NCCResultModel, CorrelationResult):
+    """Naive Cross-Correlation (NCC) analysis result implementation.
+
+    Contains NCC calculation results with integer read counts and
+    standard cross-correlation computation.
+    """
     forward_read_len_sum: int
     reverse_read_len_sum: int
     ccbins: Union[List[float], npt.NDArray[np.int64]]
     cc: npt.NDArray[np.float64] = field(init=False)
 
     def calc_cc(self) -> None:
+        """Calculate NCC values using genome length denominator."""
         denom = self.genomelen - np.array(range(self.max_shift + 1), dtype=np.float64)
         self.cc = self._calc_cc(
             float(self.forward_sum),
@@ -74,12 +91,18 @@ class NCCResult(NCCResultModel, CorrelationResult):
 
 @dataclass
 class MSCCResult(MSCCResultModel, CorrelationResult):
+    """Mappability-Sensitive Cross-Correlation (MSCC) analysis result implementation.
+
+    Contains MSCC calculation results with mappability-corrected denominators
+    for regions with variable mappability.
+    """
     forward_read_len_sum: Optional[int]
     reverse_read_len_sum: Optional[int]
     ccbins: Union[List[float], npt.NDArray[np.int64]]
     cc: npt.NDArray[np.float64] = field(init=False)
 
     def calc_cc(self) -> None:
+        """Calculate MSCC values using mappable length denominators."""
         assert self.mappable_len is not None, "mappable_len must be set before calculating CC."
         totlen = np.array(self.mappable_len, dtype=np.float64)
         totlen = np.concatenate((
@@ -104,10 +127,11 @@ class BothChromResult(BothChromResultModel):
 
 
 class EmptyResult(ChromResult, ABC):
-    """Base class for empty results.
+    """Base class for empty chromosome results.
 
-    This is used to create empty results for chromosomes with no data,
-    ensuring consistent genome length handling in parallel processing.
+    Used to create results for chromosomes with no reads, ensuring
+    consistent genome length totals between single-process and
+    parallel processing modes.
     """
 
     @classmethod
@@ -212,7 +236,7 @@ class EmptyBothChromResult(EmptyResult, BothChromResult):
     """
 
     @classmethod
-    def create_empty(cls, genome_length: int, max_shift: int, read_len: int) -> 'EmptyBothChromResult':
+    def create_empty(cls, genome_length: int, max_shift: int, read_len: int) -> Self:
         """Create an empty Both result for a chromosome with no data.
 
         Args:
@@ -235,12 +259,21 @@ class EmptyBothChromResult(EmptyResult, BothChromResult):
 
 @dataclass
 class GenomeWideResult(GenomeWideResultModel):
+    """Base class for genome-wide analysis result implementations.
+
+    Contains common fields for genome-wide aggregated results.
+    """
     forward_read_len_sum: int
     reverse_read_len_sum: int
 
 
 @dataclass
 class NCCGenomeWideResult(NCCGenomeWideResultModel, GenomeWideResult):
+    """Genome-wide NCC analysis result implementation.
+
+    Contains aggregated NCC results from all chromosomes with
+    total read counts and per-chromosome result dictionary.
+    """
     forward_sum: int
     reverse_sum: int
     chroms: Dict[str, NCCResult]
@@ -248,11 +281,20 @@ class NCCGenomeWideResult(NCCGenomeWideResultModel, GenomeWideResult):
 
 @dataclass
 class MSCCGenomeWideResult(MSCCGenomeWideResultModel, GenomeWideResult):
+    """Genome-wide MSCC analysis result implementation.
+
+    Contains aggregated MSCC results from all chromosomes with
+    per-chromosome result dictionary.
+    """
     chroms: Dict[str, MSCCResult]
 
 
 @dataclass
 class BothGenomeWideResult(BothGenomeWideResultModel, GenomeWideResult):
+    """Combined genome-wide NCC and MSCC analysis result implementation.
+
+    Extends NCC genome-wide results with additional MSCC chromosome data.
+    """
     mappable_chroms: Dict[str, MSCCResult]
 
 
@@ -316,6 +358,10 @@ def aggregate_results(results: Dict[str, ChromResult]) -> GenomeWideResult:
 
 @dataclass
 class AggregateItems:
+    """Base class for aggregating chromosome results into genome-wide totals.
+
+    Contains common fields for accumulating statistics across chromosomes.
+    """
     genomelen: int = 0
     forward_read_len_sum: int = 0
     reverse_read_len_sum: int = 0
@@ -327,6 +373,11 @@ class AggregateItems:
 
 @dataclass
 class NCCAggregateItems(AggregateItems):
+    """Aggregation container for NCC results.
+
+    Accumulates integer read counts from NCC chromosome results
+    for genome-wide NCC statistics.
+    """
     forward_sum: int = 0
     reverse_sum: int = 0
 
@@ -341,6 +392,14 @@ class NCCAggregateItems(AggregateItems):
 
 
 def _aggregate_ncc_results(results: Dict[str, NCCResult]) -> NCCGenomeWideResult:
+    """Aggregate NCC results from all chromosomes.
+
+    Args:
+        results: Dictionary mapping chromosome names to NCC results
+
+    Returns:
+        NCCGenomeWideResult containing aggregated statistics
+    """
     total = NCCAggregateItems()
 
     for res in results.values():
@@ -351,6 +410,11 @@ def _aggregate_ncc_results(results: Dict[str, NCCResult]) -> NCCGenomeWideResult
 
 @dataclass
 class MSCCAggregateItems(AggregateItems):
+    """Aggregation container for MSCC results.
+
+    Accumulates read length statistics from MSCC chromosome results
+    for genome-wide MSCC statistics.
+    """
     def __add__(self, other: MSCCResult) -> "MSCCAggregateItems":
         assert other.forward_read_len_sum is not None
         assert other.reverse_read_len_sum is not None
@@ -362,6 +426,14 @@ class MSCCAggregateItems(AggregateItems):
 
 
 def _aggregate_mscc_results(results: Dict[str, MSCCResult]) -> MSCCGenomeWideResult:
+    """Aggregate MSCC results from all chromosomes.
+
+    Args:
+        results: Dictionary mapping chromosome names to MSCC results
+
+    Returns:
+        MSCCGenomeWideResult containing aggregated statistics
+    """
     total = MSCCAggregateItems()
 
     for res in results.values():
@@ -371,6 +443,14 @@ def _aggregate_mscc_results(results: Dict[str, MSCCResult]) -> MSCCGenomeWideRes
 
 
 def _aggregate_both_results(results: Dict[str, BothChromResult]) -> BothGenomeWideResult:
+    """Aggregate combined NCC and MSCC results from all chromosomes.
+
+    Args:
+        results: Dictionary mapping chromosome names to BothChromResult objects
+
+    Returns:
+        BothGenomeWideResult containing aggregated NCC and MSCC statistics
+    """
     ncc = _aggregate_ncc_results({chrom: res.chrom for chrom, res in results.items()})
     mscc = _aggregate_mscc_results({chrom: res.mappable_chrom for chrom, res in results.items()})
     return BothGenomeWideResult(

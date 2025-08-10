@@ -1,19 +1,13 @@
-"""Command-line argument parsing utilities for all PyMaSC entry points.
+"""Command-line argument parsing utilities for PyMaSC entry points.
 
-This module provides comprehensive argument parsing functionality for PyMaSC's
-three main command-line utilities: pymasc, pymasc-plot, and pymasc-precalc.
-It defines reusable argument groups and custom argparse actions for consistent
-command-line interfaces across all PyMaSC tools.
+Provides argument parsing for PyMaSC's command-line utilities:
+pymasc, pymasc-plot, and pymasc-precalc.
 
 Key functionality:
 - Common argument groups shared across utilities
 - Custom argparse actions for validation and type conversion
-- Parser factories for each PyMaSC command-line tool
+- Parser factories for each command-line tool
 - Input validation and error handling
-- Consistent help text and option naming
-
-The module ensures that all PyMaSC tools have consistent command-line interfaces
-with proper validation and helpful error messages.
 """
 import argparse
 import logging

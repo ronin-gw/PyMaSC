@@ -1,3 +1,8 @@
+"""Calculation utilities for PyMaSC analysis.
+
+Provides common calculation functions including filtering, smoothing,
+and multiprocessing utilities for cross-correlation analysis.
+"""
 import fnmatch
 from itertools import groupby, chain
 import logging

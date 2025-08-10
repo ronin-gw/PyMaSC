@@ -83,11 +83,9 @@ def main() -> None:
     args = _parse_args()
     config = PyMaSCConfig.from_args(args)
 
-    #
     if sys.stderr.isatty() and not args.disable_progress:
         ProgressBase.global_switch = True
 
-    #
     suffixes: List[str] = list(EXPECT_OUTFILE_SUFFIXES)
     if args.mappability:
         if args.skip_ncc:
@@ -98,7 +96,6 @@ def main() -> None:
         suffixes.remove(PLOTFILE_SUFFIX)
     basenames = prepare_output(args.reads, args.name, args.outdir, tuple(suffixes))
 
-    #
     calc_handlers: List[CalcHandler] = []
     for f in args.reads:
         try:
@@ -135,8 +132,8 @@ def main() -> None:
     config = cast(PyMaSCConfig, config)
 
     #
-    logger.info("Calculate cross-correlation between 0 to {} base shift"
-                "with reads MAOQ >= {}".format(args.max_shift, args.mapq))
+    logger.info("Calculate cross-correlation between 0 to {} base shift "
+                "with reads MAPQ >= {}".format(args.max_shift, args.mapq))
     for handler, output_basename in zip(calc_handlers, basenames):
         result = run_calculation(config, handler, output_basename)
         output_results(args, output_basename, result)

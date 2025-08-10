@@ -5,11 +5,9 @@ from os import PathLike
 
 
 class BigWigFileIterator:
-    """Iterator for BigWig intervals with original API compatibility.
+    """Iterator for BigWig intervals.
 
-    Provides iteration over BigWig intervals while maintaining compatibility
-    with the original BigWigFile API. The iterator yields interval structures
-    containing genomic coordinates and associated values.
+    Yields interval tuples containing genomic coordinates and values.
     """
 
     def __init__(self, intervals: Optional[List[Tuple[int, int, float]]]) -> None:
@@ -41,11 +39,9 @@ class BigWigFileIterator:
 
 
 class BigWigReader:
-    """pyBigWig-based BigWig file reader with original API compatibility.
+    """BigWig file reader for mappability data.
 
-    Provides efficient access to BigWig files containing mappability data
-    for MSCC calculations. The class wraps pyBigWig functionality while
-    maintaining compatibility with the original bx-python-based API.
+    Reads BigWig files containing mappability data for MSCC calculations.
 
     Attributes:
         path: Path to the BigWig file
@@ -61,9 +57,6 @@ class BigWigReader:
     def __init__(self, path: Union[str, PathLike[str]]) -> None:
         """Initialize BigWig reader.
 
-        Opens the BigWig file and extracts chromosome size information
-        for efficient data access during MSCC calculations.
-
         Args:
             path: Path to BigWig file to read
 
@@ -74,11 +67,7 @@ class BigWigReader:
         ...
 
     def fetch(self, valfilter: float, chrom: str) -> BigWigFileIterator:
-        """Fetch intervals from BigWig file for specified chromosome.
-
-        Retrieves all intervals from the specified chromosome that meet
-        the value filter criteria. Returns an iterator for efficient
-        processing of large datasets.
+        """Fetch intervals from specified chromosome.
 
         Args:
             valfilter: Minimum value threshold for intervals
@@ -96,17 +85,9 @@ class BigWigReader:
         ...
 
     def disable_progress_bar(self) -> None:
-        """Disable progress bar for compatibility with MSCC calculations.
-
-        This method provides compatibility with the original bx-python API
-        but has no actual effect since pyBigWig doesn't have progress bars.
-        """
+        """Disable progress bar (compatibility method)."""
         ...
 
     def close(self) -> None:
-        """Close the BigWig file and release resources.
-
-        Closes the underlying pyBigWig file object and marks the
-        reader as closed to prevent further operations.
-        """
+        """Close the BigWig file."""
         ...

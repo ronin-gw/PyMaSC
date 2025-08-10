@@ -1,17 +1,13 @@
 """File output utilities with error handling.
 
-This module provides utility functions for file and directory operations
-with comprehensive error handling and logging. It includes decorators for
-I/O error handling and directory preparation utilities.
+Provides utility functions for file and directory operations
+with error handling and logging.
 
 Key functionality:
-- catch_IOError(): Decorator for consistent I/O error handling
+- catch_IOError(): Decorator for I/O error handling
 - prepare_outdir(): Output directory creation and validation
-- Comprehensive logging of file operation errors
+- Logging of file operation errors
 - Permission checking and directory creation
-
-These utilities ensure robust file operations across all PyMaSC output
-functionality with consistent error reporting and recovery.
 """
 import os
 from functools import wraps

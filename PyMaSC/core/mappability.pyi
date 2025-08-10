@@ -1,17 +1,12 @@
 """Type stubs for mappability module.
 
-This module provides Cython-optimized implementations for calculating
-mappability statistics from BigWig files. Mappability data is essential
-for MSCC calculations to correct for genomic regions with variable
-mappability that can confound cross-correlation analysis.
+Calculates mappability statistics from BigWig files for MSCC analysis.
+Handles genomic regions with variable mappability that affect cross-correlation.
 
 Key components:
-- MappableLengthCalculator: Core mappability calculation engine
-- BWFeederWithMappableRegionSum: Specialized feeder for on-demand calculation
-- ContinueCalculation: Exception for flow control in generators
-
-The module efficiently processes BigWig mappability data and calculates
-shift-dependent mappability statistics required for MSCC analysis.
+- MappableLengthCalculator: Mappability statistics calculator
+- BWFeederWithMappableRegionSum: On-demand calculation feeder
+- ContinueCalculation: Flow control exception
 """
 from typing import Dict, List, Optional, Tuple, Generator
 from multiprocessing.synchronize import Lock
@@ -21,26 +16,20 @@ from PyMaSC.utils.progress import ProgressHook
 
 
 class ContinueCalculation(Exception):
-    """Exception for flow control in mappability calculation generators.
+    """Flow control exception for mappability generators.
 
-    Used to signal that a generator should stop yielding data points
-    but continue internal calculation processes. This allows for
-    flexible control flow in mappability data processing.
+    Signals generator to stop yielding while continuing calculation.
     """
     pass
 
 
 class MappableLengthCalculator(BigWigReader):
-    """Core mappability calculation engine for BigWig data.
+    """Mappability statistics calculator for BigWig data.
 
-    Calculates mappability statistics from BigWig files for use in
-    MSCC cross-correlation analysis. Processes mappability data
-    efficiently using Cython optimization and maintains statistics
-    for different shift distances.
-
-    The calculator processes BigWig intervals and computes cumulative
-    mappability statistics required for correcting cross-correlation
-    analysis in regions with variable mappability.
+    Calculates mappability statistics from BigWig files for MSCC analysis.
+    Processes BigWig intervals and computes cumulative statistics
+    for different shift distances to correct cross-correlation
+    in regions with variable mappability.
 
     Attributes:
         MAPPABILITY_THRESHOLD: Minimum mappability value to consider

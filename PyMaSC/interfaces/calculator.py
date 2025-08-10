@@ -1,8 +1,11 @@
+"""Abstract interfaces for cross-correlation calculators.
+
+Defines the calculator protocol hierarchy for NCC, MSCC, and composite calculations.
+"""
 from abc import ABC, abstractmethod
 from typing import Optional
 from multiprocessing.synchronize import Lock
 
-# Calculators use result models that support cc calculation from ccbins.
 from ..result import (
     ChromResult, NCCResult, MSCCResult,
     GenomeWideResult, NCCGenomeWideResult, MSCCGenomeWideResult
@@ -10,11 +13,7 @@ from ..result import (
 
 
 class CrossCorrelationCalculator(ABC):
-    """Abstract base class for all cross-correlation calculators.
-
-    This interface defines the common contract that all correlation calculation
-    implementations must follow, enabling polymorphic usage across different
-    algorithms (NCC, MSCC, BitArray, etc.).
+    """Base interface for cross-correlation calculators.
 
     All implementations must provide methods for:
     - Processing forward and reverse strand reads
@@ -59,14 +58,15 @@ class CrossCorrelationCalculator(ABC):
 
     @abstractmethod
     def flush(self, chrom: Optional[str] = None) -> None:
-        """Flush any intermediate calculation results.
+        """Flush intermediate results.
 
-        Used in multiprocessing scenarios to ensure results are available
+        Used in multiprocessing to ensure results are available
         for collection before worker process termination.
 
-        If `chrom` is provided, flush results for that specific chromosome;
-        especially in multiprocessing, this argument is used to ensure that
-        result is available for the chromosome that has no reads processed.
+        Args:
+            chrom: Specific chromosome to flush (None for all).
+                  In multiprocessing, ensures result availability
+                  for chromosomes with no reads processed.
         """
         pass
 
@@ -80,33 +80,45 @@ class CrossCorrelationCalculator(ABC):
 
 
 class NCCCalculatorModel(CrossCorrelationCalculator):
+    """Calculator interface for Naive Cross-Correlation (NCC) analysis."""
+
     @abstractmethod
     def get_result(self, chrom: str) -> NCCResult:
+        """Get NCC results for a specific chromosome."""
         pass
 
     @abstractmethod
     def get_whole_result(self) -> NCCGenomeWideResult:
+        """Get genome-wide NCC results."""
         pass
 
 
 class MSCCCalculatorModel(CrossCorrelationCalculator):
+    """Calculator interface for Mappability-Sensitive Cross-Correlation (MSCC) analysis."""
+
     @abstractmethod
     def get_result(self, chrom: str) -> MSCCResult:
+        """Get MSCC results for a specific chromosome."""
         pass
 
     @abstractmethod
     def get_whole_result(self) -> MSCCGenomeWideResult:
+        """Get genome-wide MSCC results."""
         pass
 
 
 class BothCalculatorModel(CrossCorrelationCalculator):
+    """Calculator interface for combined NCC and MSCC analysis."""
+
     read_len: int
     skip_ncc: bool
 
     @abstractmethod
     def get_result(self, chrom: str) -> ChromResult:
+        """Get combined results for a specific chromosome."""
         pass
 
     @abstractmethod
     def get_whole_result(self) -> GenomeWideResult:
+        """Get genome-wide combined results."""
         pass

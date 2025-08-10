@@ -126,7 +126,7 @@ cdef class BigWigReader(object):
         """
         # Convert Path objects to string for Cython compatibility
         path_str = str(path)
-        
+
         if not os.path.exists(path_str) and path_str != '-':
             raise IOError("input file '{0}' dose not exist.".format(path_str))
 

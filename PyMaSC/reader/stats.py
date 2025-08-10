@@ -1,3 +1,7 @@
+"""Statistics file reading utilities.
+
+Reads and parses PyMaSC statistics files containing analysis results.
+"""
 import logging
 from typing import Dict, Union, Literal
 from pathlib import Path

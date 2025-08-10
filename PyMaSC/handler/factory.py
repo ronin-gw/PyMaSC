@@ -1,14 +1,12 @@
 """Factory pattern implementations for PyMaSC calculators and workers.
 
-This module provides factory classes that encapsulate the creation logic
-for various calculator and worker implementations. The factories handle
-the complexity of different constructor signatures and dependencies,
-providing a unified interface for object creation.
+Provides factory functions for creating calculator and worker instances
+with appropriate configurations.
 
-Key factories:
-- CalculatorFactory: Creates cross-correlation calculator instances
-- WorkerFactory: Creates worker instances for multiprocessing
-- CalculatorAdapter: Adapts existing calculators to new interface
+Key components:
+- CompositeCalculator: Combines NCC and MSCC calculations
+- create_calculator: Factory function for calculator creation
+- create_worker: Factory function for worker creation
 """
 import logging
 from typing import Optional, Any, Tuple, cast
@@ -37,8 +35,7 @@ logger = logging.getLogger(__name__)
 class CompositeCalculator(BothCalculatorModel):
     """Composite calculator that runs both NCC and MSCC calculations.
 
-    This calculator is used when SUCCESSIVE algorithm is combined with
-    mappability data, matching the behavior of the original implementation.
+    Used when SUCCESSIVE algorithm is combined with mappability data.
     """
 
     _ncc_calculator: NCCCalculatorModel
@@ -75,12 +72,25 @@ class CompositeCalculator(BothCalculatorModel):
         self._mscc_calculator.flush(chrom)
 
     def get_result(self, chrom: str) -> BothChromResult:
+        """Get combined results for a specific chromosome.
+
+        Args:
+            chrom: Chromosome name
+
+        Returns:
+            BothChromResult containing both NCC and MSCC results
+        """
         return BothChromResult(
             chrom=self._ncc_calculator.get_result(chrom),
             mappable_chrom=self._mscc_calculator.get_result(chrom)
         )
 
     def get_whole_result(self) -> BothGenomeWideResult:
+        """Get combined genome-wide results from both calculators.
+
+        Returns:
+            BothGenomeWideResult containing aggregated NCC and MSCC data
+        """
         nccresult = self._ncc_calculator.get_whole_result()
         msccresult = self._mscc_calculator.get_whole_result()
 
@@ -100,7 +110,18 @@ def create_calculator(
     logger_lock: Optional[Lock] = None,
     progress_hook: Optional[Any] = None
 ) -> Tuple[CrossCorrelationCalculator, Optional[BigWigReader]]:
-    """
+    """Create a cross-correlation calculator based on configuration.
+
+    Args:
+        config: PyMaSC configuration containing implementation and target settings
+        logger_lock: Optional lock for thread-safe logging
+        progress_hook: Optional progress reporting hook for BITARRAY implementation
+
+    Returns:
+        Tuple of (calculator instance, optional BigWig reader)
+
+    Raises:
+        ValueError: If unsupported implementation type is specified
     """
     # Create calculator based on implementation and target
     if config.implementation is Algorithm.SUCCESSIVE:
@@ -119,7 +140,18 @@ def _create_successive_calculator(
     config: PyMaSCConfig,
     logger_lock: Optional[Lock]
 ) -> Tuple[CrossCorrelationCalculator, Optional[BigWigReader]]:
-    """Create calculator using SUCCESSIVE algorithm."""
+    """Create calculator using SUCCESSIVE algorithm.
+
+    Args:
+        config: Configuration for calculator setup
+        logger_lock: Optional lock for thread-safe logging
+
+    Returns:
+        Tuple of (SUCCESSIVE calculator, optional BigWig reader)
+
+    Raises:
+        ValueError: If unsupported calculation target is specified
+    """
     if config.target is CalculationTarget.NCC:
         # Create NCC calculator
         return NaiveCCCalculator(
@@ -156,7 +188,18 @@ def _create_mscc_calculator(
     config: PyMaSCConfig,
     logger_lock: Optional[Lock]
 ) -> Tuple[MSCCCalculator, BWFeederWithMappableRegionSum]:
-    """Create pure MSCC calculator."""
+    """Create pure MSCC calculator with mappability correction.
+
+    Args:
+        config: Configuration with mappability_path and read_length set
+        logger_lock: Optional lock for thread-safe logging
+
+    Returns:
+        Tuple of (MSCC calculator, BigWig feeder for mappability data)
+
+    Raises:
+        AssertionError: If required mappability configuration is missing
+    """
 
     assert config.mappability_path is not None, "Mappability path must be set for MSCC calculation"
     assert config.read_length is not None, "Read length must be set for MSCC calculation"
@@ -183,7 +226,16 @@ def _create_bitarray_calculator(
     logger_lock: Optional[Lock],
     progress_hook: Optional[Any]
 ) -> Tuple[CrossCorrelationCalculator, Optional[BigWigReader]]:
-    """Create calculator using BITARRAY algorithm."""
+    """Create calculator using BITARRAY algorithm.
+
+    Args:
+        config: Configuration for calculator setup
+        logger_lock: Optional lock for thread-safe logging
+        progress_hook: Optional progress reporting hook
+
+    Returns:
+        Tuple of (BITARRAY calculator, optional BigWig reader)
+    """
 
     bwfeeder = None
     if mappability_configured(config):

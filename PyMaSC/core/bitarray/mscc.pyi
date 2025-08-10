@@ -9,19 +9,14 @@ from PyMaSC.reader.bigwig import BigWigReader
 
 
 class CCBitArrayCalculator(BothCalculatorModel):
-    """High-performance MSCC calculator using bit array operations.
+    """MSCC calculator using bit array operations.
 
-    Implements mappability-sensitive cross-correlation calculation using
-    optimized bit array operations for maximum performance. Capable of
-    computing both naive cross-correlation (NCC) and MSCC statistics
-    simultaneously while efficiently managing memory usage.
+    Computes both NCC and MSCC statistics simultaneously.
     """
 
-    # Public constants
     MAPPABILITY_THRESHOLD: float
     EXTRA_ALLOCATE_SIZE: int
 
-    # Public readonly attributes
     max_shift: int
     read_len: int
     skip_ncc: bool
@@ -38,11 +33,7 @@ class CCBitArrayCalculator(BothCalculatorModel):
         logger_lock: Optional[Lock] = None,
         progress_bar: Optional[Any] = None
     ) -> None:
-        """Initialize MSCC calculator with specified parameters.
-
-        Sets up the calculator for processing sequencing data with optional
-        mappability correction. Initializes bit arrays and statistics
-        containers for efficient cross-correlation computation.
+        """Initialize MSCC calculator.
 
         Args:
             max_shift: Maximum shift distance for cross-correlation

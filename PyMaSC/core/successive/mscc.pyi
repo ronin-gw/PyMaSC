@@ -10,9 +10,8 @@ from PyMaSC.reader.bigwig import BigWigReader
 
 
 class MSCCCalculator(MSCCCalculatorModel):
-    """Cython implementation of Mappability-Sensitive Cross-Correlation."""
+    """Mappability-Sensitive Cross-Correlation calculator."""
 
-    # Public readonly attributes
     max_shift: int
     read_len: int
     logger_lock: Optional[Lock]

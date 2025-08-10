@@ -1,9 +1,7 @@
-"""Unified calculation handler using factory pattern.
+"""Calculation handler using factory pattern.
 
-This module provides a handler that replaces both CCCalcHandler
-and BACalcHandler by directly using the factory pattern for calculator creation.
-This eliminates unnecessary abstraction layers while maintaining a single,
-consistent interface.
+Provides the main handler for cross-correlation calculations using
+factory-based calculator creation.
 """
 from __future__ import annotations
 
@@ -28,11 +26,14 @@ logger = logging.getLogger(__name__)
 
 
 class CalcHandler:
-    """
-    """
+    """Main calculation handler for cross-correlation analysis."""
 
     def __init__(self, path: os.PathLike[str], config: PyMaSCConfig) -> None:
-        """
+        """Initialize calculation handler.
+
+        Args:
+            path: Path to BAM file
+            config: Configuration for calculation parameters
         """
         self.path = str(path)
         self.config = config
@@ -90,7 +91,7 @@ class CalcHandler:
         )
 
         if read_len > self.config.max_shift:
-            logger.error(f"Read length ({self.read_len}) seems to be longer than "
+            logger.error(f"Read length ({read_len}) seems to be longer than "
                          f"shift size ({self.config.max_shift}).")
             raise ValueError
 

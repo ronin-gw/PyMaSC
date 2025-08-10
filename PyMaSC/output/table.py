@@ -1,9 +1,8 @@
 """Tab-delimited table I/O for cross-correlation and read count data.
 
-This module provides comprehensive I/O functionality for PyMaSC data tables,
-including cross-correlation tables, MSCC tables, and read count tables.
-All tables use tab-delimited format with standardized column structures
-for easy integration with external analysis tools.
+Provides I/O functionality for PyMaSC data tables including cross-correlation,
+MSCC, and read count tables. Uses tab-delimited format with standardized
+column structures for integration with external analysis tools.
 
 Key components:
 - TableIO: Generic tab-delimited table I/O handler
@@ -11,8 +10,8 @@ Key components:
 - Table loading functions for cross-correlation and MSCC data
 - Table output functions for all result types
 
-The module handles both reading and writing of tables with proper error
-handling and logging for debugging and validation.
+Handles both reading and writing of tables with error handling
+and logging for debugging and validation.
 """
 from __future__ import annotations
 

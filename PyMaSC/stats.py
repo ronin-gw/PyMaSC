@@ -1,3 +1,8 @@
+"""Statistics calculation and quality metrics for cross-correlation analysis.
+
+Provides calculation of quality metrics, fragment length estimation,
+and statistical analysis for NCC and MSCC results.
+"""
 import logging
 from dataclasses import dataclass, field
 from typing import Union, Optional, Type, Dict, List, Tuple, TypeVar, Protocol, Generic, overload, cast
@@ -33,6 +38,10 @@ NEAR_ZERO_MIN_CALC_LEN = 10
 
 @dataclass
 class CCQualityMetrics(CCQualityMetricsModel):
+    """Quality metrics for cross-correlation analysis with calculation methods.
+
+    Concrete implementation that adds calculation logic to the base model.
+    """
     fragment_length: Optional[int] = None
     ccfl: Optional[float] = None
     fwhm: Optional[int] = None
@@ -43,6 +52,11 @@ class CCQualityMetrics(CCQualityMetricsModel):
     vsn: Optional[float] = None
 
     def calc_metrics(self, stats: 'CCStats') -> None:
+        """Calculate NSC, RSC, and VSN quality metrics from statistics.
+
+        Args:
+            stats: CCStats object containing required values for calculation
+        """
         if self.fragment_length is None:
             return
         else:
@@ -60,8 +74,8 @@ class EmptyChromosomeStats:
     This class is used to explicitly mark chromosomes that had no reads
     but need to be tracked for genome length consistency in parallel processing.
     """
-    genomelen_repr: int  # Representative genome length for this chromosome
-
+    # Representative genome length for this chromosome
+    genomelen_repr: int
     # These attributes maintain interface compatibility with ChromosomeStats
     stats: None = None
     cc: None = None
@@ -72,6 +86,11 @@ class EmptyChromosomeStats:
 
 @dataclass
 class CCStats(CCStatsModel[TCount]):
+    """Cross-correlation statistics with quality metrics calculation.
+
+    Base implementation of CCStatsModel that automatically computes
+    quality metrics after initialization.
+    """
     read_len: int
     cc_min: float
     ccrl: float
@@ -88,36 +107,49 @@ class CCStats(CCStatsModel[TCount]):
 
 @dataclass
 class NCCStats(CCStats[int]):
+    """Naive Cross-Correlation statistics with integer read counts."""
     @property
     def genomelen_repr(self) -> int:
+        """Representative genome length value (returns scalar value)."""
         return self.genomelen
 
     @property
     def forward_reads_repr(self) -> int:
+        """Representative forward read count (returns scalar value)."""
         return self.forward_reads
 
     @property
     def reverse_reads_repr(self) -> int:
+        """Representative reverse read count (returns scalar value)."""
         return self.reverse_reads
 
 
 @dataclass
 class MSCCStats(CCStats[npt.NDArray[np.int64]]):
+    """Mappability-Sensitive Cross-Correlation statistics with array data."""
     @property
     def genomelen_repr(self) -> int:
+        """Representative genome length value (returns value at read length position)."""
         return int(self.genomelen[self.read_len - 1])
 
     @property
     def forward_reads_repr(self) -> int:
+        """Representative forward read count (returns value at read length position)."""
         return int(self.forward_reads[self.read_len - 1])
 
     @property
     def reverse_reads_repr(self) -> int:
+        """Representative reverse read count (returns value at read length position)."""
         return int(self.reverse_reads[self.read_len - 1])
 
 
 @dataclass
 class CCContainer:
+    """Container for cross-correlation processing and analysis.
+
+    Manages correlation data and provides methods for smoothing,
+    background estimation, and fragment length estimation.
+    """
     cc: npt.NDArray[np.float64]
     output_warnings: bool
     window_size: int
@@ -136,6 +168,7 @@ class CCContainer:
         self.estimate_fragment_length()
 
     def calc_avr_cc(self) -> None:
+        """Apply moving average filter to smooth cross-correlation values."""
         self.avr_cc = moving_avr_filter(self.cc, self.window_size)
 
     def calc_cc_min(self) -> None:
@@ -257,6 +290,11 @@ TStats = TypeVar('TStats', NCCStats, MSCCStats)
 
 @dataclass
 class CorrParams(CorrLike):
+    """Parameter container for correlation statistics.
+
+    Used to pass correlation data and read statistics to
+    statistics calculation functions.
+    """
     cc: npt.NDArray[np.float64]
     genomelen: Union[int, npt.NDArray[np.int64]]
     forward_sum: Union[int, npt.NDArray[np.int64]]
@@ -300,6 +338,18 @@ def _prepare_chromosome_stat(
     output_warnings: bool = True,
     estimated_library_len: Optional[int] = None
 ) -> Tuple[TStats, CCContainer]:
+    """Prepare chromosome statistics from correlation results.
+
+    Args:
+        result: Correlation result data
+        config: Statistical configuration
+        stats_type: Target statistics type (inferred if None)
+        output_warnings: Enable warning output
+        estimated_library_len: Override estimated fragment length
+
+    Returns:
+        Tuple of statistics object and correlation container
+    """
     #
     cc_container = CCContainer(
         cc=result.cc,
@@ -407,6 +457,17 @@ def aggregate_chromosome_stats(
     output_warnings: bool,
     estimated_library_len: Optional[int] = None
 ) -> Optional[WholeGenomeStats[TStats]]:
+    """Aggregate chromosome statistics into genome-wide statistics.
+
+    Args:
+        chrom_stats: Dictionary of per-chromosome statistics
+        config: Statistical configuration
+        output_warnings: Enable warning output
+        estimated_library_len: Fragment length estimate for processing
+
+    Returns:
+        Aggregated genome-wide statistics or None if no data
+    """
     if chrom_stats is None:
         return None
 
@@ -503,6 +564,20 @@ def make_whole_genome_stat(
     output_warnings: bool = True,
     estimated_library_len: Optional[int] = None
 ) -> WholeGenomeStats[TStats]:
+    """Create whole-genome statistics with confidence intervals.
+
+    Args:
+        result: Correlation parameters
+        config: Statistical configuration
+        interval_upper: Upper confidence bounds
+        interval_lower: Lower confidence bounds
+        stats_type: Target statistics type
+        output_warnings: Enable warning output
+        estimated_library_len: Fragment length estimate
+
+    Returns:
+        Complete whole-genome statistics with intervals
+    """
     stat, cc_container = _prepare_chromosome_stat(
         result,
         config,
@@ -596,7 +671,7 @@ def make_genome_wide_stat(
         if whole_ncc_stats.stats.reverse_reads == 0:
             logger.error("There is no reverse read.")
             raise ReadsTooFew
-        
+
         # Check strand balance for NCC reads
         whole_ncc_stats.stats.check_strand_balance(config.chi2_pval, "NCC")
 
@@ -616,7 +691,7 @@ def make_genome_wide_stat(
             else:
                 logger.error(errormsg)
                 raise ReadsTooFew
-        
+
         # Check strand balance for MSCC mappable reads
         whole_mscc_stats.stats.check_strand_balance(config.chi2_pval, "MSCC")
 

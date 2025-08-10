@@ -1,9 +1,8 @@
 """Statistics file output and loading functions.
 
-This module handles the generation and loading of PyMaSC statistics files,
-which contain comprehensive numerical summaries of cross-correlation analysis
-results. Statistics files use tab-delimited format for easy parsing and
-integration with downstream analysis tools.
+Handles generation and loading of PyMaSC statistics files containing
+numerical summaries of cross-correlation analysis results. Statistics
+files use tab-delimited format for integration with downstream tools.
 
 The module supports:
 - Output of complete analysis statistics to tab-delimited files

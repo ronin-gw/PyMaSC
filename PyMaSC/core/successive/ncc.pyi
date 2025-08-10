@@ -13,9 +13,8 @@ class ReadUnsortedError(IndexError):
 
 
 class NaiveCCCalculator(NCCCalculatorModel):
-    """Cython implementation of naive cross-correlation calculation."""
+    """Naive cross-correlation calculator."""
 
-    # Public readonly attributes
     max_shift: int
     logger_lock: Optional[Lock]
 
@@ -68,10 +67,5 @@ class NaiveCCCalculator(NCCCalculatorModel):
         ...
 
     def get_whole_result(self) -> NCCGenomeWideResult:
-        """Get the genome-wide NCC calculation results.
-
-        Returns:
-            NCCGenomeWideResult: Complete results for all chromosomes including
-                per-chromosome NCCResult objects and genome-wide statistics.
-        """
+        """Get genome-wide NCC results."""
         ...

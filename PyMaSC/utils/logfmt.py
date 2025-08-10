@@ -1,8 +1,7 @@
 """Colored logging formatter for terminal output.
 
-This module provides enhanced logging functionality with ANSI color support
-for PyMaSC command-line tools. It automatically detects terminal capabilities
-and applies appropriate formatting for improved readability.
+Provides logging with ANSI color support for PyMaSC command-line tools.
+Automatically detects terminal capabilities and applies appropriate formatting.
 
 Key components:
 - set_rootlogger(): Configures the root logger with color support
@@ -63,9 +62,19 @@ class StrFormatStyle:
     asctime_search: str = '{asctime'
 
     def __init__(self, fmt: Optional[str]) -> None:
+        """Initialize format style with message format.
+
+        Args:
+            fmt: Format string for log messages (uses default if None)
+        """
         self._fmt = fmt or self.default_format
 
     def usesTime(self) -> bool:
+        """Check if format string includes timestamp.
+
+        Returns:
+            True if format uses timestamp, False otherwise
+        """
         return self._fmt.find(self.asctime_search) >= 0
 
     def format(self, record: logging.LogRecord) -> str:
@@ -99,6 +108,13 @@ class ColorfulFormatter(logging.Formatter):
     _fmt: str
 
     def __init__(self, fmt: Optional[str] = None, datefmt: Optional[str] = None, colorize: bool = True) -> None:
+        """Initialize colorful formatter with ANSI color support.
+
+        Args:
+            fmt: Log message format string
+            datefmt: Date format string
+            colorize: Whether to apply ANSI color codes
+        """
         super(ColorfulFormatter, self).__init__(fmt=fmt, datefmt=datefmt)
         self.colorize = colorize
         if colorize:
@@ -111,6 +127,14 @@ class ColorfulFormatter(logging.Formatter):
             self._fmt = self._fmt.replace("%(levelname)s", "%(levelname)8s")
 
     def fill_format(self, record: logging.LogRecord) -> str:
+        """Generate formatted string with appropriate colors.
+
+        Args:
+            record: Log record to format
+
+        Returns:
+            Formatted string with ANSI color codes applied
+        """
         fmt = self._fmt.format(
             col=self.LOGLEVEL2COLOR.get(record.levelno, self.DEFAULT_COLOR),
             msg=0 if record.levelno < 40 else 1)

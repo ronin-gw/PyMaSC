@@ -1,13 +1,11 @@
-"""Unified worker architecture for multiprocessing calculations.
+"""Worker architecture for multiprocessing calculations.
 
-This module provides a unified architecture for worker processes that
-eliminates code duplication and provides a consistent interface for
-all calculation algorithms.
+Provides worker processes for cross-correlation calculations.
 
 Key components:
 - BaseWorker: Abstract base class with common worker functionality
 - ReadProcessor: Protocol for read processing logic
-- CalcWorker: Single worker implementation using strategy pattern
+- CalcWorker: Worker implementation using strategy pattern
 - Result collectors for different calculation types
 """
 import logging
@@ -31,14 +29,10 @@ logger = logging.getLogger(__name__)
 
 
 class BaseWorker(Process, ABC):
-    """Abstract base class for all calculation workers.
+    """Abstract base class for calculation workers.
 
     Provides common functionality for multiprocessing workers including
-    process management, communication, and basic workflow. Subclasses
-    need only implement the specific calculation logic.
-
-    This design eliminates code duplication and provides a consistent
-    interface for all worker types.
+    process management and communication.
     """
 
     def __init__(self,
@@ -47,6 +41,15 @@ class BaseWorker(Process, ABC):
                  report_queue: Queue,
                  logger_lock: Lock,
                  bam_path: str):
+        """Initialize base worker.
+
+        Args:
+            config: PyMaSC configuration
+            order_queue: Queue for receiving chromosome processing orders
+            report_queue: Queue for sending results back to main process
+            logger_lock: Lock for thread-safe logging
+            bam_path: Path to BAM file for read access
+        """
         super().__init__()
 
         self.config = config

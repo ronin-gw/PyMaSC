@@ -1,17 +1,13 @@
 """PyMaSC package initialization with version and common utilities.
 
-This module provides the main entry point for the PyMaSC (Python Mappability-sensitive
-Cross-Correlation) package. It defines package-level constants, version information,
-and common utilities used across all PyMaSC command-line tools.
+Provides package constants, version information, and common utilities
+for PyMaSC command-line tools.
 
 The module provides:
 - VERSION: Package version string
 - WEBSITE_URL: Official PyMaSC website
 - logging_version(): Version logging utility
 - entrypoint(): Decorator for main entry point exception handling
-
-These utilities ensure consistent version reporting and error handling across
-all PyMaSC applications.
 """
 import logging
 import sys
@@ -26,9 +22,8 @@ WEBSITE_URL = "https://pymasc.sb.ecei.tohoku.ac.jp/"
 def logging_version(logger: Any) -> None:
     """Log PyMaSC and Python version information.
 
-    Outputs comprehensive version information including PyMaSC version,
-    Python version numbers, and full Python version details for debugging
-    and support purposes.
+    Outputs version information including PyMaSC version and Python details
+    for debugging and support purposes.
 
     Args:
         logger: Logger instance to use for version output

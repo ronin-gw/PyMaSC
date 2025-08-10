@@ -43,6 +43,11 @@ class BAMNoTargetChroms(BAMValidationError):
 
 @runtime_checkable
 class AlignmentLike(Protocol):
+    """Protocol defining the interface for alignment file-like objects.
+
+    Provides common interface for BAM file operations including
+    context management, indexing, and data access.
+    """
     def __enter__(self) -> Self: ...
 
     def __exit__(self, exc_type: Optional[type], exc: Optional[BaseException], tb: Any) -> bool: ...
@@ -66,10 +71,22 @@ class AlignmentLike(Protocol):
 
 
 class BAMFileProcessor(AlignmentLike):
+    """BAM file processor with filtering and validation capabilities.
+
+    Provides enhanced BAM file handling with chromosome filtering,
+    size validation, and multiprocessing compatibility checking.
+    """
     _filtered_references: Optional[Tuple[str, ...]]
     _filtered_lengths: Optional[Tuple[int, ...]]
 
     def __init__(self, path: str, *args: Any, **kwargs: Any):
+        """Initialize BAM file processor.
+
+        Args:
+            path: Path to BAM file
+            *args: Arguments passed to pysam.AlignmentFile
+            **kwargs: Keyword arguments passed to pysam.AlignmentFile
+        """
         self._path = path
         self._af = pysam.AlignmentFile(path, *args, **kwargs)
         self._finalizer = weakref.finalize(self, self._safe_close, self._af)
@@ -77,6 +94,7 @@ class BAMFileProcessor(AlignmentLike):
         self._filtered_lengths = None
 
     def close(self) -> None:
+        """Close the BAM file and cleanup resources."""
         if self._finalizer and self._finalizer.alive:
             self._finalizer()
         if self._af and not self._af.closed:
@@ -84,6 +102,11 @@ class BAMFileProcessor(AlignmentLike):
 
     @staticmethod
     def _safe_close(af: pysam.AlignmentFile) -> None:
+        """Safely close alignment file, ignoring exceptions.
+
+        Args:
+            af: pysam AlignmentFile to close
+        """
         try:
             if af and not af.closed:
                 af.close()
@@ -91,35 +114,81 @@ class BAMFileProcessor(AlignmentLike):
             pass
 
     def __enter__(self) -> Self:
+        """Context manager entry."""
         return self
 
     def __exit__(self, exc_type: Optional[type], exc: Optional[BaseException], tb: Optional[Any]) -> Literal[False]:
+        """Context manager exit."""
         self.close()
         return False
 
     def has_index(self) -> bool:
+        """Check if BAM file has an index.
+
+        Returns:
+            True if indexed, False otherwise
+        """
         return self._af.has_index()
 
     @property
     def closed(self) -> bool:
+        """Check if BAM file is closed.
+
+        Returns:
+            True if closed, False otherwise
+        """
         return self._af.closed
 
     @property
     def references(self) -> Tuple[str, ...]:
+        """Get reference sequence names.
+
+        Returns:
+            Tuple of reference names
+        """
         return self._af.references
 
     @property
     def lengths(self) -> Tuple[int, ...]:
+        """Get reference sequence lengths.
+
+        Returns:
+            Tuple of reference lengths
+        """
         return self._af.lengths
 
     def __iter__(self) -> Iterator[pysam.AlignedSegment]:
+        """Iterate over all reads in the BAM file.
+
+        Returns:
+            Iterator of aligned segments
+        """
         return iter(self._af)
 
     def fetch(self, *args: Any, **kwargs: Any) -> pysam.IteratorRow:
+        """Fetch reads from specific genomic regions.
+
+        Args:
+            *args: Arguments passed to pysam fetch
+            **kwargs: Keyword arguments passed to pysam fetch
+
+        Returns:
+            Iterator of reads from specified region
+        """
         return self._af.fetch(*args, **kwargs)
 
     def apply_chromfilter(self, chromfilter: Optional[List[Tuple[bool, List[str]]]] = None) -> Tuple[Tuple[str, ...], Tuple[int, ...]]:
-        """
+        """Apply chromosome filtering and return filtered references.
+
+        Args:
+            chromfilter: Optional chromosome filter criteria
+
+        Returns:
+            Tuple of (filtered_references, filtered_lengths)
+
+        Raises:
+            BAMNoReadsError: If no reference sequences found
+            BAMNoTargetChroms: If no target chromosomes remain after filtering
         """
         all_references = list(self._af.references)
         all_lengths = list(self._af.lengths)

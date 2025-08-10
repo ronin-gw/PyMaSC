@@ -1,14 +1,7 @@
-"""Data models and configuration classes for PyMaSC architecture.
+"""Configuration models and type definitions for PyMaSC.
 
-This module defines the data models, configuration classes, and result
-structures used throughout the refactored PyMaSC architecture. These
-classes provide structured data containers with validation and type safety.
-
-Key model categories:
-- Configuration models: Algorithm, execution, and I/O settings
-- Result models: Calculation results and statistics
-- Request/Response models: API-like data transfer objects
-- Validation utilities: Configuration validation and error handling
+Defines configuration protocols, enums, and the main PyMaSCConfig dataclass
+for cross-correlation calculation parameters.
 """
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple, Protocol
@@ -46,8 +39,7 @@ class EstimationType(Enum):
 
 
 class CalculationConfig(Protocol):
-    """
-    """
+    """Protocol for calculation-specific configuration parameters."""
 
     max_shift: int
     mapq_criteria: int
@@ -61,8 +53,7 @@ class CalculationConfig(Protocol):
 
 
 class MappabilityConfig(Protocol):
-    """
-    """
+    """Protocol for mappability correction configuration."""
     max_shift: int
     read_length: int
     nproc: int
@@ -71,6 +62,7 @@ class MappabilityConfig(Protocol):
 
 
 class StatConfig(Protocol):
+    """Protocol for statistics calculation configuration."""
     read_length: int
     chi2_pval: float
     mv_avr_filter_len: int
@@ -81,7 +73,12 @@ class StatConfig(Protocol):
 
 @dataclass
 class PyMaSCConfig:
-    #
+    """Configuration for PyMaSC cross-correlation analysis.
+
+    Central configuration object containing all parameters needed
+    for cross-correlation calculations including algorithm selection,
+    quality thresholds, and statistical parameters.
+    """
     max_shift: int
     mapq_criteria: int
     target: CalculationTarget
@@ -89,23 +86,18 @@ class PyMaSCConfig:
     nproc: int
     esttype: EstimationType
 
-    #
     chi2_pval: float
     mv_avr_filter_len: int
     filter_mask_len: int
     min_calc_width: int
 
-    #
     read_length: Optional[int] = None
     chromfilter: Optional[List[Tuple[bool, List[str]]]] = None
-    #
     ref2lengths: Dict[str, int] = field(default_factory=dict)
 
-    #
     mappability_path: Optional[Path] = None
     mappability_stats_path: Optional[Path] = None
 
-    #
     expected_library_length: Optional[int] = None
 
     @property
@@ -130,14 +122,12 @@ class PyMaSCConfig:
 
     @classmethod
     def from_args(cls, args: Namespace) -> Self:
-        """Create a configuration instance from command-line arguments."""
-        #
+        """Create configuration from parsed command-line arguments."""
         if args.mappability:
             target = CalculationTarget.MSCC if args.skip_ncc else CalculationTarget.BOTH
         else:
             target = CalculationTarget.NCC
 
-        #
         implementation = Algorithm.SUCCESSIVE if args.successive else Algorithm.BITARRAY
 
         return cls(

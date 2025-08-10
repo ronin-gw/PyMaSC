@@ -1,8 +1,7 @@
 """Terminal progress bar and multiline progress display utilities.
 
-This module provides comprehensive progress reporting functionality for PyMaSC
-analysis operations. It supports both single-line progress bars and multiline
-progress displays for parallel processing scenarios.
+Provides progress reporting for PyMaSC analysis operations. Supports both
+single-line progress bars and multiline displays for parallel processing.
 
 Key components:
 - ProgressBase: Base class with global enable/disable control
@@ -54,11 +53,23 @@ OutputT = TypeVar("OutputT", TextIO, Queue)
 
 
 class SingleProgressBar(ProgressBase, Generic[OutputT], ABC):
+    """Abstract base class for single-line progress bars.
+
+    Provides common functionality for progress bars that display on a single line,
+    with support for different output targets (TextIO or Queue).
+    """
     format: Callable[[str], None]
     clean: Callable[[], None]
     update: Callable[[Union[int, float]], None]
 
     def _init_config(self, body: str, prefix: str, suffix: str) -> None:
+        """Initialize progress bar configuration and enable/disable based on global switch.
+
+        Args:
+            body: Progress bar body string
+            prefix: String prefix for the progress bar
+            suffix: String suffix for the progress bar
+        """
         self._init_format(body, prefix, suffix)
         if self.global_switch:
             self.enable_bar()
@@ -71,16 +82,27 @@ class SingleProgressBar(ProgressBase, Generic[OutputT], ABC):
         self.fmt = "\r" + prefix + "{:<" + str(len(body)) + "}" + suffix
 
     def reset_progress(self, body: str, prefix: str, suffix: str, name: str, maxval: Union[int, float]) -> None:
+        """Reset progress bar with new configuration and maximum value.
+
+        Args:
+            body: New progress bar body string
+            prefix: New string prefix
+            suffix: New string suffix
+            name: Progress operation name
+            maxval: Maximum value for progress completion
+        """
         self._init_format(body, prefix, suffix)
         self.set(name, maxval)
 
     def enable_bar(self) -> None:
+        """Enable progress bar display if global switch allows."""
         if self.global_switch:
             self.format = self._format
             self.clean = self._clean
             self.update = self._update
 
     def disable_bar(self) -> None:
+        """Disable progress bar display by setting methods to no-ops."""
         self.format = self.clean = self.update = self._pass
 
     @abstractmethod
@@ -92,6 +114,12 @@ class SingleProgressBar(ProgressBase, Generic[OutputT], ABC):
         pass
 
     def set(self, name: str, maxval: Union[int, float]) -> None:
+        """Set progress parameters and initialize progress tracking.
+
+        Args:
+            name: Name of the progress operation
+            maxval: Maximum value representing 100% completion
+        """
         self._unit = float(maxval) / len(self.body)
         self.pos = 0
         self._next_update = self._unit
@@ -123,6 +151,14 @@ class ProgressBar(SingleProgressBar[TextIO]):
         prefix: str = ">",
         suffix: str = "<",
     ) -> None:
+        """Initialize progress bar.
+
+        Args:
+            output: Output stream for progress display
+            body: Visual pattern for the progress bar
+            prefix: Text displayed before the progress bar
+            suffix: Text displayed after the progress bar
+        """
         self._init_config(body, prefix, suffix)
         self.output = output
 
@@ -183,6 +219,11 @@ class MultiLineProgressManager(ProgressBase):
     update: Callable[[str, str], None]
 
     def __init__(self, output: TextIO = sys.stderr) -> None:
+        """Initialize multiline progress manager.
+
+        Args:
+            output: Output stream for progress display
+        """
         #
         self.output = output
         if not self.output.isatty():

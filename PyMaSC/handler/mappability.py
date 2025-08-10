@@ -1,9 +1,8 @@
 """Mappability management and calculation for PyMaSC.
 
-This module provides high-level management of mappability calculations,
-including parallel processing, caching, and statistics persistence.
-Mappability data is essential for MSCC calculations to correct for
-genomic regions with variable mappability.
+Provides mappability calculations with parallel processing, caching,
+and statistics persistence. Mappability data is essential for MSCC
+calculations to correct for genomic regions with variable mappability.
 
 Key components:
 - MappabilityHandler: Main interface for mappability operations
@@ -98,16 +97,15 @@ class NumpyEncoder(json.JSONEncoder):
 
 
 class MappabilityHandler(MappableLengthCalculator):
-    """High-level mappability calculation and management.
+    """Mappability calculation and management.
 
-    Provides a complete interface for mappability analysis including
-    parallel calculation, statistics caching, and file management.
-    Extends MappableLengthCalculator with persistence and workflow
-    management capabilities.
+    Handles mappability analysis including parallel calculation,
+    statistics caching, and file management. Extends MappableLengthCalculator
+    with persistence and workflow management capabilities.
 
-    The handler automatically manages BigWig file access, calculates
-    mappability statistics across chromosomes using multiple workers,
-    and persists results to JSON files for future reuse.
+    Manages BigWig file access, calculates mappability statistics
+    across chromosomes using multiple workers, and persists results
+    to JSON files for future reuse.
 
     Attributes:
         path: Path to BigWig mappability file
@@ -138,7 +136,13 @@ class MappabilityHandler(MappableLengthCalculator):
 
     @classmethod
     def from_config(cls, config: MappabilityConfig) -> Self:
-        """
+        """Create MappabilityHandler from configuration.
+
+        Args:
+            config: Configuration containing mappability parameters
+
+        Returns:
+            MappabilityHandler instance configured with provided parameters
         """
         return cls(
             path=config.mappability_path,

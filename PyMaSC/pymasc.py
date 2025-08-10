@@ -8,7 +8,7 @@ import argparse
 import logging
 import sys
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, cast
 from itertools import zip_longest
 
 from PyMaSC import entrypoint, logging_version
@@ -18,16 +18,14 @@ from PyMaSC.utils.progress import ProgressBase
 from PyMaSC.utils.output import prepare_outdir
 from PyMaSC.handler.mappability import MappabilityHandler, BWIOError, JSONIOError
 from PyMaSC.handler.calc import CalcHandler
+from PyMaSC.core.interfaces.config import PyMaSCConfig, mappability_configured, stats_configured
 from PyMaSC.core.interfaces.stats import GenomeWideStats
-from PyMaSC.core.models import (
-    CalculationConfig, ExecutionConfig, CalculationTarget,
-    ImplementationAlgorithm, ExecutionMode, MappabilityConfig
-)
 from PyMaSC.core.stats import make_genome_wide_stat
 from PyMaSC.core.exceptions import ReadUnsortedError, ReadsTooFew, InputUnseekable, NothingToCalc
 from PyMaSC.output.stats import output_stats, STATSFILE_SUFFIX
 from PyMaSC.output.table import (output_cc, output_mscc, output_nreads_table,
                                  CCOUTPUT_SUFFIX, MSCCOUTPUT_SUFFIX, NREADOUTPUT_SUFFIX)
+
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +81,7 @@ def main() -> None:
         None on successful completion
     """
     args = _parse_args()
+    config = PyMaSCConfig.from_args(args)
 
     #
     if sys.stderr.isatty() and not args.disable_progress:
@@ -100,33 +99,46 @@ def main() -> None:
     basenames = prepare_output(args.reads, args.name, args.outdir, tuple(suffixes))
 
     #
-    calc_handlers = make_handlers(args)
+    calc_handlers: List[CalcHandler] = []
+    for f in args.reads:
+        try:
+            # Create handler
+            handler = CalcHandler(f, config)
+            calc_handlers.append(handler)
+
+        except ValueError:
+            logger.error("Failed to open file '{}'".format(f))
+        except NothingToCalc:
+            logger.error("Check your -i/--include-chrom and/or -e/--exclude-chrom options.")
+        except InputUnseekable:
+            logger.error("If your input can't reread, specify read length using `-r` option.")
+
     if not calc_handlers:
         return None
 
     #
-    max_readlen = set_readlen(args, calc_handlers)
+    readlen = set_readlen(args, calc_handlers)
+    config.read_length = readlen
 
     #
     mappability_handler: Optional[MappabilityHandler] = None
-    if args.mappability:
+    if mappability_configured(config):
         try:
-            mappability_handler = MappabilityHandler(
-                args.mappability, args.max_shift, max_readlen,
-                args.mappability_stats, args.process
-            )
+            # Use config-based creation for cleaner interface
+            mappability_handler = MappabilityHandler.from_config(config)
         except (BWIOError, JSONIOError):
             # Error logs already generated in MappabilityHandler
             sys.exit(1)
 
         for handler in calc_handlers:
             handler.set_mappability_handler(mappability_handler)
+    config = cast(PyMaSCConfig, config)
 
     #
     logger.info("Calculate cross-correlation between 0 to {} base shift"
                 "with reads MAOQ >= {}".format(args.max_shift, args.mapq))
     for handler, output_basename in zip(calc_handlers, basenames):
-        result = run_calculation(args, handler, output_basename)
+        result = run_calculation(config, handler, output_basename)
         output_results(args, output_basename, result)
 
     #
@@ -175,78 +187,6 @@ def prepare_output(reads: List[str], names: List[Optional[str]], outdir: str, su
     return basenames
 
 
-def make_handlers(args: argparse.Namespace) -> List[CalcHandler]:
-    """Create calculation handlers for input files.
-
-    Instantiates CalcHandler with appropriate configuration objects
-    based on algorithm selection and input file specifications.
-
-    Args:
-        args: Parsed command-line arguments
-
-    Returns:
-        List of successfully created calculation handlers
-
-    Note:
-        Failed handlers are logged but not included in returned list
-    """
-    calc_handlers: List[CalcHandler] = []
-
-    # Create configuration objects from arguments
-    for f in args.reads:
-        try:
-            # Determine calculation target and implementation based on existing logic
-            # Implementation: Use successive if --successive flag, otherwise BitArray (default)
-            implementation = ImplementationAlgorithm.SUCCESSIVE if args.successive else ImplementationAlgorithm.BITARRAY
-
-            # Target: Auto-determine based on mappability presence (existing behavior)
-            if hasattr(args, 'mappability') and args.mappability:
-                # Mappability provided: calculate both NCC and MSCC unless --skip-ncc
-                target = CalculationTarget.MSCC if args.skip_ncc else CalculationTarget.BOTH
-            else:
-                # No mappability: only NCC
-                target = CalculationTarget.NCC
-
-            # Create calculation configuration using new conceptual approach
-            calc_config = CalculationConfig(
-                target=target,
-                implementation=implementation,
-                max_shift=args.max_shift,
-                mapq_criteria=args.mapq,
-                skip_ncc=args.skip_ncc,
-                esttype=args.readlen_estimator,
-                chromfilter=args.chromfilter
-            )
-
-            # Create execution configuration
-            exec_config = ExecutionConfig(
-                mode=ExecutionMode.MULTI_PROCESS if args.process > 1 else ExecutionMode.SINGLE_PROCESS,
-                worker_count=args.process
-            )
-
-            # Create mappability configuration if needed
-            # Both SUCCESSIVE and BITARRAY algorithms support mappability
-            mappability_config = None
-            if hasattr(args, 'mappability') and args.mappability:
-                mappability_config = MappabilityConfig(
-                    mappability_path=args.mappability,
-                    mappability_stats_path=args.mappability_stats if getattr(args, 'mappability_stats', None) else None
-                )
-
-            # Create handler
-            handler = CalcHandler(f, calc_config, exec_config, mappability_config)
-            calc_handlers.append(handler)
-
-        except ValueError:
-            logger.error("Failed to open file '{}'".format(f))
-        except NothingToCalc:
-            logger.error("Check your -i/--include-chrom and/or -e/--exclude-chrom options.")
-        except InputUnseekable:
-            logger.error("If your input can't reread, specify read length using `-r` option.")
-
-    return calc_handlers
-
-
 def set_readlen(args: argparse.Namespace, calc_handlers: List[CalcHandler]) -> int:
     """Set or estimate read length for all calculation handlers.
 
@@ -263,30 +203,34 @@ def set_readlen(args: argparse.Namespace, calc_handlers: List[CalcHandler]) -> i
     Note:
         Handlers that fail read length setting are removed from the list
     """
-    #
-    if args.read_length is None:
-        logger.info("Check read length: Get {} from read length distribution".format(args.readlen_estimator.lower()))
+    if args.read_length is not None:
+        for handler in calc_handlers:
+            handler.read_len = args.read_length
+        return args.read_length
 
-    #
+    # Estimate read length from data
+    logger.info("Check read length: Get {} from read length distribution".format(args.readlen_estimator.lower()))
     readlens: List[int] = []
     for i, handler in enumerate(calc_handlers[:]):
         try:
-            handler.set_or_estimate_readlen(args.read_length)
+            readlens.append(handler.estimate_readlen())
         except ValueError:
             calc_handlers.pop(i)
             continue
-        if handler.read_len is not None:
-            readlens.append(handler.read_len)
 
     #
     max_readlen = max(readlens)
     if len(set(readlens)) != 1:
         logger.warning("There are multiple read length candidates. Use max length "
                        "({}) for MSCC calculation.".format(max_readlen))
+
+    for handler in calc_handlers:
+        handler.read_len = max_readlen
+
     return max_readlen
 
 
-def run_calculation(args: argparse.Namespace, handler: CalcHandler, output_basename: Path) -> Optional[GenomeWideStats]:
+def run_calculation(config: PyMaSCConfig, handler: CalcHandler, output_basename: Path) -> Optional[GenomeWideStats]:
     """Execute cross-correlation calculation for a single file using new statistics system.
 
     Runs the main calculation workflow and creates a result handler
@@ -310,14 +254,10 @@ def run_calculation(args: argparse.Namespace, handler: CalcHandler, output_basen
 
     try:
         # Use new statistics system with container-based data access
-        assert handler.read_len is not None
+        assert stats_configured(config), "Statistics configuration must be set for new stats system"
         return make_genome_wide_stat(
             result,
-            read_len=handler.read_len,
-            mv_avr_filter_len=args.smooth_window,
-            expected_library_len=args.library_length,
-            filter_mask_len=args.mask_size,
-            min_calc_width=args.bg_avr_width,
+            config,
             output_warnings=True
         )
     except ReadsTooFew:

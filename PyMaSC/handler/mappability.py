@@ -24,8 +24,15 @@ from multiprocessing import Queue, Process, Lock
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
+import sys
+if sys.version_info >= (3, 9):
+    from typing import Self
+else:
+    from typing_extensions import Self
+
 import numpy as np
 
+from PyMaSC.core.interfaces.config import MappabilityConfig
 from PyMaSC.core.mappability import MappableLengthCalculator
 from PyMaSC.utils.progress import ProgressHook, MultiLineProgressManager
 from PyMaSC.utils.output import prepare_outdir
@@ -129,7 +136,26 @@ class MappabilityHandler(MappableLengthCalculator):
         """
         return max_shift - readlen + 1 if max_shift > 2*readlen - 1 else readlen
 
-    def __init__(self, path: os.PathLike[str], max_shift: int = 0, readlen: int = 0, map_path: Optional[os.PathLike[str]] = None, nworker: int = 1) -> None:
+    @classmethod
+    def from_config(cls, config: MappabilityConfig) -> Self:
+        """
+        """
+        return cls(
+            path=config.mappability_path,
+            max_shift=config.max_shift,
+            readlen=config.read_length,
+            map_path=config.mappability_stats_path,
+            nworker=config.nproc
+        )
+
+    def __init__(
+        self,
+        path: os.PathLike[str],
+        max_shift: int = 0,
+        readlen: int = 0,
+        map_path: Optional[os.PathLike[str]] = None,
+        nworker: int = 1
+    ) -> None:
         """Initialize mappability handler.
 
         Sets up mappability analysis with specified parameters,

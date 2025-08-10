@@ -1,6 +1,6 @@
 """Type stubs for mscc.pyx - Mappability-Sensitive Cross-Correlation calculation module."""
 
-from typing import Optional, List
+from typing import Optional, List, Sequence
 from multiprocessing.synchronize import Lock
 
 from .interfaces.calculator import MSCCCalculatorModel
@@ -22,7 +22,7 @@ class MSCCCalculator(MSCCCalculatorModel):
         max_shift: int,
         read_len: int,
         references: List[str],
-        lengths: List[int],
+        lengths: Sequence[int],
         bwfeeder: BigWigReader,
         logger_lock: Optional[Lock] = None
     ) -> None:

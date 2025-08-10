@@ -1,6 +1,6 @@
 """Type stubs for bacore/mscc.pyx - BitArray-based MSCC calculation module."""
 
-from typing import Optional, List, Any
+from typing import Optional, List, Sequence, Any
 from multiprocessing.synchronize import Lock
 
 from PyMaSC.core.interfaces.calculator import BothCalculatorModel
@@ -32,7 +32,7 @@ class CCBitArrayCalculator(BothCalculatorModel):
         max_shift: int,
         read_len: int,
         references: List[str],
-        lengths: List[int],
+        lengths: Sequence[int],
         bwfeeder: Optional[BigWigReader] = None,
         skip_ncc: bool = False,
         logger_lock: Optional[Lock] = None,

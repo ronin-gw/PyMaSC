@@ -13,7 +13,7 @@ from pathlib import Path
 import pysam
 from PyMaSC.core.ncc import NaiveCCCalculator
 from PyMaSC.handler.calc import CalcHandler
-from PyMaSC.core.models import CalculationConfig, ExecutionConfig, CalculationTarget, ImplementationAlgorithm, ExecutionMode
+from PyMaSC.core.interfaces.config import PyMaSCConfig, CalculationTarget, Algorithm, EstimationType
 
 
 class TestENCODEDataValidation:
@@ -304,24 +304,23 @@ class TestIntegrationWorkflow:
         # Test that handler can be initialized with real data paths
         try:
             # Create configuration objects for CalcHandler
-            calc_config = CalculationConfig(
+            config = PyMaSCConfig(
                 target=CalculationTarget.BOTH,  # Both NCC and MSCC
-                implementation=ImplementationAlgorithm.SUCCESSIVE,  # Using successive algorithm
+                implementation=Algorithm.SUCCESSIVE,  # Using successive algorithm
                 max_shift=200,
                 mapq_criteria=10,
-                skip_ncc=False
-            )
-            calc_config.esttype = 'mscc'  # Set estimation type
-
-            exec_config = ExecutionConfig(
-                mode=ExecutionMode.SINGLE_PROCESS,
-                worker_count=1
+                nproc=1,
+                esttype=EstimationType.MEDIAN,
+                chi2_pval=0.0001,
+                mv_avr_filter_len=50,
+                filter_mask_len=10,
+                min_calc_width=10,
+                mappability_path=bigwig_path
             )
 
             handler = CalcHandler(
                 path=str(bam_path),
-                config=calc_config,
-                execution_config=exec_config
+                config=config
             )
 
             # Handler should initialize successfully

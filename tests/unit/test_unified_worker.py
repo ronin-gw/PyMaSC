@@ -5,10 +5,10 @@ from unittest.mock import Mock
 from multiprocessing import Queue, Lock
 
 from PyMaSC.core.worker import CalcWorker
-from PyMaSC.core.models import (
-    WorkerConfig, CalculationConfig, MappabilityConfig,
-    CalculationTarget, ImplementationAlgorithm
+from PyMaSC.core.interfaces.config import (
+    PyMaSCConfig, CalculationTarget, Algorithm, EstimationType
 )
+from pathlib import Path
 # Worker compatibility classes have been removed
 
 
@@ -23,26 +23,24 @@ class TestCalcWorker(unittest.TestCase):
         self.bam_path = "/test/path.bam"
 
         # Create basic configuration
-        self.calc_config = CalculationConfig(
+        self.config = PyMaSCConfig(
             target=CalculationTarget.NCC,
-            implementation=ImplementationAlgorithm.SUCCESSIVE,
+            implementation=Algorithm.SUCCESSIVE,
             max_shift=200,
             mapq_criteria=20,
-            references=["chr1", "chr2"],
-            lengths=[100000, 90000]
+            nproc=1,
+            esttype=EstimationType.MEDIAN,
+            chi2_pval=0.0001,
+            mv_avr_filter_len=50,
+            filter_mask_len=10,
+            min_calc_width=10
         )
-
-        self.worker_config = WorkerConfig(
-            calculation_config=self.calc_config,
-            mappability_config=None,
-            progress_enabled=False,
-            logger_lock=self.logger_lock
-        )
+        self.config.ref2lengths = {"chr1": 100000, "chr2": 90000}
 
     def test_unified_worker_initialization(self):
         """Test CalcWorker initialization."""
         worker = CalcWorker(
-            self.worker_config,
+            self.config,
             self.order_queue,
             self.report_queue,
             self.logger_lock,
@@ -50,37 +48,33 @@ class TestCalcWorker(unittest.TestCase):
         )
 
         self.assertIsNotNone(worker)
-        self.assertEqual(worker.config, self.worker_config)
+        self.assertEqual(worker.config, self.config)
         self.assertEqual(worker.bam_path, self.bam_path)
-        self.assertIsNone(worker._calculator)
-        self.assertIsNone(worker._processor)
 
     def test_unified_worker_with_mappability(self):
         """Test CalcWorker with mappability configuration."""
-        map_config = MappabilityConfig(
-            mappability_path="/test/mappability.bw",
-            read_len=50
-        )
+        # Add mappability configuration to the base config
+        self.config.mappability_path = Path("/test/mappability.bw")
+        self.config.read_length = 50
 
-        calc_config = CalculationConfig(
+        config = PyMaSCConfig(
             target=CalculationTarget.MSCC,
-            implementation=ImplementationAlgorithm.SUCCESSIVE,
+            implementation=Algorithm.SUCCESSIVE,
             max_shift=200,
             mapq_criteria=20,
-            references=["chr1", "chr2"],
-            lengths=[100000, 90000],
-            read_length=50
+            nproc=1,
+            esttype=EstimationType.MEDIAN,
+            chi2_pval=0.0001,
+            mv_avr_filter_len=50,
+            filter_mask_len=10,
+            min_calc_width=10,
+            read_length=50,
+            mappability_path=Path("/test/mappability.bw")
         )
-
-        worker_config = WorkerConfig(
-            calculation_config=calc_config,
-            mappability_config=map_config,
-            progress_enabled=False,
-            logger_lock=self.logger_lock
-        )
+        config.ref2lengths = {"chr1": 100000, "chr2": 90000}
 
         worker = CalcWorker(
-            worker_config,
+            config,
             self.order_queue,
             self.report_queue,
             self.logger_lock,
@@ -88,7 +82,7 @@ class TestCalcWorker(unittest.TestCase):
         )
 
         self.assertIsNotNone(worker)
-        self.assertEqual(worker.config.mappability_config, map_config)
+        self.assertEqual(worker.config.mappability_path, Path("/test/mappability.bw"))
 
 
 # Removed TestStandardReadProcessor and TestDualReadProcessor

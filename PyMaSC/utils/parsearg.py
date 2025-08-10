@@ -22,8 +22,9 @@ from pathlib import Path
 from typing import Any, Optional, Sequence, Type, Union
 
 import PyMaSC
+from PyMaSC.core.interfaces.config import EstimationType
 
-READLEN_ESTIMATION_TYPES = ("MEAN", "MEDIAN", "MODE", "MIN", "MAX")
+READLEN_ESTIMATION_TYPES = tuple(e.value for e in EstimationType)
 EPILOG = (" \nVisit PyMaSC web site for more information and to get human genome "
           "mappability tracks\n" + PyMaSC.WEBSITE_URL + '\n ')
 

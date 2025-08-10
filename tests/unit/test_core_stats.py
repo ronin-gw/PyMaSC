@@ -312,12 +312,25 @@ class TestAggregationFunctions(unittest.TestCase):
 
     def test_aggregate_chromosome_stats_empty_input(self):
         """Test aggregation with empty input."""
-        result = aggregate_chromosome_stats(
-            chrom_stats=None,
-            read_len=36,
+        from PyMaSC.core.interfaces.config import PyMaSCConfig, CalculationTarget, Algorithm, EstimationType
+        
+        config = PyMaSCConfig(
+            target=CalculationTarget.NCC,
+            implementation=Algorithm.SUCCESSIVE,
+            max_shift=100,
+            mapq_criteria=20,
+            nproc=1,
+            esttype=EstimationType.MEDIAN,
+            chi2_pval=0.0001,
             mv_avr_filter_len=15,
             filter_mask_len=5,
             min_calc_width=10,
+            read_length=36
+        )
+        
+        result = aggregate_chromosome_stats(
+            chrom_stats=None,
+            config=config,
             output_warnings=False
         )
         
@@ -325,13 +338,26 @@ class TestAggregationFunctions(unittest.TestCase):
 
     def test_aggregate_chromosome_stats_invalid_input(self):
         """Test aggregation with invalid input."""
-        # Test with empty dict should return None
-        result = aggregate_chromosome_stats(
-            chrom_stats={},
-            read_len=36,
+        from PyMaSC.core.interfaces.config import PyMaSCConfig, CalculationTarget, Algorithm, EstimationType
+        
+        config = PyMaSCConfig(
+            target=CalculationTarget.NCC,
+            implementation=Algorithm.SUCCESSIVE,
+            max_shift=100,
+            mapq_criteria=20,
+            nproc=1,
+            esttype=EstimationType.MEDIAN,
+            chi2_pval=0.0001,
             mv_avr_filter_len=15,
             filter_mask_len=5,
             min_calc_width=10,
+            read_length=36
+        )
+        
+        # Test with empty dict should return None
+        result = aggregate_chromosome_stats(
+            chrom_stats={},
+            config=config,
             output_warnings=False
         )
         self.assertIsNone(result)

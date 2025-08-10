@@ -6,10 +6,10 @@ with direct factory usage.
 """
 import pytest
 
-from PyMaSC.core.models import (
-    CalculationConfig, CalculationTarget, ImplementationAlgorithm
+from PyMaSC.core.interfaces.config import (
+    PyMaSCConfig, CalculationTarget, Algorithm, EstimationType
 )
-from PyMaSC.core.factory import CalculatorFactory
+from PyMaSC.core.factory import create_calculator
 
 
 class TestCalculationTarget:
@@ -22,54 +22,72 @@ class TestCalculationTarget:
         assert CalculationTarget.BOTH.value == "both"
 
 
-class TestImplementationAlgorithm:
-    """Test ImplementationAlgorithm enum."""
+class TestAlgorithm:
+    """Test Algorithm enum."""
 
     def test_implementation_algorithm_values(self):
-        """Test that ImplementationAlgorithm has expected values."""
-        assert ImplementationAlgorithm.BITARRAY.value == "bitarray"
-        assert ImplementationAlgorithm.SUCCESSIVE.value == "successive"
+        """Test that Algorithm has expected values."""
+        assert Algorithm.BITARRAY.value == "bitarray"
+        assert Algorithm.SUCCESSIVE.value == "successive"
 
 
-class TestCalculationConfig:
-    """Test CalculationConfig with factory-based architecture."""
+class TestPyMaSCConfig:
+    """Test PyMaSCConfig with factory-based architecture."""
 
     def test_factory_based_configuration(self):
         """Test that configuration works with factory pattern."""
-        config = CalculationConfig(
+        config = PyMaSCConfig(
             target=CalculationTarget.BOTH,
-            implementation=ImplementationAlgorithm.BITARRAY,
+            implementation=Algorithm.BITARRAY,
             max_shift=500,
-            mapq_criteria=20
+            mapq_criteria=20,
+            nproc=1,
+            esttype=EstimationType.MEDIAN,
+            chi2_pval=0.0001,
+            mv_avr_filter_len=50,
+            filter_mask_len=10,
+            min_calc_width=10
         )
 
         # Should have clean configuration fields
         assert config.target == CalculationTarget.BOTH
-        assert config.implementation == ImplementationAlgorithm.BITARRAY
+        assert config.implementation == Algorithm.BITARRAY
 
     def test_ncc_successive_configuration(self):
         """Test configuration for NCC with Successive implementation."""
-        config = CalculationConfig(
+        config = PyMaSCConfig(
             target=CalculationTarget.NCC,
-            implementation=ImplementationAlgorithm.SUCCESSIVE,
+            implementation=Algorithm.SUCCESSIVE,
             max_shift=500,
-            mapq_criteria=20
+            mapq_criteria=20,
+            nproc=1,
+            esttype=EstimationType.MEDIAN,
+            chi2_pval=0.0001,
+            mv_avr_filter_len=50,
+            filter_mask_len=10,
+            min_calc_width=10
         )
 
         # Should have correct configuration fields
         assert config.target == CalculationTarget.NCC
-        assert config.implementation == ImplementationAlgorithm.SUCCESSIVE
+        assert config.implementation == Algorithm.SUCCESSIVE
 
     def test_configuration_completeness(self):
         """Test that configuration contains all required fields."""
-        config = CalculationConfig(
+        config = PyMaSCConfig(
             target=CalculationTarget.NCC,
-            implementation=ImplementationAlgorithm.SUCCESSIVE,
+            implementation=Algorithm.SUCCESSIVE,
             max_shift=500,
-            mapq_criteria=20
+            mapq_criteria=20,
+            nproc=1,
+            esttype=EstimationType.MEDIAN,
+            chi2_pval=0.0001,
+            mv_avr_filter_len=50,
+            filter_mask_len=10,
+            min_calc_width=10
         )
         assert config.target == CalculationTarget.NCC
-        assert config.implementation == ImplementationAlgorithm.SUCCESSIVE
+        assert config.implementation == Algorithm.SUCCESSIVE
 
 
 class TestCalculatorFactory:
@@ -77,111 +95,121 @@ class TestCalculatorFactory:
 
     def test_create_calculator_ncc_successive(self):
         """Test calculator creation for NCC with Successive."""
-        config = CalculationConfig(
+        from PyMaSC.core.factory import create_calculator
+        
+        config = PyMaSCConfig(
             target=CalculationTarget.NCC,
-            implementation=ImplementationAlgorithm.SUCCESSIVE,
+            implementation=Algorithm.SUCCESSIVE,
             max_shift=500,
             mapq_criteria=20,
-            references=["chr1"],
-            lengths=[1000]
+            nproc=1,
+            esttype=EstimationType.MEDIAN,
+            chi2_pval=0.0001,
+            mv_avr_filter_len=50,
+            filter_mask_len=10,
+            min_calc_width=10
         )
+        config.ref2lengths = {"chr1": 1000}
 
         # This should work without requiring mappability for NCC
-        calculator = CalculatorFactory.create_calculator(
-            CalculationTarget.NCC,
-            ImplementationAlgorithm.SUCCESSIVE,
-            config
-        )
-
+        calculator, bw_reader = create_calculator(config)
         assert calculator is not None
 
     def test_create_calculator_mscc_requires_mappability(self):
         """Test that MSCC calculation requires mappability configuration."""
-        config = CalculationConfig(
+        from PyMaSC.core.factory import create_calculator
+        
+        config = PyMaSCConfig(
             target=CalculationTarget.MSCC,
-            implementation=ImplementationAlgorithm.SUCCESSIVE,
+            implementation=Algorithm.SUCCESSIVE,
             max_shift=500,
             mapq_criteria=20,
-            references=["chr1"],
-            lengths=[1000]
+            nproc=1,
+            esttype=EstimationType.MEDIAN,
+            chi2_pval=0.0001,
+            mv_avr_filter_len=50,
+            filter_mask_len=10,
+            min_calc_width=10
         )
+        config.ref2lengths = {"chr1": 1000}
 
         # Should fail without mappability config
-        with pytest.raises(ValueError, match="Target mscc requires mappability configuration"):
-            CalculatorFactory.create_calculator(
-                CalculationTarget.MSCC,
-                ImplementationAlgorithm.SUCCESSIVE,
-                config
-            )
+        with pytest.raises((ValueError, AssertionError), match="Mappability path must be set"):
+            calculator, bw_reader = create_calculator(config)
 
     def test_all_combinations_supported(self):
         """Test that all valid combinations are supported."""
-        config = CalculationConfig(
+        config = PyMaSCConfig(
             target=CalculationTarget.NCC,
-            implementation=ImplementationAlgorithm.BITARRAY,
+            implementation=Algorithm.BITARRAY,
             max_shift=500,
             mapq_criteria=20,
-            read_length=50,  # Required for BitArray implementation
-            references=["chr1"],
-            lengths=[1000]
+            nproc=1,
+            esttype=EstimationType.MEDIAN,
+            chi2_pval=0.0001,
+            mv_avr_filter_len=50,
+            filter_mask_len=10,
+            min_calc_width=10,
+            read_length=50  # Required for BitArray implementation
         )
+        config.ref2lengths = {"chr1": 1000}
 
         # All combinations should be supported now
-        calculator = CalculatorFactory.create_calculator(
-            CalculationTarget.NCC,
-            ImplementationAlgorithm.BITARRAY,
-            config
-        )
+        calculator, bw_reader = create_calculator(config)
         assert calculator is not None
 
     def test_factory_direct_usage_pattern(self):
         """Test that factory can be used directly without strategy layer."""
         # All valid target-implementation combinations
         test_cases = [
-            (CalculationTarget.NCC, ImplementationAlgorithm.BITARRAY),
-            (CalculationTarget.NCC, ImplementationAlgorithm.SUCCESSIVE),
-            (CalculationTarget.BOTH, ImplementationAlgorithm.BITARRAY),
-            (CalculationTarget.BOTH, ImplementationAlgorithm.SUCCESSIVE),
+            (CalculationTarget.NCC, Algorithm.BITARRAY),
+            (CalculationTarget.NCC, Algorithm.SUCCESSIVE),
+            (CalculationTarget.BOTH, Algorithm.BITARRAY),
+            (CalculationTarget.BOTH, Algorithm.SUCCESSIVE),
         ]
 
         for target, implementation in test_cases:
-            config = CalculationConfig(
+            config = PyMaSCConfig(
                 target=target,
                 implementation=implementation,
                 max_shift=500,
                 mapq_criteria=20,
-                read_length=50,  # Required for BitArray
-                references=["chr1"],
-                lengths=[1000]
+                nproc=1,
+                esttype=EstimationType.MEDIAN,
+                chi2_pval=0.0001,
+                mv_avr_filter_len=50,
+                filter_mask_len=10,
+                min_calc_width=10,
+                read_length=50  # Required for BitArray
             )
+            config.ref2lengths = {"chr1": 1000}
 
             # MSCC requires mappability config, so skip those
             if target in [CalculationTarget.MSCC, CalculationTarget.BOTH]:
                 continue
 
-            calculator = CalculatorFactory.create_calculator(
-                target, implementation, config
-            )
+            calculator, bw_reader = create_calculator(config)
             assert calculator is not None
 
     def test_factory_performance_optimization(self):
         """Test that factory pattern provides direct calculator creation."""
-        config = CalculationConfig(
+        config = PyMaSCConfig(
             target=CalculationTarget.NCC,
-            implementation=ImplementationAlgorithm.BITARRAY,
+            implementation=Algorithm.BITARRAY,
             max_shift=200,
             mapq_criteria=20,
-            read_length=50,
-            references=["chr1", "chr2"],
-            lengths=[1000, 800]
+            nproc=1,
+            esttype=EstimationType.MEDIAN,
+            chi2_pval=0.0001,
+            mv_avr_filter_len=50,
+            filter_mask_len=10,
+            min_calc_width=10,
+            read_length=50
         )
+        config.ref2lengths = {"chr1": 1000, "chr2": 800}
 
         # Direct factory usage should be fast and efficient
-        calculator = CalculatorFactory.create_calculator(
-            config.target,
-            config.implementation,
-            config
-        )
+        calculator, bw_reader = create_calculator(config)
 
         assert calculator is not None
         # Verify it's the correct calculator type
@@ -194,22 +222,23 @@ class TestFactoryArchitectureIntegration:
 
     def test_single_process_integration(self):
         """Test that single-process mode uses factory directly."""
-        # This test verifies that CalcHandler uses CalculatorFactory directly
+        # This test verifies that CalcHandler uses create_calculator directly
         # without strategy layer overhead
-        config = CalculationConfig(
+        config = PyMaSCConfig(
             target=CalculationTarget.NCC,
-            implementation=ImplementationAlgorithm.SUCCESSIVE,
+            implementation=Algorithm.SUCCESSIVE,
             max_shift=300,
             mapq_criteria=25,
-            references=["chr1"],
-            lengths=[1000]
+            nproc=1,
+            esttype=EstimationType.MEDIAN,
+            chi2_pval=0.0001,
+            mv_avr_filter_len=50,
+            filter_mask_len=10,
+            min_calc_width=10
         )
+        config.ref2lengths = {"chr1": 1000}
 
-        calculator = CalculatorFactory.create_calculator(
-            config.target,
-            config.implementation,
-            config
-        )
+        calculator, bw_reader = create_calculator(config)
 
         # Should create calculator without intermediate strategy objects
         assert calculator is not None
@@ -217,22 +246,23 @@ class TestFactoryArchitectureIntegration:
     def test_multiprocess_integration_consistency(self):
         """Test that multi-process mode also uses factory directly."""
         # Both single and multi-process should use the same factory pattern
-        config = CalculationConfig(
+        config = PyMaSCConfig(
             target=CalculationTarget.NCC,
-            implementation=ImplementationAlgorithm.BITARRAY,
+            implementation=Algorithm.BITARRAY,
             max_shift=400,
             mapq_criteria=30,
-            read_length=75,
-            references=["chr1"],
-            lengths=[1000]
+            nproc=4,
+            esttype=EstimationType.MEDIAN,
+            chi2_pval=0.0001,
+            mv_avr_filter_len=50,
+            filter_mask_len=10,
+            min_calc_width=10,
+            read_length=75
         )
+        config.ref2lengths = {"chr1": 1000}
 
         # Same factory call as used in both single and multi-process
-        calculator = CalculatorFactory.create_calculator(
-            config.target,
-            config.implementation,
-            config
-        )
+        calculator, bw_reader = create_calculator(config)
 
         assert calculator is not None
 
@@ -241,21 +271,22 @@ class TestFactoryArchitectureIntegration:
         # Factory pattern should provide simple, direct calculator creation
         # No strategy objects, contexts, or intermediate layers needed
 
-        config = CalculationConfig(
+        config = PyMaSCConfig(
             target=CalculationTarget.NCC,
-            implementation=ImplementationAlgorithm.SUCCESSIVE,
+            implementation=Algorithm.SUCCESSIVE,
             max_shift=250,
             mapq_criteria=15,
-            references=["chr1"],
-            lengths=[1000]
+            nproc=1,
+            esttype=EstimationType.MEDIAN,
+            chi2_pval=0.0001,
+            mv_avr_filter_len=50,
+            filter_mask_len=10,
+            min_calc_width=10
         )
+        config.ref2lengths = {"chr1": 1000}
 
         # Single, direct factory call
-        calculator = CalculatorFactory.create_calculator(
-            config.target,
-            config.implementation,
-            config
-        )
+        calculator, bw_reader = create_calculator(config)
 
         assert calculator is not None
         # Verify no strategy overhead

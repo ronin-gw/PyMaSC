@@ -92,3 +92,19 @@ def estimate_readlen_enhanced(path: str,
         Estimated read length
     """
     return _original_estimate_readlen(path, esttype, mapq_criteria)
+
+
+def estimate_readlen_from_config(path: str, config: Any) -> int:
+    """Estimate read length using configuration object.
+    
+    Convenience function that extracts parameters from a CalculationConfig
+    object and calls the original estimate_readlen function.
+    
+    Args:
+        path: Path to BAM file
+        config: CalculationConfig object containing esttype and mapq_criteria
+        
+    Returns:
+        Estimated read length
+    """
+    return _original_estimate_readlen(path, config.esttype, config.mapq_criteria)

@@ -1,6 +1,6 @@
 """Type stubs for ncc.pyx - Naive Cross-Correlation calculation module."""
 
-from typing import Optional, List, Any
+from typing import Optional, Sequence, Any
 from multiprocessing.synchronize import Lock
 
 from .interfaces.calculator import NCCCalculatorModel
@@ -22,8 +22,8 @@ class NaiveCCCalculator(NCCCalculatorModel):
     def __init__(
         self,
         max_shift: int,
-        references: List[str],
-        lengths: List[int],
+        references: Sequence[str],
+        lengths: Sequence[int],
         logger_lock: Optional[Any] = None
     ) -> None:
         """Initialize NCC calculator.

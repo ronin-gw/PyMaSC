@@ -20,9 +20,10 @@ from multiprocessing.synchronize import Lock
 from typing import Optional, Any
 
 from PyMaSC.reader.bam import BAMFileProcessor, AlignmentLike
-from PyMaSC.core.interfaces.calculator import CrossCorrelationCalculator
-from PyMaSC.core.models import WorkerConfig, CalculationTarget
-from PyMaSC.core.result import EmptyResult, EmptyNCCResult, EmptyMSCCResult, EmptyBothChromResult
+from .interfaces.config import PyMaSCConfig, CalculationTarget
+from .interfaces.calculator import CrossCorrelationCalculator
+from .factory import create_calculator
+from .result import EmptyResult, EmptyNCCResult, EmptyMSCCResult, EmptyBothChromResult
 from PyMaSC.utils.progress import ProgressHook
 from PyMaSC.handler.read import ReadProcessor, create_read_processor
 
@@ -41,35 +42,25 @@ class BaseWorker(Process, ABC):
     """
 
     def __init__(self,
-                 worker_config: WorkerConfig,
+                 config: PyMaSCConfig,
                  order_queue: Queue,
                  report_queue: Queue,
                  logger_lock: Lock,
                  bam_path: str):
-        """Initialize base worker.
-
-        Args:
-            worker_config: Configuration for this worker
-            order_queue: Queue for receiving work orders
-            report_queue: Queue for sending results
-            logger_lock: Lock for thread-safe logging
-            bam_path: Path to BAM file to process
-        """
         super().__init__()
 
-        self.config = worker_config
+        self.config = config
         self.order_queue = order_queue
         self.report_queue = report_queue
         self.logger_lock = logger_lock
         self.bam_path = bam_path
 
         # Create progress reporter
-        self._progress = ProgressHook(report_queue) if worker_config.progress_enabled else None
+        self._progress = ProgressHook(report_queue)
         self._current_chrom: Optional[str] = None
 
         # Reference information
-        calc_config = worker_config.calculation_config
-        self._ref2genomelen = dict(zip(calc_config.references, calc_config.lengths))
+        self._ref2genomelen = config.ref2lengths
 
     def run(self) -> None:
         """Main worker process loop."""
@@ -177,7 +168,7 @@ class CalcWorker(BaseWorker):
     """
 
     def __init__(self,
-                 worker_config: WorkerConfig,
+                 config: PyMaSCConfig,
                  order_queue: Queue,
                  report_queue: Queue,
                  logger_lock: Lock,
@@ -193,7 +184,7 @@ class CalcWorker(BaseWorker):
             bam_path: Path to BAM file
             calculator_factory: Optional calculator factory (for testing)
         """
-        super().__init__(worker_config, order_queue, report_queue,
+        super().__init__(config, order_queue, report_queue,
                          logger_lock, bam_path)
 
         self._calculator_factory = calculator_factory
@@ -203,37 +194,19 @@ class CalcWorker(BaseWorker):
 
     def _initialize(self) -> None:
         """Initialize calculators based on configuration."""
-        from PyMaSC.core.factory import CalculatorFactory
-
-        factory = self._calculator_factory or CalculatorFactory
-        calc_config = self.config.calculation_config
-        map_config = self.config.mappability_config
-
-        # Create primary calculator
-        self._calculator = factory.create_calculator(
-            calc_config.target,
-            calc_config.implementation,
-            calc_config,
-            map_config,
+        self._calculator, self._bwfeeder = create_calculator(
+            self.config,
             self.logger_lock,
             self._progress
         )
 
-        # Initialize BigWig feeder if needed
-        if map_config and map_config.is_enabled():
-            from PyMaSC.reader.bigwig import BigWigReader
-            self._bwfeeder = BigWigReader(str(map_config.mappability_path))
-
     def _get_read_processor(self) -> ReadProcessor:
         """Get appropriate read processor."""
         if self._processor is None:
-            # Create processor based on configuration
-            calc_config = self.config.calculation_config
-
             assert self._calculator is not None
             self._processor = create_read_processor(
                 self._calculator,
-                calc_config.mapq_criteria
+                self.config.mapq_criteria
             )
 
         return self._processor
@@ -266,24 +239,23 @@ class CalcWorker(BaseWorker):
         Returns:
             Appropriate empty result based on calculation target
         """
-        calc_config = self.config.calculation_config
         genome_length = self._ref2genomelen[chrom]
-        max_shift = calc_config.max_shift
-        read_len = calc_config.read_length
+        max_shift = self.config.max_shift
+        read_len = self.config.read_length
 
         # read_length is required to create meaningful empty results
         if read_len is None:
             raise ValueError(f"read_length is required to create empty result for chromosome {chrom}")
 
         # Create appropriate empty result based on calculation target
-        if calc_config.target == CalculationTarget.NCC:
+        if self.config.target is CalculationTarget.NCC:
             return EmptyNCCResult.create_empty(genome_length, max_shift, read_len)
-        elif calc_config.target == CalculationTarget.MSCC:
+        elif self.config.target is CalculationTarget.MSCC:
             return EmptyMSCCResult.create_empty(genome_length, max_shift, read_len)
-        elif calc_config.target == CalculationTarget.BOTH:
+        elif self.config.target is CalculationTarget.BOTH:
             return EmptyBothChromResult.create_empty(genome_length, max_shift, read_len)
         else:
-            raise ValueError(f"Unknown calculation target: {calc_config.target}")
+            raise ValueError(f"Unknown calculation target: {self.config.target}")
 
     def _cleanup(self) -> None:
         """Clean up resources."""

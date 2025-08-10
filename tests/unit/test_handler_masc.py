@@ -5,30 +5,41 @@ from unittest.mock import Mock, patch
 
 from tests.utils.test_data_generator import create_mock_reference_data
 from PyMaSC.handler.calc import CalcHandler
-from PyMaSC.core.models import CalculationConfig, ExecutionConfig, CalculationTarget, ImplementationAlgorithm, ExecutionMode
+from PyMaSC.core.interfaces.config import PyMaSCConfig, CalculationTarget, Algorithm, EstimationType
 from PyMaSC.core.exceptions import NothingToCalc
 
 
-def create_test_handler(path="test.bam", esttype="ncc", max_shift=200, mapq_criteria=20,
+def create_test_handler(path="test.bam", esttype="MEDIAN", max_shift=200, mapq_criteria=20,
                        nworker=1, skip_ncc=False, chromfilter=None,
-                       target=CalculationTarget.NCC, implementation=ImplementationAlgorithm.SUCCESSIVE):
+                       target=CalculationTarget.NCC, implementation=Algorithm.SUCCESSIVE):
     """Helper function to create CalcHandler for testing."""
-    calc_config = CalculationConfig(
+    # Handle estimation type conversion
+    if isinstance(esttype, str):
+        if esttype.upper() in EstimationType.__members__:
+            est_type = EstimationType[esttype.upper()]
+        elif esttype in ["ncc", "mscc"]:  # Legacy compatibility
+            est_type = EstimationType.MEDIAN
+        else:
+            # For invalid types, raise ValueError
+            raise ValueError(f"Invalid estimation type: {esttype}")
+    else:
+        est_type = esttype
+    
+    config = PyMaSCConfig(
         target=target,
         implementation=implementation,
         max_shift=max_shift,
         mapq_criteria=mapq_criteria,
-        skip_ncc=skip_ncc
+        nproc=nworker,
+        esttype=est_type,
+        chi2_pval=0.0001,
+        mv_avr_filter_len=50,
+        filter_mask_len=10,
+        min_calc_width=10,
+        chromfilter=chromfilter
     )
-    calc_config.esttype = esttype
-    calc_config.chromfilter = chromfilter
 
-    exec_config = ExecutionConfig(
-        mode=ExecutionMode.MULTI_PROCESS if nworker > 1 else ExecutionMode.SINGLE_PROCESS,
-        worker_count=nworker
-    )
-
-    return CalcHandler(path, calc_config, exec_config)
+    return CalcHandler(path, config)
 
 
 class TestCCCalcHandlerBasics:

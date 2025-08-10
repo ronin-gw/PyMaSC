@@ -4,11 +4,6 @@ This module provides a handler that replaces both CCCalcHandler
 and BACalcHandler by directly using the factory pattern for calculator creation.
 This eliminates unnecessary abstraction layers while maintaining a single,
 consistent interface.
-
-Key components:
-- CalcHandler: Main handler that uses factory for calculator creation
-- Direct integration with CalculatorFactory for optimal performance
-- Maintains backward compatibility while simplifying the architecture
 """
 from __future__ import annotations
 
@@ -20,11 +15,8 @@ from typing import Optional, List, Tuple, Union, Any
 from PyMaSC.reader.bam import BAMFileProcessor, BAMNoReadsError, BAMNoTargetChroms
 from PyMaSC.handler.read import create_read_processor
 from PyMaSC.core.exceptions import InputUnseekable, NothingToCalc
-from PyMaSC.core.factory import CalculatorFactory
-from PyMaSC.core.models import (
-    CalculationConfig, MappabilityConfig, ExecutionConfig,
-    ExecutionMode, WorkerConfig
-)
+from PyMaSC.core.interfaces.config import PyMaSCConfig
+from PyMaSC.core.factory import create_calculator
 from PyMaSC.core.result import (
     ChromResult, GenomeWideResult
 )
@@ -34,144 +26,100 @@ from PyMaSC.core.worker import CalcWorker
 from PyMaSC.utils.calc import exec_worker_pool
 from PyMaSC.utils.progress import ProgressBar, ProgressHook, MultiLineProgressManager
 
+from .mappability import MappabilityHandler
+
 logger = logging.getLogger(__name__)
 
 
 class CalcHandler:
-    """Cross-correlation calculation handler.
-
-    This handler replaces both CCCalcHandler and BACalcHandler by using
-    the factory pattern for direct calculator creation. It maintains the
-    same public interface as the original handlers while providing
-    optimized performance through reduced abstraction layers.
-
-    The handler coordinates:
-    - Direct calculator creation via CalculatorFactory
-    - BAM file processing and validation (via BAMFileProcessor)
-    - Calculator and worker creation via factories
-    - Result collection and aggregation
-    - Progress reporting (via ProgressCoordinator)
-
-    Attributes:
-        path: Input BAM file path
-        config: Calculation configuration
-        execution_config: Execution mode configuration
-        mappability_config: Optional mappability configuration
-        references: List of target chromosome names
-        lengths: List of chromosome lengths
-        read_len: Estimated or specified read length
-        bam_processor: BAM file processor for file operations
+    """
     """
 
-    def __init__(self,
-                 path: os.PathLike[str],
-                 config: CalculationConfig,
-                 execution_config: ExecutionConfig,
-                 mappability_config: Optional[MappabilityConfig] = None):
-        """Initialize handler with configuration.
-
-        Args:
-            path: Path to input BAM file
-            config: Calculation configuration
-            execution_config: Execution configuration (defaults to single process)
-            mappability_config: Optional mappability configuration
-
-        Raises:
-            ValueError: If BAM file has no sequences defined
-            NothingToCalc: If no chromosomes match filtering criteria
+    def __init__(self, path: os.PathLike[str], config: PyMaSCConfig) -> None:
+        """
         """
         self.path = str(path)
         self.config = config
-        self.execution_config = execution_config
-        self.mappability_config = mappability_config
 
         # Initialize BAM file processor
         self.bam_processor = BAMFileProcessor(self.path)
 
         # Validate BAM file and extract metadata
         try:
-            chromfilter = getattr(config, 'chromfilter', None)
-            references, lengths = self.bam_processor.apply_chromfilter(chromfilter)
+            references, lengths = self.bam_processor.apply_chromfilter(self.config.chromfilter)
         except BAMNoReadsError:
             raise ValueError("File has no sequences defined.")
         except BAMNoTargetChroms:
             raise NothingToCalc
 
         # Update config with filtered references
-        self.references = self.config.references = list(references)
-        self.lengths = self.config.lengths = list(lengths)
+        self.config.ref2lengths = dict(zip(references, lengths))
 
         # Check for index in multiprocess mode
-        if (self.execution_config.mode is ExecutionMode.MULTI_PROCESS and
-                not self.bam_processor.check_multiprocess_compatibility()):
-            self.execution_config.mode = ExecutionMode.SINGLE_PROCESS
-            self.execution_config.worker_count = 1
-        elif self.execution_config.mode is ExecutionMode.MULTI_PROCESS:
+        if self.config.multiprocess and not self.bam_processor.check_multiprocess_compatibility():
+            self.config.nproc = 1
+        elif self.config.multiprocess:
             self.bam_processor.close()
 
-        # Read length will be set later
-        self.read_len: Optional[int] = None
-
         # Mappability handler reference
-        self.mappability_handler: Any = None
+        self.mappability_handler: Optional[MappabilityHandler] = None
 
-        # Legacy attributes for backward compatibility
-        self._esttype = getattr(config, 'esttype', 'mean')
+    @property
+    def read_len(self) -> Optional[int]:
+        """Get the read length from the configuration."""
+        return self.config.read_length
 
-    def set_or_estimate_readlen(self, readlen: Optional[int] = None) -> None:
+    @read_len.setter
+    def read_len(self, value: int) -> None:
+        """Set the read length in the configuration."""
+        self.config.read_length = value
+
+    def estimate_readlen(self) -> int:
         """Set or estimate read length.
-
-        Args:
-            readlen: Explicit read length to use, or None to estimate
 
         Raises:
             InputUnseekable: If estimation needed but input is unseekable
             ValueError: If read length exceeds maximum shift distance
         """
-        if readlen is not None:
-            self.read_len = readlen
-        elif self.path == '-':
+        if self.path == '-':
             logger.error("Cannot execute read length checking for unseekable input.")
             raise InputUnseekable
-        else:
-            logger.info(f"Check read length... : {self.path}")
-            # Use config's estimation type if available
-            esttype = getattr(self.config, 'esttype', 'mean')
-            self.read_len = estimate_readlen(
-                self.path, esttype, self.config.mapq_criteria
-            )
 
-        if self.read_len is not None and self.read_len > self.config.max_shift:
+        logger.info(f"Check read length... : {self.path}")
+        # Use config-based estimation for cleaner interface
+        read_len = estimate_readlen(
+            path=self.path,
+            esttype=self.config.esttype.value,
+            mapq_criteria=self.config.mapq_criteria
+        )
+
+        if read_len > self.config.max_shift:
             logger.error(f"Read length ({self.read_len}) seems to be longer than "
                          f"shift size ({self.config.max_shift}).")
             raise ValueError
 
-        # Update config with read length
-        self.config.read_length = self.read_len
+        return read_len
 
-    def set_mappability_handler(self, mappability_handler: Any) -> None:
+    def set_mappability_handler(self, mappability_handler: MappabilityHandler) -> None:
         """Set mappability handler and validate chromosome sizes.
 
         Args:
             mappability_handler: MappabilityHandler instance
         """
         self.mappability_handler = mappability_handler
-        if self.mappability_handler is not None:
-            bw_chromsizes = self.mappability_handler.chromsizes
-            # Use BAM processor to validate and reconcile chromosome sizes
-            updated_sizes = self.bam_processor.validate_chromosome_sizes(bw_chromsizes)
 
-            # Update lengths based on validation results
-            for i, reference in enumerate(self.references):
-                if reference in updated_sizes:
-                    new_length = updated_sizes[reference]
-                    if new_length != self.lengths[i]:
-                        self.lengths[i] = new_length
-                        self.config.lengths[i] = new_length
+        bw_chromsizes = self.mappability_handler.chromsizes
+        # Use BAM processor to validate and reconcile chromosome sizes
+        updated_sizes = self.bam_processor.validate_chromosome_sizes(bw_chromsizes)
+
+        # Update lengths based on validation results
+        for chrom, length in updated_sizes.items():
+            if chrom in self.config.ref2lengths:
+                self.config.ref2lengths[chrom] = length
 
     def run_calculation(self) -> GenomeWideResult:
         """Execute cross-correlation calculation workflow."""
-        if self.execution_config.mode is ExecutionMode.MULTI_PROCESS:
+        if self.config.multiprocess:
             # Configure progress for multiprocess mode
             ProgressBar.global_switch = False
             ProgressHook.global_switch = True
@@ -183,19 +131,11 @@ class CalcHandler:
     def _run_singleprocess_calculation(self) -> GenomeWideResult:
         """Execute calculation in single process mode."""
         # Create calculator using factory
-        calculator = CalculatorFactory.create_calculator(
-            self.config.target,
-            self.config.implementation,
-            self.config,
-            self.mappability_config
-        )
+        calculator, _ = create_calculator(self.config)
 
         #
         read_processor = create_read_processor(calculator, self.config.mapq_criteria)
         progress_bar = ProgressBar()
-
-        # Setup progress tracking for single process
-        ref2genomelen = dict(zip(self.references, self.lengths))
 
         processed_bases = 0
         current_chrom = None
@@ -203,13 +143,13 @@ class CalcHandler:
         for read in self.bam_processor:
             chrom = read.reference_name
 
-            if chrom is None or chrom not in self.references:
+            if chrom is None or chrom not in self.config.references:
                 continue
 
             processed_bases = max(processed_bases, read.reference_start)
             if chrom != current_chrom:
                 current_chrom = chrom
-                progress_bar.set(chrom, ref2genomelen[chrom])
+                progress_bar.set(chrom, self.config.ref2lengths[chrom])
                 progress_bar.clean()
 
             read_processor.process_read(read)
@@ -235,31 +175,12 @@ class CalcHandler:
         self._report_queue: Queue[Tuple[Optional[str], Union[ChromResult, Tuple[str, int]]]] = Queue()
         self._logger_lock = Lock()
 
-        # Create worker configuration
-        # Handle None mappability_config by providing a default or skipping
-        if self.mappability_config is not None:
-            worker_config = WorkerConfig(
-                calculation_config=self.config,
-                mappability_config=self.mappability_config,
-                progress_enabled=True,
-                logger_lock=self._logger_lock
-            )
-        else:
-            # Create a minimal config when mappability is not needed
-            default_mappability = MappabilityConfig()  # Use default config
-            worker_config = WorkerConfig(
-                calculation_config=self.config,
-                mappability_config=default_mappability,
-                progress_enabled=True,
-                logger_lock=self._logger_lock
-            )
-
         # Create workers using factory
         workers = []
-        num_workers = min(self.execution_config.worker_count, len(self.references))
+        num_workers = min(self.config.nproc, len(self.config.references))
         for _ in range(num_workers):
             worker = CalcWorker(
-                worker_config,
+                self.config,
                 self._order_queue,
                 self._report_queue,
                 self._logger_lock,
@@ -275,11 +196,11 @@ class CalcHandler:
 
     def _run_calculation_with_workers(self, workers: List[Any]) -> GenomeWideResult:
         """Coordinate worker processes and collect results."""
-        _chrom2finished = {c: False for c in self.references}
+        _chrom2finished = {c: False for c in self.config.references}
         _worker_results = {}  # Collect results for new aggregation system
         progress = MultiLineProgressManager()
 
-        with exec_worker_pool(workers, self.references, self._order_queue):
+        with exec_worker_pool(workers, self.config.references, self._order_queue):
             while True:
                 chrom, obj = self._report_queue.get()
 
@@ -291,8 +212,8 @@ class CalcHandler:
                     # This is a progress update from ProgressHook
                     assert not isinstance(obj, ChromResult)
                     chrom_text, body = obj  # 'body' is the progress bar string
-                    with self._logger_lock:
-                        progress.update(chrom_text, body)
+                    # with self._logger_lock:
+                    #     progress.update(chrom_text, body)
                     continue
 
                 # Result received

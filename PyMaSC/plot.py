@@ -19,6 +19,7 @@ import os
 import sys
 import json
 from pathlib import Path
+from dataclasses import dataclass
 from typing import Dict, List, Set, Optional, Tuple, Union
 
 from PyMaSC import entrypoint, logging_version
@@ -134,6 +135,16 @@ def _parse_args() -> argparse.Namespace:
     return args
 
 
+@dataclass
+class StatConfig:
+    read_length: int
+    chi2_pval: float
+    mv_avr_filter_len: int
+    filter_mask_len: int
+    min_calc_width: int
+    expected_library_length: Optional[int] = None
+
+
 @entrypoint(logger)
 def main() -> None:
     """Main plotting workflow coordinator.
@@ -220,11 +231,14 @@ def main() -> None:
     try:
         stats_result = make_genome_wide_stat(
             result,
-            read_len=read_len,
-            mv_avr_filter_len=args.smooth_window,
-            expected_library_len=args.library_length,
-            filter_mask_len=args.mask_size,
-            min_calc_width=args.bg_avr_width,
+            config=StatConfig(
+                read_length=read_len,
+                chi2_pval=args.chi2_pval,
+                mv_avr_filter_len=args.mv_avr_filter_len,
+                filter_mask_len=args.filter_mask_len,
+                min_calc_width=args.min_calc_width,
+                expected_library_length=args.library_length
+            ),
             output_warnings=True
         )
     except ReadsTooFew:

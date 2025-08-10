@@ -11,24 +11,23 @@ Key factories:
 - CalculatorAdapter: Adapts existing calculators to new interface
 """
 import logging
-from typing import Optional, Any
+from typing import Optional, Any, Tuple, cast
 from multiprocessing.synchronize import Lock
 
 from PyMaSC.core.result import BothChromResult, BothGenomeWideResult
 
-from .interfaces.calculator import CrossCorrelationCalculator, BothCalculatorModel
-from .models import (
-    CalculationConfig, MappabilityConfig,
-    CalculationTarget, ImplementationAlgorithm
+from .interfaces.config import (
+    PyMaSCConfig, Algorithm, CalculationTarget, mappability_configured
+)
+from .interfaces.calculator import (
+    CrossCorrelationCalculator,
+    NCCCalculatorModel, MSCCCalculatorModel, BothCalculatorModel
 )
 
-# Import existing calculator implementations
-# These will be wrapped to conform to the new interface
-from PyMaSC.core.ncc import NaiveCCCalculator as _NativeCCCalculator
-from PyMaSC.core.mscc import MSCCCalculator as _NativeMSCCCalculator
-from PyMaSC.bacore.mscc import CCBitArrayCalculator as _NativeBitArrayCalculator
+from PyMaSC.core.ncc import NaiveCCCalculator
+from PyMaSC.core.mscc import MSCCCalculator
+from PyMaSC.bacore.mscc import CCBitArrayCalculator
 
-# Import BigWig reader for mappability
 from PyMaSC.reader.bigwig import BigWigReader
 from PyMaSC.core.mappability import BWFeederWithMappableRegionSum
 
@@ -42,10 +41,10 @@ class CompositeCalculator(BothCalculatorModel):
     mappability data, matching the behavior of the original implementation.
     """
 
-    _ncc_calculator: _NativeCCCalculator
-    _mscc_calculator: _NativeMSCCCalculator
+    _ncc_calculator: NCCCalculatorModel
+    _mscc_calculator: MSCCCalculatorModel
 
-    def __init__(self, ncc_calculator: Any, mscc_calculator: Any):
+    def __init__(self, ncc_calculator: NCCCalculatorModel, mscc_calculator: MSCCCalculatorModel):
         """Initialize composite calculator.
 
         Args:
@@ -96,169 +95,112 @@ class CompositeCalculator(BothCalculatorModel):
         )
 
 
-class CalculatorFactory:
-    """Factory for creating cross-correlation calculator instances.
-
-    This factory encapsulates the complex logic of creating different
-    calculator types with their varying constructor signatures and
-    dependencies. It provides a unified interface for calculator creation
-    regardless of the underlying implementation.
+def create_calculator(
+    config: PyMaSCConfig,
+    logger_lock: Optional[Lock] = None,
+    progress_hook: Optional[Any] = None
+) -> Tuple[CrossCorrelationCalculator, Optional[BigWigReader]]:
     """
+    """
+    # Create calculator based on implementation and target
+    if config.implementation is Algorithm.SUCCESSIVE:
+        return _create_successive_calculator(
+            config, logger_lock
+        )
+    elif config.implementation is Algorithm.BITARRAY:
+        return _create_bitarray_calculator(
+            config, logger_lock, progress_hook
+        )
+    else:
+        raise ValueError(f"Unsupported implementation: {config.implementation.value}")
 
-    @staticmethod
-    def create_calculator(
-        target: CalculationTarget,
-        implementation: ImplementationAlgorithm,
-        config: CalculationConfig,
-        mappability_config: Optional[MappabilityConfig] = None,
-        logger_lock: Optional[Lock] = None,
-        progress_hook: Optional[Any] = None
-    ) -> CrossCorrelationCalculator:
-        """Create a calculator instance based on target and implementation.
 
-        Args:
-            target: What type of cross-correlation to calculate
-            implementation: How to implement the calculation
-            config: Calculation configuration
-            mappability_config: Optional mappability configuration
-            logger_lock: Optional thread lock for logging
-            progress_hook: Optional progress reporting hook
-
-        Returns:
-            Calculator instance wrapped in adapter
-
-        Raises:
-            ValueError: If combination is not supported or configuration is invalid
-        """
-        # Validate mappability requirements
-        if target in [CalculationTarget.MSCC, CalculationTarget.BOTH]:
-            if not mappability_config or not mappability_config.is_enabled():
-                raise ValueError(
-                    f"Target {target.value} requires mappability configuration"
-                )
-
-        # Create calculator based on implementation and target
-        if implementation == ImplementationAlgorithm.SUCCESSIVE:
-            return CalculatorFactory._create_successive_calculator(
-                target, config, mappability_config, logger_lock
-            )
-        elif implementation == ImplementationAlgorithm.BITARRAY:
-            return CalculatorFactory._create_bitarray_calculator(
-                target, config, mappability_config, logger_lock, progress_hook
-            )
-        else:
-            raise ValueError(f"Unsupported implementation: {implementation.value}")
-
-    @staticmethod
-    def _create_successive_calculator(
-        target: CalculationTarget,
-        config: CalculationConfig,
-        mappability_config: Optional[MappabilityConfig],
-        logger_lock: Optional[Lock]
-    ) -> CrossCorrelationCalculator:
-        """Create calculator using SUCCESSIVE algorithm."""
-        if target == CalculationTarget.NCC:
-            # Create NCC calculator
-            return _NativeCCCalculator(
-                config.max_shift,
-                config.references,
-                config.lengths,
-                logger_lock
-            )
-
-        elif target == CalculationTarget.MSCC:
-            # Create MSCC calculator
-            return CalculatorFactory._create_mscc_calculator(
-                config, mappability_config, logger_lock
-            )
-
-        elif target == CalculationTarget.BOTH:
-            # Create composite calculator for both NCC and MSCC
-            ncc_calc = _NativeCCCalculator(
-                config.max_shift,
-                config.references,
-                config.lengths,
-                logger_lock
-            )
-
-            # Create BWFeeder for MSCC
-            bwfeeder = BWFeederWithMappableRegionSum(
-                str(mappability_config.mappability_path),
-                config.max_shift
-            )
-
-            read_len = config.read_length or mappability_config.read_len
-            if read_len is None:
-                raise ValueError("Read length must be specified for MSCC")
-
-            mscc_calc = _NativeMSCCCalculator(
-                config.max_shift,
-                read_len,
-                config.references,
-                config.lengths,
-                bwfeeder,
-                logger_lock
-            )
-
-            return CompositeCalculator(ncc_calc, mscc_calc)
-
-    @staticmethod
-    def _create_bitarray_calculator(
-        target: CalculationTarget,
-        config: CalculationConfig,
-        mappability_config: Optional[MappabilityConfig],
-        logger_lock: Optional[Lock],
-        progress_hook: Optional[Any]
-    ) -> CrossCorrelationCalculator:
-        """Create calculator using BITARRAY algorithm."""
-        # BitArray handles all targets in a single calculator
-        bwfeeder = None
-        if mappability_config and mappability_config.is_enabled():
-            assert mappability_config.mappability_path is not None
-            bwfeeder = BigWigReader(mappability_config.mappability_path)
-
-        read_len = config.read_length
-        if mappability_config and mappability_config.read_len:
-            read_len = mappability_config.read_len
-
-        if read_len is None:
-            raise ValueError("Read length must be specified for BitArray")
-
-        # Determine skip_ncc based on target
-        skip_ncc = target == CalculationTarget.MSCC or config.skip_ncc
-
-        return _NativeBitArrayCalculator(
+def _create_successive_calculator(
+    config: PyMaSCConfig,
+    logger_lock: Optional[Lock]
+) -> Tuple[CrossCorrelationCalculator, Optional[BigWigReader]]:
+    """Create calculator using SUCCESSIVE algorithm."""
+    if config.target is CalculationTarget.NCC:
+        # Create NCC calculator
+        return NaiveCCCalculator(
             config.max_shift,
-            read_len,
             config.references,
             config.lengths,
-            bwfeeder,
-            skip_ncc,
-            logger_lock,
-            progress_hook
+            logger_lock
+        ), None
+
+    elif config.target is CalculationTarget.MSCC:
+        # Create MSCC calculator
+        return _create_mscc_calculator(
+            config, logger_lock
         )
 
-    @staticmethod
-    def _create_mscc_calculator(
-        config: CalculationConfig,
-        mappability_config: MappabilityConfig,
-        logger_lock: Optional[Lock]
-    ) -> CrossCorrelationCalculator:
-        """Create pure MSCC calculator."""
-        bwfeeder = BWFeederWithMappableRegionSum(
-            str(mappability_config.mappability_path),
-            config.max_shift
-        )
-
-        read_len = config.read_length or mappability_config.read_len
-        if read_len is None:
-            raise ValueError("Read length must be specified for MSCC")
-
-        return _NativeMSCCCalculator(
+    elif config.target is CalculationTarget.BOTH:
+        # Create composite calculator for both NCC and MSCC
+        ncc_calc = NaiveCCCalculator(
             config.max_shift,
-            read_len,
             config.references,
             config.lengths,
-            bwfeeder,
             logger_lock
         )
+
+        mscc_calc, bwfeeder = _create_mscc_calculator(config, logger_lock)
+
+        return CompositeCalculator(ncc_calc, mscc_calc), bwfeeder
+
+    else:
+        raise ValueError(f"Unsupported target: {config.target.value}")
+
+
+def _create_mscc_calculator(
+    config: PyMaSCConfig,
+    logger_lock: Optional[Lock]
+) -> Tuple[MSCCCalculator, BWFeederWithMappableRegionSum]:
+    """Create pure MSCC calculator."""
+
+    assert config.mappability_path is not None, "Mappability path must be set for MSCC calculation"
+    assert config.read_length is not None, "Read length must be set for MSCC calculation"
+
+    bwfeeder = BWFeederWithMappableRegionSum(
+        str(config.mappability_path),
+        config.max_shift
+    )
+
+    calculator = MSCCCalculator(
+        config.max_shift,
+        config.read_length,
+        list(config.references),
+        config.lengths,
+        bwfeeder,
+        logger_lock
+    )
+
+    return calculator, bwfeeder
+
+
+def _create_bitarray_calculator(
+    config: PyMaSCConfig,
+    logger_lock: Optional[Lock],
+    progress_hook: Optional[Any]
+) -> Tuple[CrossCorrelationCalculator, Optional[BigWigReader]]:
+    """Create calculator using BITARRAY algorithm."""
+
+    bwfeeder = None
+    if mappability_configured(config):
+        bwfeeder = BigWigReader(config.mappability_path)
+
+    config = cast(PyMaSCConfig, config)
+    assert config.read_length is not None, "Read length must be set for BitArray calculator"
+
+    calculator = CCBitArrayCalculator(
+        config.max_shift,
+        config.read_length,
+        list(config.references),
+        config.lengths,
+        bwfeeder,
+        config.skip_ncc,
+        logger_lock,
+        progress_hook
+    )
+
+    return calculator, bwfeeder

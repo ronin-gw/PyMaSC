@@ -5,6 +5,7 @@ from typing import Union, Optional, Type, Dict, List, Tuple, TypeVar, Protocol, 
 import numpy as np
 import numpy.typing as npt
 
+from .interfaces.config import StatConfig
 from .interfaces.result import (
     NCCResultModel, MSCCResultModel,
     GenomeWideResultModel,
@@ -265,12 +266,8 @@ class CorrParams(CorrLike):
 @overload
 def _prepare_chromosome_stat(
     result: NCCResultModel,
-    read_len: int,
+    config: StatConfig,
     stats_type: None = None,
-    mv_avr_filter_len: int = ...,
-    expected_library_len: Optional[int] = ...,
-    filter_mask_len: int = ...,
-    min_calc_width: int = ...,
     output_warnings: bool = ...,
     estimated_library_len: Optional[int] = ...
 ) -> Tuple[NCCStats, CCContainer]: ...
@@ -279,12 +276,8 @@ def _prepare_chromosome_stat(
 @overload
 def _prepare_chromosome_stat(
     result: MSCCResultModel,
-    read_len: int,
+    config: StatConfig,
     stats_type: None = None,
-    mv_avr_filter_len: int = ...,
-    expected_library_len: Optional[int] = ...,
-    filter_mask_len: int = ...,
-    min_calc_width: int = ...,
     output_warnings: bool = ...,
     estimated_library_len: Optional[int] = ...
 ) -> Tuple[MSCCStats, CCContainer]: ...
@@ -293,12 +286,8 @@ def _prepare_chromosome_stat(
 @overload
 def _prepare_chromosome_stat(
     result: CorrParams,
-    read_len: int,
+    config: StatConfig,
     stats_type: Type[TStats],
-    mv_avr_filter_len: int = ...,
-    expected_library_len: Optional[int] = ...,
-    filter_mask_len: int = ...,
-    min_calc_width: int = ...,
     output_warnings: bool = ...,
     estimated_library_len: Optional[int] = ...
 ) -> Tuple[TStats, CCContainer]: ...
@@ -306,12 +295,8 @@ def _prepare_chromosome_stat(
 
 def _prepare_chromosome_stat(
     result: CorrLike,
-    read_len: int,
+    config: StatConfig,
     stats_type: Optional[Type[TStats]] = None,
-    mv_avr_filter_len: int = 15,
-    expected_library_len: Optional[int] = None,
-    filter_mask_len: int = 5,
-    min_calc_width: int = 10,
     output_warnings: bool = True,
     estimated_library_len: Optional[int] = None
 ) -> Tuple[TStats, CCContainer]:
@@ -319,18 +304,18 @@ def _prepare_chromosome_stat(
     cc_container = CCContainer(
         cc=result.cc,
         output_warnings=output_warnings,
-        window_size=mv_avr_filter_len,
-        min_calc_width=min_calc_width,
-        read_len=read_len,
-        filter_mask_len=filter_mask_len
+        window_size=config.mv_avr_filter_len,
+        min_calc_width=config.min_calc_width,
+        read_len=config.read_length,
+        filter_mask_len=config.filter_mask_len
     )
 
     #
-    if expected_library_len is not None:
+    if config.expected_library_length is not None:
         metrics_at_expected_length = CCQualityMetrics(
-            fragment_length=expected_library_len,
-            ccfl=cc_container.cc[expected_library_len - 1],
-            fwhm=cc_container.calc_FWHM(expected_library_len)
+            fragment_length=config.expected_library_length,
+            ccfl=cc_container.cc[config.expected_library_length - 1],
+            fwhm=cc_container.calc_FWHM(config.expected_library_length)
         )
     else:
         metrics_at_expected_length = CCQualityMetrics()
@@ -348,34 +333,34 @@ def _prepare_chromosome_stat(
     stats: Union[NCCStats, MSCCStats, TStats]
     if isinstance(result, NCCResultModel):
         stats = NCCStats(
-            read_len=read_len,
+            read_len=config.read_length,
             genomelen=result.genomelen,
             forward_reads=result.forward_sum,
             reverse_reads=result.reverse_sum,
             cc_min=cc_container.cc_min,
-            ccrl=result.cc[read_len - 1],
+            ccrl=result.cc[config.read_length - 1],
             metrics_at_expected_length=metrics_at_expected_length,
             metrics_at_estimated_length=metrics_at_estimated_length
         )
     elif isinstance(result, MSCCResultModel):
         stats = MSCCStats(
-            read_len=read_len,
+            read_len=config.read_length,
             genomelen=np.array(result.mappable_len, dtype=np.int64),
             forward_reads=result.forward_sum,
             reverse_reads=result.reverse_sum,
             cc_min=cc_container.cc_min,
-            ccrl=result.cc[read_len - 1],
+            ccrl=result.cc[config.read_length - 1],
             metrics_at_expected_length=metrics_at_expected_length,
             metrics_at_estimated_length=metrics_at_estimated_length
         )
     elif stats_type is not None:
         stats = stats_type(
-            read_len=read_len,
+            read_len=config.read_length,
             genomelen=result.genomelen,
             forward_reads=result.forward_sum,
             reverse_reads=result.reverse_sum,
             cc_min=cc_container.cc_min,
-            ccrl=result.cc[read_len - 1],
+            ccrl=result.cc[config.read_length - 1],
             metrics_at_expected_length=metrics_at_expected_length,
             metrics_at_estimated_length=metrics_at_estimated_length
         )
@@ -388,11 +373,7 @@ def _prepare_chromosome_stat(
 
 def make_chromosome_stat(
     result: Union[NCCResultModel, MSCCResultModel],
-    read_len: int,
-    mv_avr_filter_len: int = 15,
-    expected_library_len: Optional[int] = None,
-    filter_mask_len: int = 5,
-    min_calc_width: int = 10,
+    config: StatConfig,
     output_warnings: bool = False,
     estimated_library_len: Optional[int] = None
 ) -> Union[ChromosomeStats, EmptyChromosomeStats]:
@@ -405,12 +386,8 @@ def make_chromosome_stat(
     # For regular results, proceed with normal statistical processing
     stats, cc_container = _prepare_chromosome_stat(
         result,
-        read_len,
+        config,
         None,
-        mv_avr_filter_len,
-        expected_library_len,
-        filter_mask_len,
-        min_calc_width,
         output_warnings,
         estimated_library_len
     )
@@ -420,18 +397,14 @@ def make_chromosome_stat(
         cc=cc_container.cc,
         avr_cc=cc_container.avr_cc,
         est_lib_len=cc_container.est_lib_len,
-        mv_avr_filter_len=mv_avr_filter_len
+        mv_avr_filter_len=config.mv_avr_filter_len
     )
 
 
 def aggregate_chromosome_stats(
     chrom_stats: Optional[Dict[str, Union[ChromosomeStats[TStats], EmptyChromosomeStats]]],
-    read_len: int,
-    mv_avr_filter_len: int,
-    filter_mask_len: int,
-    min_calc_width: int,
+    config: StatConfig,
     output_warnings: bool,
-    expected_library_len: Optional[int] = None,
     estimated_library_len: Optional[int] = None
 ) -> Optional[WholeGenomeStats[TStats]]:
     if chrom_stats is None:
@@ -512,14 +485,10 @@ def aggregate_chromosome_stats(
             forward_sum=total_forward_reads,
             reverse_sum=total_reverse_reads
         ),
-        read_len=read_len,
+        config,
         interval_upper=interval_upper,
         interval_lower=interval_lower,
         stats_type=stats_type,
-        mv_avr_filter_len=mv_avr_filter_len,
-        expected_library_len=expected_library_len,
-        filter_mask_len=filter_mask_len,
-        min_calc_width=min_calc_width,
         output_warnings=output_warnings,
         estimated_library_len=estimated_library_len
     )
@@ -527,25 +496,17 @@ def aggregate_chromosome_stats(
 
 def make_whole_genome_stat(
     result: CorrParams,
-    read_len: int,
+    config: StatConfig,
     interval_upper: npt.NDArray[np.float64],
     interval_lower: npt.NDArray[np.float64],
     stats_type: Type[TStats],
-    mv_avr_filter_len: int = 15,
-    expected_library_len: Optional[int] = None,
-    filter_mask_len: int = 5,
-    min_calc_width: int = 10,
     output_warnings: bool = True,
     estimated_library_len: Optional[int] = None
 ) -> WholeGenomeStats[TStats]:
     stat, cc_container = _prepare_chromosome_stat(
         result,
-        read_len,
+        config,
         stats_type,
-        mv_avr_filter_len,
-        expected_library_len,
-        filter_mask_len,
-        min_calc_width,
         output_warnings,
         estimated_library_len
     )
@@ -557,17 +518,13 @@ def make_whole_genome_stat(
         est_lib_len=cc_container.est_lib_len,
         cc_upper=interval_upper,
         cc_lower=interval_lower,
-        mv_avr_filter_len=mv_avr_filter_len
+        mv_avr_filter_len=config.mv_avr_filter_len
     )
 
 
 def make_genome_wide_stat(
     result: GenomeWideResultModel,
-    read_len: int,
-    mv_avr_filter_len: int,
-    expected_library_len: Optional[int],
-    filter_mask_len: int,
-    min_calc_width: int,
+    config: StatConfig,
     output_warnings: bool
 ) -> GenomeWideStats:
     """Create a GenomeWideStats object from a GenomeWideResult."""
@@ -577,40 +534,19 @@ def make_genome_wide_stat(
     #
     if isinstance(result, MSCCGenomeWideResultModel):
         mscc_stats = {
-            chrom: make_chromosome_stat(
-                chromres,
-                read_len,
-                mv_avr_filter_len,
-                expected_library_len,
-                filter_mask_len,
-                min_calc_width
-            )
+            chrom: make_chromosome_stat(chromres, config)
             for chrom, chromres in result.chroms.items()
         }
     elif isinstance(result, BothGenomeWideResultModel):
         mscc_stats = {
-            chrom: make_chromosome_stat(
-                chromres,
-                read_len,
-                mv_avr_filter_len,
-                expected_library_len,
-                filter_mask_len,
-                min_calc_width
-            )
+            chrom: make_chromosome_stat(chromres, config)
             for chrom, chromres in result.mappable_chroms.items()
         }
 
     #
     if isinstance(result, NCCGenomeWideResultModel):
         ncc_stats = {
-            chrom: make_chromosome_stat(
-                chromres,
-                read_len,
-                mv_avr_filter_len,
-                expected_library_len,
-                filter_mask_len,
-                min_calc_width
-            )
+            chrom: make_chromosome_stat(chromres, config)
             for chrom, chromres in result.chroms.items()
         }
     elif isinstance(result, BothGenomeWideResultModel):
@@ -624,11 +560,7 @@ def make_genome_wide_stat(
 
             ncc_stats[chrom] = make_chromosome_stat(
                 chromres,
-                read_len,
-                mv_avr_filter_len,
-                expected_library_len,
-                filter_mask_len,
-                min_calc_width,
+                config,
                 estimated_library_len=estimated_library_len
             )
 
@@ -638,10 +570,7 @@ def make_genome_wide_stat(
     #
     whole_mscc_stats: Optional[WholeGenomeStats[MSCCStats]] = aggregate_chromosome_stats(
         mscc_stats,
-        read_len,
-        mv_avr_filter_len,
-        filter_mask_len,
-        min_calc_width,
+        config,
         output_warnings
     )
 
@@ -652,10 +581,7 @@ def make_genome_wide_stat(
 
     whole_ncc_stats = aggregate_chromosome_stats(
         ncc_stats,
-        read_len,
-        mv_avr_filter_len,
-        filter_mask_len,
-        min_calc_width,
+        config,
         output_warnings,
         estimated_library_len=estimated_library_len
     )

@@ -11,14 +11,14 @@ help:
 	@echo "  make test-quick    - Run unit tests only (fast)"
 	@echo "  make test-unit     - Run unit tests verbosely"
 	@echo "  make test-integration - Run integration tests"
-	@echo "  make test-all      - Run all tests verbosely"
+	@echo "  make test-all      - Run all tests verbosely with coverage"
 	@echo ""
 	@echo "Parallel test commands (requires pytest-xdist):"
 	@echo "  make test-parallel - Run full test suite with coverage in parallel"
 	@echo "  make test-quick-parallel - Run unit tests only in parallel (fast)"
 	@echo "  make test-unit-parallel - Run unit tests verbosely in parallel"
 	@echo "  make test-integration-parallel - Run integration tests in parallel"
-	@echo "  make test-all-parallel - Run all tests verbosely in parallel"
+	@echo "  make test-all-parallel - Run all tests verbosely in parallel with coverage"
 	@echo "  make test-workers WORKERS=N - Run tests with N parallel workers"
 	@echo "  make build         - Build Cython extensions in-place (incremental)"
 	@echo "  make build-force   - Force rebuild all Cython extensions"
@@ -51,9 +51,9 @@ test-unit:
 test-integration:
 	python -m pytest tests/integration/ -v
 
-# Run all tests verbosely
+# Run all tests verbosely with coverage
 test-all:
-	python -m pytest tests/ -v
+	python -m pytest tests/ -v --cov=PyMaSC --cov-report=term-missing --cov-report=html
 
 # Parallel test commands (using pytest-xdist)
 # Run tests with coverage in parallel (auto-detect CPU count)
@@ -72,9 +72,9 @@ test-unit-parallel:
 test-integration-parallel:
 	python -m pytest tests/integration/ -v -n auto --dist=loadgroup
 
-# Run all tests verbosely in parallel with subprocess test grouping
+# Run all tests verbosely in parallel with subprocess test grouping and coverage
 test-all-parallel:
-	python -m pytest tests/ -v -n auto --dist=loadgroup
+	python -m pytest tests/ -v --cov=PyMaSC --cov-report=term-missing --cov-report=html -n auto --dist=loadgroup
 
 # Run tests with custom number of workers
 # Usage: make test-workers WORKERS=4

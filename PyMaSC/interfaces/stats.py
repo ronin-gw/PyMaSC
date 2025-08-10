@@ -2,11 +2,16 @@ from dataclasses import dataclass
 from abc import abstractmethod
 from functools import cached_property
 from typing import Optional, Dict, Tuple, TypeVar, Generic, Protocol
+import logging
 
 import numpy as np
 import numpy.typing as npt
 
+from scipy.stats import chi2
+
 from .result import AbstractDataclass
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -49,6 +54,23 @@ class CCStats(Protocol, Generic[TCount]):
     @abstractmethod
     def reverse_reads_repr(self) -> int:
         pass
+
+    def check_strand_balance(self, chi2_p_thresh: float, label: str) -> None:
+        a = self.forward_reads_repr
+        b = self.reverse_reads_repr
+        if a == 0 and b == 0:
+            return
+
+        sum_ = a + b
+        chi2_val = (((a - sum_ / 2.) ** 2) + ((b - sum_ / 2.) ** 2)) / sum_
+        chi2_p = chi2.sf(chi2_val, 1)
+
+        if chi2_p <= chi2_p_thresh:
+            logger.warning(f"{label} Forward/Reverse read count imbalance.")
+            logger.warning(f"+/- = {a} / {b}, Chi-squared test p-val = {chi2_p:.5g} <= {chi2_p_thresh}")
+        else:
+            logger.info(f"{label} Forward/Reverse read count +/- = {a} / {b}")
+            logger.info(f"Chi-squared test p-val = {chi2_p:.5g} > {chi2_p_thresh}")
 
 
 NCCStats = CCStats[int]

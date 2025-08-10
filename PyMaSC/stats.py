@@ -596,6 +596,9 @@ def make_genome_wide_stat(
         if whole_ncc_stats.stats.reverse_reads == 0:
             logger.error("There is no reverse read.")
             raise ReadsTooFew
+        
+        # Check strand balance for NCC reads
+        whole_ncc_stats.stats.check_strand_balance(config.chi2_pval, "NCC")
 
     if whole_mscc_stats is not None:
         errormsg = "There is no forward read in mappable regions."
@@ -613,6 +616,9 @@ def make_genome_wide_stat(
             else:
                 logger.error(errormsg)
                 raise ReadsTooFew
+        
+        # Check strand balance for MSCC mappable reads
+        whole_mscc_stats.stats.check_strand_balance(config.chi2_pval, "MSCC")
 
     #
     cleaned_ncc_stats = cleaned_mscc_stats = None

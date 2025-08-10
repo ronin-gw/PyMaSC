@@ -20,12 +20,12 @@ from multiprocessing.synchronize import Lock
 from typing import Optional, Any
 
 from PyMaSC.reader.bam import BAMFileProcessor, AlignmentLike
-from .interfaces.config import PyMaSCConfig, CalculationTarget
-from .interfaces.calculator import CrossCorrelationCalculator
+from PyMaSC.interfaces.config import PyMaSCConfig, CalculationTarget
+from PyMaSC.interfaces.calculator import CrossCorrelationCalculator
+from .read import ReadProcessor, create_read_processor
 from .factory import create_calculator
-from .result import EmptyResult, EmptyNCCResult, EmptyMSCCResult, EmptyBothChromResult
+from PyMaSC.result import EmptyResult, EmptyNCCResult, EmptyMSCCResult, EmptyBothChromResult
 from PyMaSC.utils.progress import ProgressHook
-from PyMaSC.handler.read import ReadProcessor, create_read_processor
 
 logger = logging.getLogger(__name__)
 

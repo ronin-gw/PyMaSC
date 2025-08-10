@@ -18,14 +18,14 @@ import os
 from pathlib import Path
 from typing import overload, Union, TypeVar, Literal
 
-from PyMaSC.core.interfaces.output import (
+from PyMaSC.interfaces.output import (
     StatLabels,
     SummaryItems,
     CorrelationStats, CorrelationItems, NCC_LABELS, MSCC_LABELS,
     OutputStats
 )
 from PyMaSC.utils.output import catch_IOError
-from PyMaSC.core.interfaces.stats import GenomeWideStats, CCStats
+from PyMaSC.interfaces.stats import GenomeWideStats, CCStats
 
 logger = logging.getLogger(__name__)
 

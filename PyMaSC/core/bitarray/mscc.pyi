@@ -3,8 +3,8 @@
 from typing import Optional, List, Sequence, Any
 from multiprocessing.synchronize import Lock
 
-from PyMaSC.core.interfaces.calculator import BothCalculatorModel
-from PyMaSC.core.result import BothChromResult, GenomeWideResult
+from PyMaSC.interfaces.calculator import BothCalculatorModel
+from PyMaSC.result import BothChromResult, GenomeWideResult
 from PyMaSC.reader.bigwig import BigWigReader
 
 

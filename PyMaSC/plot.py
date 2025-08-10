@@ -22,26 +22,26 @@ from pathlib import Path
 from dataclasses import dataclass
 from typing import Dict, List, Set, Optional, Tuple, Union
 
-from PyMaSC import entrypoint, logging_version
-from PyMaSC.core.exceptions import ReadsTooFew
-from PyMaSC.utils.parsearg import get_plot_parser
-from PyMaSC.utils.logfmt import set_rootlogger
-from PyMaSC.utils.calc import filter_chroms
-from PyMaSC.pymasc import prepare_output, PLOTFILE_SUFFIX
-from PyMaSC.reader.bam import BAMFileProcessor
-from PyMaSC.reader.stats import load_stats
-from PyMaSC.reader.table import CCData, NreadData, load_cc_table, load_nreads_table
-from PyMaSC.core.interfaces.result import GenomeWideResultModel
-from PyMaSC.core.interfaces.output import (
+from . import entrypoint, logging_version
+from .core.exceptions import ReadsTooFew
+from .utils.parsearg import get_plot_parser
+from .utils.logfmt import set_rootlogger
+from .utils.calc import filter_chroms
+from .pymasc import prepare_output, PLOTFILE_SUFFIX
+from .reader.bam import BAMFileProcessor
+from .reader.stats import load_stats
+from .reader.table import CCData, NreadData, load_cc_table, load_nreads_table
+from .interfaces.result import GenomeWideResultModel
+from .interfaces.output import (
     OutputStats,
     NCCResult, MSCCResult,
     NCCGenomeWideResult, MSCCGenomeWideResult, BothGenomeWideResult
 )
-from PyMaSC.core.stats import make_genome_wide_stat
-from PyMaSC.output.stats import output_stats, STATSFILE_SUFFIX
-from PyMaSC.output.table import (output_cc, output_mscc,
-                                 CCOUTPUT_SUFFIX, MSCCOUTPUT_SUFFIX, NREADOUTPUT_SUFFIX)
-from PyMaSC.output.figure import plot_figures
+from .stats import make_genome_wide_stat
+from .output.stats import output_stats, STATSFILE_SUFFIX
+from .output.table import (output_cc, output_mscc,
+                           CCOUTPUT_SUFFIX, MSCCOUTPUT_SUFFIX, NREADOUTPUT_SUFFIX)
+from .output.figure import plot_figures
 
 logger = logging.getLogger(__name__)
 

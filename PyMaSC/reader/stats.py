@@ -3,7 +3,7 @@ from typing import Dict, Union, Literal
 from pathlib import Path
 
 from PyMaSC.utils.output import catch_IOError
-from PyMaSC.core.interfaces.output import (
+from PyMaSC.interfaces.output import (
     StatLabels,
     SummaryItems,
     CorrelationStats, CorrelationItems, NCC_LABELS, MSCC_LABELS, SUMMARY_LABELS,

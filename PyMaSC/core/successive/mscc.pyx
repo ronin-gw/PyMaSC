@@ -26,9 +26,9 @@ from cython cimport boundscheck, wraparound
 from .utils cimport int64_min, int64_max
 
 import numpy as np
-from .ncc import ReadUnsortedError
-from .mappability import ContinueCalculation
-from .result import MSCCResult, MSCCGenomeWideResult, EmptyMSCCResult
+from ..exceptions import ReadUnsortedError
+from ..mappability import ContinueCalculation
+from PyMaSC.result import MSCCResult, MSCCGenomeWideResult, EmptyMSCCResult
 
 logger = logging.getLogger(__name__)
 

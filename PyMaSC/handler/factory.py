@@ -14,19 +14,19 @@ import logging
 from typing import Optional, Any, Tuple, cast
 from multiprocessing.synchronize import Lock
 
-from PyMaSC.core.result import BothChromResult, BothGenomeWideResult
+from PyMaSC.result import BothChromResult, BothGenomeWideResult
 
-from .interfaces.config import (
+from PyMaSC.interfaces.config import (
     PyMaSCConfig, Algorithm, CalculationTarget, mappability_configured
 )
-from .interfaces.calculator import (
+from PyMaSC.interfaces.calculator import (
     CrossCorrelationCalculator,
     NCCCalculatorModel, MSCCCalculatorModel, BothCalculatorModel
 )
 
-from PyMaSC.core.ncc import NaiveCCCalculator
-from PyMaSC.core.mscc import MSCCCalculator
-from PyMaSC.bacore.mscc import CCBitArrayCalculator
+from PyMaSC.core.successive.ncc import NaiveCCCalculator
+from PyMaSC.core.successive.mscc import MSCCCalculator
+from PyMaSC.core.bitarray.mscc import CCBitArrayCalculator
 
 from PyMaSC.reader.bigwig import BigWigReader
 from PyMaSC.core.mappability import BWFeederWithMappableRegionSum

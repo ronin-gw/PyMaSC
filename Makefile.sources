@@ -27,14 +27,14 @@ CORE_MODULES := \
     PyMaSC/reader/bx/bigwig_file \
     PyMaSC/reader/bigwig \
     PyMaSC/core/mappability \
-    PyMaSC/core/ncc \
-    PyMaSC/core/mscc \
-    PyMaSC/bacore/bitarray \
-    PyMaSC/bacore/mscc \
+    PyMaSC/core/successive/ncc \
+    PyMaSC/core/successive/mscc \
+    PyMaSC/bacore/bitarray/bitarray \
+    PyMaSC/bacore/bitarray/mscc \
     PyMaSC/core/readlen
 
 # Version-specific targets for Python versions
-py38: 
+py38:
 	@echo "🐍 Building C sources for Python 3.8..."
 	@$(MAKE) -f Makefile.sources docker-build-py38
 
@@ -122,7 +122,7 @@ parallel-staged: platform-info
 	@docker-compose -f $(DOCKER_COMPOSE_FILE) up --build build-py312
 	@echo ""
 	@echo "📝 Organizing extracted files..."
-	@# Extract and organize C files from staged builds  
+	@# Extract and organize C files from staged builds
 	@for version in $(PYTHON_VERSIONS); do \
 		py_major_minor=$$(echo "$$version" | sed 's/\.//g'); \
 		container="pymasc-build-py$$py_major_minor"; \
@@ -366,7 +366,7 @@ help:
 	@echo "  make parallel          - Build all versions in isolated containers (recommended)"
 	@echo "  make parallel-staged   - Build all versions in staged groups (legacy)"
 	@echo "  make py38              - Build only Python 3.8 sources"
-	@echo "  make py39              - Build only Python 3.9 sources"  
+	@echo "  make py39              - Build only Python 3.9 sources"
 	@echo "  make py310             - Build only Python 3.10 sources"
 	@echo "  make py311             - Build only Python 3.11 sources"
 	@echo "  make py312             - Build only Python 3.12 sources"

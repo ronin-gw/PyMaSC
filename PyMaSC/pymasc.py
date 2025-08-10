@@ -11,20 +11,20 @@ from pathlib import Path
 from typing import List, Optional, Tuple, cast
 from itertools import zip_longest
 
-from PyMaSC import entrypoint, logging_version
-from PyMaSC.utils.logfmt import set_rootlogger
-from PyMaSC.utils.parsearg import get_pymasc_parser
-from PyMaSC.utils.progress import ProgressBase
-from PyMaSC.utils.output import prepare_outdir
-from PyMaSC.handler.mappability import MappabilityHandler, BWIOError, JSONIOError
-from PyMaSC.handler.calc import CalcHandler
-from PyMaSC.core.interfaces.config import PyMaSCConfig, mappability_configured, stats_configured
-from PyMaSC.core.interfaces.stats import GenomeWideStats
-from PyMaSC.core.stats import make_genome_wide_stat
-from PyMaSC.core.exceptions import ReadUnsortedError, ReadsTooFew, InputUnseekable, NothingToCalc
-from PyMaSC.output.stats import output_stats, STATSFILE_SUFFIX
-from PyMaSC.output.table import (output_cc, output_mscc, output_nreads_table,
-                                 CCOUTPUT_SUFFIX, MSCCOUTPUT_SUFFIX, NREADOUTPUT_SUFFIX)
+from . import entrypoint, logging_version
+from .utils.logfmt import set_rootlogger
+from .utils.parsearg import get_pymasc_parser
+from .utils.progress import ProgressBase
+from .utils.output import prepare_outdir
+from .handler.mappability import MappabilityHandler, BWIOError, JSONIOError
+from .handler.calc import CalcHandler
+from .interfaces.config import PyMaSCConfig, mappability_configured, stats_configured
+from .interfaces.stats import GenomeWideStats
+from .stats import make_genome_wide_stat
+from .core.exceptions import ReadUnsortedError, ReadsTooFew, InputUnseekable, NothingToCalc
+from .output.stats import output_stats, STATSFILE_SUFFIX
+from .output.table import (output_cc, output_mscc, output_nreads_table,
+                           CCOUTPUT_SUFFIX, MSCCOUTPUT_SUFFIX, NREADOUTPUT_SUFFIX)
 
 
 logger = logging.getLogger(__name__)

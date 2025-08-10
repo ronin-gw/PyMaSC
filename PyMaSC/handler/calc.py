@@ -12,21 +12,17 @@ import os
 from multiprocessing import Queue, Lock
 from typing import Optional, List, Tuple, Union, Any
 
-from PyMaSC.reader.bam import BAMFileProcessor, BAMNoReadsError, BAMNoTargetChroms
-from PyMaSC.handler.read import create_read_processor
 from PyMaSC.core.exceptions import InputUnseekable, NothingToCalc
-from PyMaSC.core.interfaces.config import PyMaSCConfig
-from PyMaSC.core.factory import create_calculator
-from PyMaSC.core.result import (
-    ChromResult, GenomeWideResult
-)
-from PyMaSC.core.result import aggregate_results
+from PyMaSC.interfaces.config import PyMaSCConfig
+from PyMaSC.reader.bam import BAMFileProcessor, BAMNoReadsError, BAMNoTargetChroms
 from PyMaSC.core.readlen import estimate_readlen
-from PyMaSC.core.worker import CalcWorker
+from .read import create_read_processor
+from .mappability import MappabilityHandler
+from .factory import create_calculator
+from .worker import CalcWorker
+from PyMaSC.result import ChromResult, GenomeWideResult, aggregate_results
 from PyMaSC.utils.calc import exec_worker_pool
 from PyMaSC.utils.progress import ProgressBar, ProgressHook, MultiLineProgressManager
-
-from .mappability import MappabilityHandler
 
 logger = logging.getLogger(__name__)
 

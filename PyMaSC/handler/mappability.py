@@ -32,7 +32,7 @@ else:
 
 import numpy as np
 
-from PyMaSC.core.interfaces.config import MappabilityConfig
+from PyMaSC.interfaces.config import MappabilityConfig
 from PyMaSC.core.mappability import MappableLengthCalculator
 from PyMaSC.utils.progress import ProgressHook, MultiLineProgressManager
 from PyMaSC.utils.output import prepare_outdir

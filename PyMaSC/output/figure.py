@@ -23,7 +23,7 @@ from typing import Any, Optional, Tuple, Union
 
 import numpy as np
 
-from PyMaSC.core.interfaces.stats import (
+from PyMaSC.interfaces.stats import (
     GenomeWideStats, WholeGenomeStats,
     ChromosomeStats,
     TStats, NCCStats, MSCCStats

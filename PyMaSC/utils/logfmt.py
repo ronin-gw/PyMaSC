@@ -15,11 +15,7 @@ across different output scenarios.
 """
 import logging
 import sys
-import os
 from typing import Optional, Dict
-from abc import ABC, abstractmethod
-from multiprocessing import Process
-from multiprocessing.synchronize import Lock
 
 LOGGING_FORMAT: str = "[%(asctime)s | %(levelname)s] %(name)10s : %(message)s"
 

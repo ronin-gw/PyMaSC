@@ -33,7 +33,7 @@ else:
 
 import numpy as np
 
-from PyMaSC.core.interfaces.stats import GenomeWideStats, WholeGenomeStats, ChromosomeStats
+from PyMaSC.interfaces.stats import GenomeWideStats, WholeGenomeStats, ChromosomeStats
 from PyMaSC.utils.output import catch_IOError
 from typing import TypeVar
 

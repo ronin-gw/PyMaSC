@@ -3,8 +3,8 @@
 from typing import Optional, Sequence, Any
 from multiprocessing.synchronize import Lock
 
-from .interfaces.calculator import NCCCalculatorModel
-from .result import NCCResult, NCCGenomeWideResult
+from PyMaSC.interfaces.calculator import NCCCalculatorModel
+from PyMaSC.result import NCCResult, NCCGenomeWideResult
 
 
 class ReadUnsortedError(IndexError):

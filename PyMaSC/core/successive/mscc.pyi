@@ -3,8 +3,8 @@
 from typing import Optional, List, Sequence
 from multiprocessing.synchronize import Lock
 
-from .interfaces.calculator import MSCCCalculatorModel
-from .result import MSCCResult, MSCCGenomeWideResult
+from PyMaSC.interfaces.calculator import MSCCCalculatorModel
+from PyMaSC.result import MSCCResult, MSCCGenomeWideResult
 
 from PyMaSC.reader.bigwig import BigWigReader
 

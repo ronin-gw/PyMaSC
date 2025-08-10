@@ -161,10 +161,10 @@ class BuildExtCommand(build_ext.build_ext):
             "PyMaSC/reader/bx/bigwig_file",
             "PyMaSC/reader/bigwig",
             "PyMaSC/core/mappability",
-            "PyMaSC/core/ncc",
-            "PyMaSC/core/mscc",
-            "PyMaSC/bacore/bitarray",
-            "PyMaSC/bacore/mscc",
+            "PyMaSC/core/successive/ncc",
+            "PyMaSC/core/successive/mscc",
+            "PyMaSC/core/bitarray/bitarray",
+            "PyMaSC/core/bitarray/mscc",
             "PyMaSC/core/readlen"
         ]
 
@@ -289,8 +289,8 @@ def _build_extensions():
         _define_extension(name, include_dirs=NUMPY_INCLUDES) for name in (
             "PyMaSC.reader.bigwig",
             "PyMaSC.core.mappability",
-            "PyMaSC.core.ncc",
-            "PyMaSC.core.mscc"
+            "PyMaSC.core.successive.ncc",
+            "PyMaSC.core.successive.mscc"
         )
     ] + [
         # BitArray dependent modules
@@ -300,8 +300,8 @@ def _build_extensions():
             extra_link_args=BITARRAY_LINK_ARGS,
             extra_compile_args=EXTRA_BA_ARGS
         ) for name in (
-            "PyMaSC.bacore.bitarray",
-            "PyMaSC.bacore.mscc"
+            "PyMaSC.core.bitarray.bitarray",
+            "PyMaSC.core.bitarray.mscc"
         )
     ] + [
         # pysam dependent modules

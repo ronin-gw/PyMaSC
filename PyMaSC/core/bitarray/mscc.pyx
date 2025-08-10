@@ -27,9 +27,9 @@ from PyMaSC.reader.bigwig cimport BigWigFileIterator
 
 import numpy as np
 
-from PyMaSC.core.ncc import ReadUnsortedError
+from ..exceptions import ReadUnsortedError
 from PyMaSC.utils.progress import ProgressBar
-from PyMaSC.core.result import (
+from PyMaSC.result import (
     NCCResult, MSCCResult, BothChromResult,
     NCCGenomeWideResult, MSCCGenomeWideResult, BothGenomeWideResult,
     EmptyNCCResult, EmptyMSCCResult, EmptyBothChromResult

@@ -20,9 +20,9 @@ from .interfaces.stats import (
     GenomeWideStats,
     TCount
 )
-from .exceptions import ReadsTooFew
+from .core.exceptions import ReadsTooFew
 
-from PyMaSC.utils.calc import moving_avr_filter, merge_correlations
+from .utils.calc import moving_avr_filter, merge_correlations
 
 logger = logging.getLogger(__name__)
 

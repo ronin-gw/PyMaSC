@@ -25,8 +25,8 @@ from .utils cimport int64_min
 
 import numpy as np
 
-from .exceptions import ReadUnsortedError
-from .result import NCCResult, NCCGenomeWideResult, EmptyNCCResult
+from ..exceptions import ReadUnsortedError
+from PyMaSC.result import NCCResult, NCCGenomeWideResult, EmptyNCCResult
 
 logger = logging.getLogger(__name__)
 

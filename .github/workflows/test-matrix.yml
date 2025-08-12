@@ -125,22 +125,8 @@ jobs:
 
     - name: Run import tests
       run: |
-        echo "🧪 Testing imports for Python ${{ matrix.python-version }}..."
-        python -c "import PyMaSC; print(f'PyMaSC version: {PyMaSC.VERSION}')"
-        python -c "from PyMaSC.core.ncc import NaiveCCCalculator; print('✅ NCC imported successfully')"
-        python -c "from PyMaSC.bacore.bitarray import bitarray; print('✅ bitarray imported successfully')"
-        python -c "from PyMaSC.core.mscc import MSCCCalculator; print('✅ MSCC imported successfully')"
-
-    - name: Test build-time compilation compatibility
-      run: |
-        echo "🔍 Testing Python ${{ matrix.python-version }} compilation compatibility..."
-        echo "  Python version: $(python --version)"
-        echo "  Numpy version: $(python -c 'import numpy; print(numpy.__version__)')"
-        echo "  Cython version: $(python -c 'import Cython; print(Cython.__version__)')"
-        echo "  Compiler used: $(gcc --version | head -1)"
-
-        # Test that we can import all Cython modules
-        python -c "import sys; from PyMaSC.core import ncc, mscc, mappability, readlen; from PyMaSC.bacore import bitarray, mscc as ba_mscc; from PyMaSC.reader import bigwig; print('✅ All Cython modules imported successfully on Python', sys.version_info[:2])"
+        echo "🧪 Running import tests using tests/unit/test_imports.py..."
+        python -m pytest tests/unit/test_imports.py -v
 
     - name: Run unit tests
       run: |

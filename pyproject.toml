@@ -61,7 +61,6 @@ dev = [
     "build",
     "twine",
     "mypy>=1.0.0",
-    "scipy-stubs",
     "flake8",
     "autopep8",
     "typing-extensions>=4.0.0; python_version < '3.9'",

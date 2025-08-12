@@ -1,0 +1,34 @@
+Name	ENCFF000RMB-test
+Read length	36
+Expected library length	nan
+Estimated library length	65
+Genome length	3137454505
+Forward reads	622
+Reverse reads	670
+Minimum NCC	0.020135225135040177
+NCC at read length	0.11772606575777739
+NCC at expected library length	nan
+NCC at estimated library length	0.13166763241556315
+NSC	nan
+RSC	nan
+Estimated NSC	6.539168622774897
+Estimated RSC	1.142857327273986
+FWHM	nan
+VSN	nan
+Estimated FWHM	170
+Estimated VSN	0.03464937695146399
+DMP length	19906
+Forward reads in DMP	385
+Reverse reads in DMP	441
+Minimum MSCC	0.016379192940691626
+MSCC at read length	0.1255729468593337
+MSCC at expected library length	nan
+MSCC at estimated library length	0.16815411074965914
+MSCC NSC	nan
+MSCC RSC	nan
+Estimated MSCC NSC	10.266324559368593
+Estimated MSCC RSC	1.3899597033915672
+MSCC FWHM	nan
+MSCC VSN	nan
+Estimated MSCC FWHM	94
+Estimated MSCC VSN	0.03827236418999506

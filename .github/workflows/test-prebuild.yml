@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12', '3.13']
 
     steps:
     - uses: actions/checkout@v4
@@ -70,8 +70,8 @@ jobs:
     - name: Generate version-specific C sources
       env:
         PYTHON_VERSION: ${{ matrix.python-version }}
-        PYTHON_MAJOR_MINOR: ${{ matrix.python-version == '3.8' && '38' || matrix.python-version == '3.9' && '39' || matrix.python-version == '3.10' && '310' || matrix.python-version == '3.11' && '311' || matrix.python-version == '3.12' && '312' }}
-        CYTHON_VERSION_SUFFIX: _${{ matrix.python-version == '3.8' && '38' || matrix.python-version == '3.9' && '39' || matrix.python-version == '3.10' && '310' || matrix.python-version == '3.11' && '311' || matrix.python-version == '3.12' && '312' }}
+        PYTHON_MAJOR_MINOR: ${{ matrix.python-version == '3.8' && '38' || matrix.python-version == '3.9' && '39' || matrix.python-version == '3.10' && '310' || matrix.python-version == '3.11' && '311' || matrix.python-version == '3.12' && '312' || matrix.python-version == '3.13' && '313' }}
+        CYTHON_VERSION_SUFFIX: _${{ matrix.python-version == '3.8' && '38' || matrix.python-version == '3.9' && '39' || matrix.python-version == '3.10' && '310' || matrix.python-version == '3.11' && '311' || matrix.python-version == '3.12' && '312' || matrix.python-version == '3.13' && '313' }}
         BUILD_MODE: versioned
       run: |
         echo "🐍 Generating C sources for Python ${{ matrix.python-version }}..."
@@ -92,7 +92,7 @@ jobs:
 
     - name: Collect generated C sources for artifact
       env:
-        PYTHON_MAJOR_MINOR: ${{ matrix.python-version == '3.8' && '38' || matrix.python-version == '3.9' && '39' || matrix.python-version == '3.10' && '310' || matrix.python-version == '3.11' && '311' || matrix.python-version == '3.12' && '312' }}
+        PYTHON_MAJOR_MINOR: ${{ matrix.python-version == '3.8' && '38' || matrix.python-version == '3.9' && '39' || matrix.python-version == '3.10' && '310' || matrix.python-version == '3.11' && '311' || matrix.python-version == '3.12' && '312' || matrix.python-version == '3.13' && '313' }}
       run: |
         echo "📦 Collecting C sources for Python ${{ matrix.python-version }}..."
         mkdir -p artifacts/c-sources-${{ matrix.python-version }}
@@ -146,7 +146,7 @@ jobs:
 
         echo ""
         echo "🔍 Files by Python version:"
-        for version in 38 39 310 311 312; do
+        for version in 38 39 310 311 312 313; do
           count=$(ls artifacts/c-sources/*_${version}.c 2>/dev/null | wc -l)
           echo "  Python ${version}: ${count} files"
         done
@@ -164,7 +164,7 @@ jobs:
         echo "# 🎉 PyMaSC Pre-built C Sources Generation Summary" > build-summary.md
         echo "" >> build-summary.md
         echo "## 📊 Generated Files by Python Version" >> build-summary.md
-        for version in 38 39 310 311 312; do
+        for version in 38 39 310 311 312 313; do
           count=$(ls artifacts/c-sources/*_${version}.c 2>/dev/null | wc -l)
           echo "- **Python ${version}**: ${count} files" >> build-summary.md
         done

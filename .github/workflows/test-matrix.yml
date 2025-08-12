@@ -153,10 +153,10 @@ jobs:
         pip install -e .
         echo "✅ PyMaSC installed in development mode"
 
-    - name: Run integration tests (quick)
+    - name: Run integration tests
       run: |
         echo "🧪 Running integration tests for Python ${{ matrix.python-version }}..."
-        python -m pytest tests/integration/ -k "not slow" -v --tb=short
+        python -m pytest tests/integration/ -v --tb=short
 
     - name: Test PyMaSC commands
       run: |

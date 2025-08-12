@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, TextIO, Tuple, Union, Literal, cast
 
 import sys
-if sys.version_info >= (3, 9):
+if sys.version_info >= (3, 11):
     from typing import Self
 else:
     from typing_extensions import Self

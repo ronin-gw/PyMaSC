@@ -8,7 +8,7 @@ from dataclasses import dataclass, field, asdict
 from abc import ABC, abstractmethod
 
 import sys
-if sys.version_info >= (3, 9):
+if sys.version_info >= (3, 11):
     from typing import Self
 else:
     from typing_extensions import Self

@@ -10,10 +10,16 @@ from enum import Enum
 from argparse import Namespace
 
 import sys
-if sys.version_info >= (3, 9):
-    from typing import Self, TypeGuard
+
+if sys.version_info >= (3, 10):
+    from typing import TypeGuard
 else:
-    from typing_extensions import Self, TypeGuard
+    from typing_extensions import TypeGuard
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 
 class CalculationTarget(Enum):

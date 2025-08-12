@@ -209,8 +209,8 @@ class CalcHandler:
                     # This is a progress update from ProgressHook
                     assert not isinstance(obj, ChromResult)
                     chrom_text, body = obj  # 'body' is the progress bar string
-                    # with self._logger_lock:
-                    #     progress.update(chrom_text, body)
+                    with self._logger_lock:
+                        progress.update(chrom_text, body)
                     continue
 
                 # Result received

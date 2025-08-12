@@ -102,9 +102,6 @@ class ColorfulFormatter(logging.Formatter):
     DEFAULT_COLOR: int = 39
     LOGLEVEL2COLOR: Dict[int, int] = {20: 36, 30: 33, 40: 31, 50: 35}
 
-    # @classmethod
-    # def bleach(cls) -> None:
-    #     cls._fmt = cls._monofmt
     _fmt: str
 
     def __init__(self, fmt: Optional[str] = None, datefmt: Optional[str] = None, colorize: bool = True) -> None:

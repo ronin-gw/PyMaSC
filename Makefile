@@ -2,7 +2,7 @@
 # This is a convenience wrapper for common development tasks
 # For C source generation from Cython files, see Makefile.sources
 
-.PHONY: test test-quick test-all test-integration test-unit test-parallel test-quick-parallel test-all-parallel test-integration-parallel test-unit-parallel test-workers build build-force rebuild install install-dev install-test install-plot install-requirements clean sources sources-parallel help
+.PHONY: test test-quick test-all test-integration test-unit test-parallel test-quick-parallel test-all-parallel test-integration-parallel test-unit-parallel test-workers build build-force rebuild install install-dev install-test install-plot install-requirements clean sources sources-parallel bitarray-lib bitarray-clean help
 
 # Default target
 help:
@@ -31,6 +31,8 @@ help:
 	@echo "  make clean         - Remove build artifacts and caches"
 	@echo "  make sources       - Generate C sources from .pyx files"
 	@echo "  make sources-parallel - Generate C sources in parallel"
+	@echo "  make bitarray-lib  - Build BitArray library"
+	@echo "  make bitarray-clean - Clean BitArray library"
 	@echo ""
 	@echo "For detailed C source generation options:"
 	@echo "  make -f Makefile.sources help"
@@ -87,12 +89,22 @@ test-workers:
 	python -m pytest tests/ -v -n $(WORKERS) --dist=loadgroup
 
 # Build Cython extensions in-place
-build:
+build: bitarray-lib
 	python setup.py build_ext --inplace
 
 # Force rebuild all Cython extensions (for dependency changes)
-build-force:
+build-force: bitarray-clean bitarray-lib
 	python setup.py build_ext --inplace --force
+
+# Build BitArray library with correct architecture
+bitarray-lib:
+	@echo "Building BitArray library..."
+	cd external/BitArray && make libbitarr.a
+
+# Clean BitArray library
+bitarray-clean:
+	@echo "Cleaning BitArray library..."
+	cd external/BitArray && make clean
 
 # Complete rebuild (clean + force build)
 rebuild: clean build-force
@@ -118,7 +130,7 @@ install-requirements:
 	pip install -r requirements.txt
 
 # Clean build artifacts and caches
-clean:
+clean: bitarray-clean
 	# Remove Python caches
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 	find . -type f -name "*.pyc" -delete 2>/dev/null || true

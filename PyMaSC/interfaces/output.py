@@ -96,8 +96,7 @@ def _make_labeled_dataclass(name: str, dc: type) -> type:
     return make_dataclass(
         name,
         [(attr, str) for attr in dc.__annotations__.keys()],
-        bases=(StatLabels, ),
-        frozen=True
+        bases=(StatLabels, )
     )
 
 

@@ -169,7 +169,7 @@ class CalcHandler:
         # - results are collected for aggregation
         # If the 1st item is a string, it shoud be a chromosome and the 2nd item must be a `WorkerResult`.
         # Otherwise, it's a progress report from a `ProgressHook` and that should be avoid here.
-        self._report_queue: Queue[Tuple[Optional[str], Union[ChromResult, Tuple[str, int]]]] = Queue()
+        self._report_queue: Queue[Tuple[Optional[str], Union[ChromResult, Tuple[str, str]]]] = Queue()
         self._logger_lock = Lock()
 
         # Create workers using factory

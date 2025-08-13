@@ -209,6 +209,12 @@ cdef class MSCCCalculator(object):
                 pass
             self._bwiter_stopped = True
 
+        # Get mappable_len
+        mappable_len = self._bwfeeder.get_mappable_len(self._chr)
+        if mappable_len is None:
+            self._init_pos_buff()
+            return
+
         # Create MSCCResult for this chromosome
         result = self.ref2mscc_result[self._chr] = MSCCResult(
             max_shift=self.max_shift,
@@ -219,7 +225,7 @@ cdef class MSCCCalculator(object):
             forward_read_len_sum=self._forward_read_len_sum,
             reverse_read_len_sum=self._reverse_read_len_sum,
             ccbins=self._ccbins.copy(),
-            mappable_len=self._bwfeeder.chrom2mappable_len[self._chr]
+            mappable_len=mappable_len
         )
         result.calc_cc()
 

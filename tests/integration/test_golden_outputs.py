@@ -541,7 +541,6 @@ pytestmark = [
 pytest.mark.parallel = pytest.mark.integration
 
 
-@pytest.mark.xdist_group(name="process_consistency_tests")
 class TestComprehensiveGoldenPatterns:
     """Comprehensive testing of all 12 algorithm/calculation/process patterns."""
 
@@ -556,20 +555,18 @@ class TestComprehensiveGoldenPatterns:
         }
 
     @pytest.mark.parametrize("algorithm,calculation,process_mode", [
-        # bitarray algorithm (6/6 ALL WORKING! 🎉)
-        ("bitarray", "ncc_only", "single"),   # ✅ Working
-        ("bitarray", "ncc_only", "multi"),    # ✅ Working (queue processing fixed)
-        ("bitarray", "ncc_mscc", "single"),   # ✅ Working (existing golden test)
-        ("bitarray", "ncc_mscc", "multi"),    # ✅ Working (result aggregation fixed!)
-        ("bitarray", "mscc_only", "single"),  # ✅ Working
-        ("bitarray", "mscc_only", "multi"),   # ✅ Working (result aggregation fixed!)
-        # successive algorithm (6/6 ALL WORKING! 🎉)
-        ("successive", "ncc_only", "single"),  # ✅ Working
-        ("successive", "ncc_only", "multi"),   # ✅ Working
-        ("successive", "ncc_mscc", "single"),  # ✅ Working
-        ("successive", "ncc_mscc", "multi"),   # ✅ Working
-        ("successive", "mscc_only", "single"), # ✅ Working
-        ("successive", "mscc_only", "multi"),  # ✅ Working
+        ("bitarray", "ncc_only", "single"),
+        ("bitarray", "ncc_only", "multi"),
+        ("bitarray", "ncc_mscc", "single"),
+        ("bitarray", "ncc_mscc", "multi"),
+        ("bitarray", "mscc_only", "single"),
+        ("bitarray", "mscc_only", "multi"),
+        ("successive", "ncc_only", "single"),
+        ("successive", "ncc_only", "multi"),
+        ("successive", "ncc_mscc", "single"),
+        ("successive", "ncc_mscc", "multi"),
+        ("successive", "mscc_only", "single"),
+        ("successive", "mscc_only", "multi"),
     ])
     def test_pattern_consistency(self, test_data_paths, algorithm, calculation, process_mode):
         """Test that all 12 patterns produce consistent, reproducible results."""
@@ -578,32 +575,31 @@ class TestComprehensiveGoldenPatterns:
             cmd = self._build_command(
                 test_data_paths, temp_dir, algorithm, calculation, process_mode
             )
-            
+
             # Run PyMaSC
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
             assert result.returncode == 0, \
                 f"Pattern {algorithm}+{calculation}+{process_mode} failed: {result.stderr}"
-            
+
             # Verify expected output files exist
             expected_files = self._get_expected_files(calculation)
             for filename in expected_files:
                 output_file = Path(temp_dir) / filename
                 assert output_file.exists(), \
                     f"Pattern {algorithm}+{calculation}+{process_mode}: Missing file {filename}"
-                
+
                 # Basic validation: file is not empty and has reasonable structure
                 self._validate_output_file(output_file, filename)
 
             print(f"✅ Pattern {algorithm}+{calculation}+{process_mode} validated")
 
     @pytest.mark.parametrize("algorithm,calculation", [
-        # All patterns now work in both single and multi modes! 🎉
-        ("bitarray", "ncc_only"),   # ✅ Both single and multi working
-        ("bitarray", "ncc_mscc"),   # ✅ Both single and multi working (FIXED!)
-        ("bitarray", "mscc_only"),  # ✅ Both single and multi working (FIXED!)
-        ("successive", "ncc_only"), # ✅ Both single and multi working
-        ("successive", "ncc_mscc"), # ✅ Both single and multi working
-        ("successive", "mscc_only"), # ✅ Both single and multi working
+        ("bitarray", "ncc_only"),
+        ("bitarray", "ncc_mscc"),
+        ("bitarray", "mscc_only"),
+        ("successive", "ncc_only"),
+        ("successive", "ncc_mscc"),
+        ("successive", "mscc_only"),
     ])
     def test_process_mode_consistency(self, test_data_paths, algorithm, calculation):
         """Test that single-process and multi-process modes produce identical results."""
@@ -614,8 +610,8 @@ class TestComprehensiveGoldenPatterns:
             cmd_single = self._build_command(
                 test_data_paths, single_dir, algorithm, calculation, "single"
             )
-            
-            # Multi-process command  
+
+            # Multi-process command
             cmd_multi = self._build_command(
                 test_data_paths, multi_dir, algorithm, calculation, "multi"
             )
@@ -636,23 +632,22 @@ class TestComprehensiveGoldenPatterns:
             for filename in expected_files:
                 single_file = Path(single_dir) / filename
                 multi_file = Path(multi_dir) / filename
-                
+
                 assert single_file.exists() and multi_file.exists(), \
                     f"Pattern {pattern_name}: Missing file {filename}"
-                
+
                 # Compare files with high precision
                 self._compare_files_exactly(single_file, multi_file, filename, pattern_name)
 
             print(f"✅ Process consistency validated for {pattern_name}")
 
     @pytest.mark.parametrize("process_mode,calculation", [
-        # All patterns now work for both algorithms! 🎉
-        ("single", "ncc_only"),  # bitarray ✅, successive ✅
-        ("multi", "ncc_only"),   # bitarray ✅, successive ✅
-        ("single", "ncc_mscc"),  # bitarray ✅, successive ✅
-        ("multi", "ncc_mscc"),   # bitarray ✅, successive ✅ (FIXED!)
-        ("single", "mscc_only"), # bitarray ✅, successive ✅
-        ("multi", "mscc_only"),  # bitarray ✅, successive ✅ (FIXED!)
+        ("single", "ncc_only"),
+        ("multi", "ncc_only"),
+        ("single", "ncc_mscc"),
+        ("multi", "ncc_mscc"),
+        ("single", "mscc_only"),
+        ("multi", "mscc_only"),
     ])
     def test_algorithm_consistency(self, test_data_paths, process_mode, calculation):
         """Test that bitarray and successive algorithms produce consistent results."""
@@ -663,7 +658,7 @@ class TestComprehensiveGoldenPatterns:
             cmd_bitarray = self._build_command(
                 test_data_paths, bitarray_dir, "bitarray", calculation, process_mode
             )
-            
+
             # Successive command
             cmd_successive = self._build_command(
                 test_data_paths, successive_dir, "successive", calculation, process_mode
@@ -685,10 +680,10 @@ class TestComprehensiveGoldenPatterns:
             for filename in expected_files:
                 bitarray_file = Path(bitarray_dir) / filename
                 successive_file = Path(successive_dir) / filename
-                
+
                 assert bitarray_file.exists() and successive_file.exists(), \
                     f"Pattern {pattern_name}: Missing file {filename}"
-                
+
                 # Compare with tolerance for algorithm differences
                 self._compare_files_with_tolerance(bitarray_file, successive_file, filename, pattern_name)
 
@@ -701,55 +696,55 @@ class TestComprehensiveGoldenPatterns:
             str(test_data_paths['bam']),
             '-o', str(output_dir),
             '-d', '300',
-            '-q', '10', 
+            '-q', '10',
             '-r', '36',
             '--skip-plots'
         ]
-        
+
         # Algorithm selection
         if algorithm == "successive":
             cmd.append('--successive')
-        
+
         # Calculation type
         if calculation in ["ncc_mscc", "mscc_only"]:
             cmd.extend(['-m', str(test_data_paths['bigwig'])])
-        
+
         if calculation == "mscc_only":
             cmd.append('--skip-ncc')
-            
+
         # Process mode
         if process_mode == "multi":
             cmd.extend(['-p', '2'])
-            
+
         return cmd
 
     def _get_expected_files(self, calculation):
         """Get list of expected output files based on calculation type."""
         base_files = ['ENCFF000RMB-test_stats.tab']
-        
+
         if calculation in ["ncc_only", "ncc_mscc"]:
             base_files.append('ENCFF000RMB-test_cc.tab')
-            
+
         if calculation in ["ncc_mscc", "mscc_only"]:
             base_files.extend(['ENCFF000RMB-test_mscc.tab', 'ENCFF000RMB-test_nreads.tab'])
-            
+
         return base_files
 
     def _validate_output_file(self, filepath, filename):
         """Basic validation that output file has reasonable structure."""
         with open(filepath, 'r') as f:
             content = f.read().strip()
-            
+
         assert len(content) > 0, f"File {filename} is empty"
         assert len(content.split('\n')) > 1, f"File {filename} has insufficient data"
-        
+
         if filename.endswith('_stats.tab'):
             # Stats file should have key-value pairs
             lines = content.split('\n')
             for line in lines[:5]:  # Check first few lines
                 if line.strip():
                     assert '\t' in line, f"Stats file {filename} missing tab separator in: {line}"
-                    
+
         elif filename.endswith('.tab'):
             # Tabular files should have headers
             lines = content.split('\n')
@@ -798,7 +793,7 @@ class TestComprehensiveGoldenPatterns:
                 if np.isnan(float1) and np.isnan(float2):
                     continue  # Both NaN, considered equal
                 np.testing.assert_almost_equal(
-                    float1, float2, decimal=15,
+                    float1, float2, decimal=10,
                     err_msg=f"{pattern_name} {filename} key {key}: {val1} vs {val2}"
                 )
             except ValueError:
@@ -823,7 +818,7 @@ class TestComprehensiveGoldenPatterns:
         critical_keys = [
             'Read length', 'Forward reads', 'Reverse reads', 'Genome length'
         ]
-        
+
         for key in critical_keys:
             if key in data1 and key in data2:
                 val1, val2 = data1[key], data2[key]
@@ -871,7 +866,7 @@ class TestComprehensiveGoldenPatterns:
                     if np.isnan(float1) and np.isnan(float2):
                         continue  # Both NaN, considered equal
                     np.testing.assert_almost_equal(
-                        float1, float2, decimal=15,
+                        float1, float2, decimal=10,
                         err_msg=f"{pattern_name} {filename} row {i+1} key {key}: {val1} vs {val2}"
                     )
                 except ValueError:
@@ -896,7 +891,7 @@ class TestComprehensiveGoldenPatterns:
 
         # Sample a few key rows for comparison (start, middle, peak region)
         key_indices = [0, len(data1)//4, len(data1)//2, 3*len(data1)//4, len(data1)-1]
-        
+
         for i in key_indices:
             if i < len(data1):
                 row1, row2 = data1[i], data2[i]

@@ -150,6 +150,7 @@ cdef class NaiveCCCalculator(object):
             ccbins=np.array(self._ccbins, dtype=np.int64)
         )
         result.calc_cc()
+        self._init_pos_buff()
 
     cdef inline _check_pos(self, str chrom, int64 pos):
         """Validate read position and handle chromosome transitions.

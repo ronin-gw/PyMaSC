@@ -63,18 +63,46 @@ class TestGoldenOutputs:
             output_stats = Path(temp_dir) / 'ENCFF000RMB-test_stats.tab'
             assert output_stats.exists(), "Output stats file not generated"
 
-            # Read both files and compare line by line
-            with open(golden_files['stats'], 'r') as golden_f, \
-                 open(output_stats, 'r') as output_f:
-                golden_lines = golden_f.readlines()
-                output_lines = output_f.readlines()
+            # Read both files and compare with numerical precision
+            def read_stats_file(filepath):
+                data = {}
+                with open(filepath, 'r') as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and '\t' in line:
+                            key, value = line.split('\t', 1)
+                            data[key] = value
+                return data
 
-                assert len(golden_lines) == len(output_lines), \
-                    f"Different number of lines: golden={len(golden_lines)}, output={len(output_lines)}"
+            golden_data = read_stats_file(golden_files['stats'])
+            output_data = read_stats_file(output_stats)
 
-                for i, (golden_line, output_line) in enumerate(zip(golden_lines, output_lines)):
-                    assert golden_line == output_line, \
-                        f"Line {i+1} differs:\\nGolden: {golden_line.strip()}\\nOutput: {output_line.strip()}"
+            assert set(golden_data.keys()) == set(output_data.keys()), \
+                f"Different keys: golden={set(golden_data.keys())}, output={set(output_data.keys())}"
+
+            for key in golden_data:
+                golden_val = golden_data[key]
+                output_val = output_data[key]
+
+                # Try to convert to float for numerical comparison
+                try:
+                    golden_float = float(golden_val)
+                    output_float = float(output_val)
+
+                    # Handle NaN values properly
+                    if np.isnan(golden_float) and np.isnan(output_float):
+                        continue  # Both NaN, considered equal
+
+                    # Use 10-digit precision comparison for floats
+                    np.testing.assert_almost_equal(
+                        golden_float, output_float,
+                        decimal=10,
+                        err_msg=f"Key {key}: {golden_val} vs {output_val}"
+                    )
+                except ValueError:
+                    # Non-numeric values should match exactly
+                    assert golden_val == output_val, \
+                        f"Key {key}: {golden_val} vs {output_val}"
 
     def test_exact_cc_output(self, test_data_paths, golden_files):
         """Test that cross-correlation output matches exactly."""

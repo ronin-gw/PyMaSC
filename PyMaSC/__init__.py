@@ -16,7 +16,7 @@ import multiprocessing
 from functools import wraps
 from typing import Any, Callable
 
-VERSION = "0.3.1"
+VERSION = "1.0.0"
 WEBSITE_URL = "https://pymasc.sb.ecei.tohoku.ac.jp/"
 
 logger = logging.getLogger(__name__)

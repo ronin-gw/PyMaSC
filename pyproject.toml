@@ -17,16 +17,19 @@ readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.8"
 authors = [
-    {name = "Hayato Anzawa", email = "anzawa@sb.ecei.tohoku.ac.jp"},
+    {name = "Hayato Anzawa", email = "anzawa@tohoku.ac.jp"},
 ]
 keywords = ["NGS", "ChIP-Seq", "bioinformatics", "cross-correlation", "mappability"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
+    "Natural Language :: English",
     "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX",
+    "Operating System :: Unix",
     "Programming Language :: Cython",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
@@ -37,6 +40,8 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: Implementation :: CPython",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
 ]
 dependencies = [
     "numpy>=1.21.0",
@@ -63,7 +68,7 @@ dev = [
     "mypy>=1.0.0",
     "flake8",
     "autopep8",
-    "typing-extensions>=4.0.0; python_version < '3.9'",
+    "typing-extensions>=4.0.0; python_version < '3.10'",
 ]
 
 [project.urls]
@@ -158,6 +163,7 @@ exclude_lines = [
 
 [tool.mypy]
 python_version = "3.8"
+plugins = ["numpy.typing.mypy_plugin"]
 warn_return_any = true
 warn_unused_configs = true
 warn_redundant_casts = true

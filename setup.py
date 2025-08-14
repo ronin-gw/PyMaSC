@@ -25,7 +25,7 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 BASEDIR = Path(__file__).parent.absolute()
 
 # Advanced source selection with staged fallback
-# Priority: .pyx (Cython) -> version-specific C -> generic _3.c -> error
+# Priority: .pyx (Cython) -> version-specific C -> error
 
 
 def _get_source_file(base_name):
@@ -39,8 +39,7 @@ def _get_source_file(base_name):
     Fallback order:
     1. .pyx files (if Cython is available) - for development builds
     2. Version-specific C sources (*_39.c) - for optimized distribution
-    3. Generic _3.c files - for compatibility fallback
-    4. Error if none found
+    3. Error if none found
     """
     py_version = f"{sys.version_info.major}{sys.version_info.minor}"
 
@@ -68,8 +67,7 @@ def _get_source_file(base_name):
         # Standard fallback logic
         candidates.extend([
             (f"{base_name}.pyx", "Cython source"),
-            (f"{base_name}_{py_version}.c", f"Python {sys.version_info.major}.{sys.version_info.minor} optimized C source"),
-            (f"{base_name}_3.c", "Generic Python 3 C source")
+            (f"{base_name}_{py_version}.c", f"Python {sys.version_info.major}.{sys.version_info.minor} optimized C source")
         ])
 
     for candidate_file, description in candidates:

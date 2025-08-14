@@ -11,4 +11,4 @@ include external/bitcnt.h
 # bx-python includes removed - using pyBigWig implementation
 
 recursive-exclude PyMaSC *.c
-recursive-include PyMaSC *_2.c *_3.c *.pyx *.pxd
+recursive-include PyMaSC *_38.c *_39.c *_310.c *_311.c *_312.c *_313.c *.pyx *.pxd

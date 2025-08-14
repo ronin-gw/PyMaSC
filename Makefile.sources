@@ -2,10 +2,10 @@
 # Docker-based C source generation with parallel builds and dependency tracking
 
 SHELL := /bin/bash
-.PHONY: all clean check help py38 py39 py310 py311 py312 platform-info docker-cleanup
+.PHONY: all clean check help py38 py39 py310 py311 py312 py313 platform-info docker-cleanup extract
 
 # Configuration
-PYTHON_VERSIONS := 3.8 3.9 3.10 3.11 3.12
+PYTHON_VERSIONS := 3.8 3.9 3.10 3.11 3.12 3.13
 DOCKER_COMPOSE_FILE := docker-compose.build.yml
 
 # Platform detection for ARM64 x86intrin.h issues
@@ -23,15 +23,13 @@ endif
 
 # Target definitions - versioned C files
 CORE_MODULES := \
-    PyMaSC/reader/bx/bbi_file \
-    PyMaSC/reader/bx/bigwig_file \
     PyMaSC/reader/bigwig \
+    PyMaSC/core/readlen \
     PyMaSC/core/mappability \
     PyMaSC/core/successive/ncc \
     PyMaSC/core/successive/mscc \
-    PyMaSC/bacore/bitarray/bitarray \
-    PyMaSC/bacore/bitarray/mscc \
-    PyMaSC/core/readlen
+    PyMaSC/core/bitarray/bitarray \
+    PyMaSC/core/bitarray/mscc
 
 # Version-specific targets for Python versions
 py38:
@@ -54,8 +52,12 @@ py312:
 	@echo "🐍 Building C sources for Python 3.12..."
 	@$(MAKE) -f Makefile.sources docker-build-py312
 
+py313:
+	@echo "🐍 Building C sources for Python 3.13..."
+	@$(MAKE) -f Makefile.sources docker-build-py313
+
 # Main targets
-all: platform-info $(foreach version,$(PYTHON_VERSIONS),py$(subst .,,$(version))) fallback
+all: platform-info $(foreach version,$(PYTHON_VERSIONS),py$(subst .,,$(version)))
 	@echo ""
 	@echo "🎉 All C source generation completed!"
 	@echo "📊 Summary:"
@@ -78,31 +80,29 @@ parallel: platform-info
 		docker wait "$$container" > /dev/null && echo "    ✅ Completed" || echo "    ❌ Failed"; \
 	done
 	@echo ""
-	@echo "📥 Extracting generated C files from containers..."
-	@# Extract C files from each container
+	@echo "📥 Extracting generated C files using rsync (preserving paths)..."
+	@mkdir -p c_extracted
+	@# Copy build tree from each container, then rsync only versioned C files (path-preserving)
 	@for version in $(PYTHON_VERSIONS); do \
 		py_major_minor=$$(echo "$$version" | sed 's/\.//g'); \
 		container="pymasc-build-py$$py_major_minor"; \
-		echo "  Extracting from $$container..."; \
-		docker cp "$$container:/output/." . 2>/dev/null && echo "    ✅ Python $$version files extracted" || echo "    ❌ Python $$version extraction failed"; \
+		tmpdir="c_extracted/py$$py_major_minor"; \
+		echo "  Copying build tree from $$container..."; \
+		mkdir -p "$$tmpdir"; \
+		if docker cp "$$container:/build/PyMaSC" "$$tmpdir/" 2>/dev/null; then \
+			echo "    ✅ Build tree copied"; \
+			RSYNC_FILTER="--include=*/ --include=*_$${py_major_minor}.c --exclude=*"; \
+			rsync -a --prune-empty-dirs $$RSYNC_FILTER "$$tmpdir/PyMaSC/" "PyMaSC/"; \
+			echo "    ✅ Synced Python $$version C sources"; \
+		else \
+			echo "    ❌ Failed to copy from container $$container"; \
+		fi; \
 	done
 	@echo ""
 	@echo "🧹 Cleaning up containers..."
 	@docker-compose -f $(DOCKER_COMPOSE_FILE) down
 	@echo ""
-	@echo "📊 Organizing extracted files..."
-	@# Move C files to correct locations
-	@for f in *_[0-9][0-9].c *_[0-9][0-9][0-9].c; do \
-		if [ -f "$$f" ]; then \
-			module_path=$$(find PyMaSC -name "$${f%_*}.pyx" 2>/dev/null | head -1 | sed 's/.pyx$$//'); \
-			if [ -n "$$module_path" ]; then \
-				mv "$$f" "$$module_path"_$${f##*_} && echo "  $$f -> $$module_path"_$${f##*_}; \
-			fi; \
-		fi; \
-	done 2>/dev/null || true
-	@echo ""
-	@echo "🔄 Generating fallback _3.c files..."
-	@$(MAKE) -f Makefile.sources fallback
+	@echo "📊 Organized C files via rsync (path-preserving)"
 	@echo ""
 	@echo "✅ Isolated parallel build completed successfully!"
 	@$(MAKE) -f Makefile.sources show-summary
@@ -121,25 +121,20 @@ parallel-staged: platform-info
 	@echo "🏃‍♂️ Group 3: Python 3.12..."
 	@docker-compose -f $(DOCKER_COMPOSE_FILE) up --build build-py312
 	@echo ""
-	@echo "📝 Organizing extracted files..."
-	@# Extract and organize C files from staged builds
+	@echo "📝 Extracting and syncing C files via rsync..."
+	@mkdir -p c_extracted
 	@for version in $(PYTHON_VERSIONS); do \
 		py_major_minor=$$(echo "$$version" | sed 's/\.//g'); \
 		container="pymasc-build-py$$py_major_minor"; \
-		docker cp "$$container:/output/." . 2>/dev/null || true; \
-	done
-	@# Move C files to correct locations
-	@for f in *_[0-9][0-9].c *_[0-9][0-9][0-9].c; do \
-		if [ -f "$$f" ]; then \
-			module_path=$$(find PyMaSC -name "$${f%_*}.pyx" 2>/dev/null | head -1 | sed 's/.pyx$$//'); \
-			if [ -n "$$module_path" ]; then \
-				mv "$$f" "$$module_path"_$${f##*_} && echo "  $$f -> $$module_path"_$${f##*_}; \
-			fi; \
+		tmpdir="c_extracted/py$$py_major_minor"; \
+		mkdir -p "$$tmpdir"; \
+		if docker cp "$$container:/build/PyMaSC" "$$tmpdir/" 2>/dev/null; then \
+			RSYNC_FILTER="--include=*/ --include=*_$${py_major_minor}.c --exclude=*"; \
+			rsync -a --prune-empty-dirs $$RSYNC_FILTER "$$tmpdir/PyMaSC/" "PyMaSC/"; \
+			echo "  ✅ Synced Python $$version C sources"; \
 		fi; \
-	done 2>/dev/null || true
+	done
 	@echo ""
-	@echo "🔄 Generating fallback _3.c files..."
-	@$(MAKE) -f Makefile.sources fallback
 	@echo "✅ Staged parallel build completed successfully!"
 
 # Docker build commands for specific Python versions
@@ -163,6 +158,10 @@ docker-build-py312:
 	@docker-compose -f $(DOCKER_COMPOSE_FILE) up --build build-py312
 	@$(MAKE) -f Makefile.sources rename-version VERSION=3.12
 
+docker-build-py313:
+	@docker-compose -f $(DOCKER_COMPOSE_FILE) up --build build-py313
+	@$(MAKE) -f Makefile.sources rename-version VERSION=3.13
+
 # Rename generated C files with version suffix
 rename-version:
 	@if [ -z "$(VERSION)" ]; then echo "❌ ERROR: VERSION not specified"; exit 1; fi
@@ -183,18 +182,6 @@ rename-all-versions:
 		$(MAKE) -f Makefile.sources rename-version VERSION=$$version; \
 	done
 
-# Generate fallback _3.c files for maximum compatibility
-fallback:
-	@echo "🔄 Generating fallback _3.c files for maximum compatibility..."
-	@$(MAKE) -f Makefile.sources clean-non-versioned
-	@docker-compose $(DOCKER_PLATFORM) -f $(DOCKER_COMPOSE_FILE) up --build build-py311
-	@for f in $(foreach mod,$(CORE_MODULES),$(mod).c); do \
-		if [ -f "$$f" ]; then \
-			mv "$$f" "$${f%.c}_3.c"; \
-			echo "  $$f -> $${f%.c}_3.c"; \
-		fi; \
-	done
-	@echo "✅ Fallback _3.c files generated"
 
 # Smart dependency checking - comprehensive build dependency analysis
 check-deps:
@@ -236,7 +223,6 @@ check-cython-deps:
 		for mod in $(CORE_MODULES); do \
 			pyx_file="$$mod.pyx"; \
 			c_file="$${mod}_$$py_major_minor.c"; \
-			fallback_file="$${mod}_3.c"; \
 			if [ ! -f "$$pyx_file" ]; then \
 				echo "    ⚠️  No source: $$pyx_file (will use pre-built C)"; \
 			elif [ ! -f "$$c_file" ]; then \
@@ -309,6 +295,11 @@ clean-build-artifacts:
 		echo "  Removing build/ directory..."; \
 		rm -rf build; \
 	fi
+	@# Remove temporary extracted C cache
+	@if [ -d "c_extracted" ]; then \
+		echo "  Removing c_extracted/ directory..."; \
+		rm -rf c_extracted; \
+	fi
 	@# Remove .egg-info directories
 	@if find . -name "*.egg-info" -type d | grep -q .; then \
 		echo "  Removing .egg-info directories..."; \
@@ -352,8 +343,6 @@ show-summary:
 			echo "  Python $$version: $$files files"; \
 		fi; \
 	done
-	@fallback_files=$$(find PyMaSC -name "*_3.c" | wc -l | tr -d ' '); \
-	echo "  Fallback _3.c: $$fallback_files files"
 	@total_files=$$(find PyMaSC -name "*.c" | wc -l | tr -d ' '); \
 	echo "  Total C files: $$total_files"
 
@@ -365,11 +354,13 @@ help:
 	@echo "  make all               - Build all versions sequentially with dependency tracking"
 	@echo "  make parallel          - Build all versions in isolated containers (recommended)"
 	@echo "  make parallel-staged   - Build all versions in staged groups (legacy)"
+	@echo "  make extract           - Only extract/sync C sources from existing containers"
 	@echo "  make py38              - Build only Python 3.8 sources"
 	@echo "  make py39              - Build only Python 3.9 sources"
 	@echo "  make py310             - Build only Python 3.10 sources"
 	@echo "  make py311             - Build only Python 3.11 sources"
 	@echo "  make py312             - Build only Python 3.12 sources"
+	@echo "  make py313             - Build only Python 3.13 sources"
 	@echo ""
 	@echo "Cleaning Commands:"
 	@echo "  make clean              - Complete cleanup (all sources, .so files, build artifacts)"
@@ -391,3 +382,28 @@ help:
 check: check-deps platform-info
 	@echo ""
 	@echo "✅ System check completed"
+
+# Extract versioned C files from already-built containers and sync into repo
+extract:
+	@echo "📥 Extracting generated C files from existing containers via rsync..."
+	@mkdir -p c_extracted
+	@for version in $(PYTHON_VERSIONS); do \
+		py_major_minor=$$(echo "$$version" | sed 's/\.//g'); \
+		container="pymasc-build-py$$py_major_minor"; \
+		tmpdir="c_extracted/py$$py_major_minor"; \
+		echo "  Inspecting $$container ..."; \
+		if docker inspect -f '{{.State.Status}}' "$$container" >/dev/null 2>&1; then \
+			mkdir -p "$$tmpdir"; \
+			if docker cp "$$container:/build/PyMaSC" "$$tmpdir/" 2>/dev/null; then \
+				RSYNC_FILTER="--include=*/ --include=*_$${py_major_minor}.c --exclude=*"; \
+				rsync -a --prune-empty-dirs $$RSYNC_FILTER "$$tmpdir/PyMaSC/" "PyMaSC/"; \
+				echo "    ✅ Synced Python $$version C sources"; \
+			else \
+				echo "    ⚠️  Could not copy /build/PyMaSC from $$container (skipping)"; \
+			fi; \
+		else \
+			echo "    ❌ Container $$container not found (skipping)"; \
+		fi; \
+	done
+	@echo ""
+	@$(MAKE) -f Makefile.sources show-summary

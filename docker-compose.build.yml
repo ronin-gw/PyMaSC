@@ -88,3 +88,20 @@ services:
       - PYTHON_MAJOR_MINOR=312
       - CYTHON_VERSION_SUFFIX=_312
       - BUILD_MODE=versioned
+
+  build-py313:
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: Dockerfile.build
+      args:
+        PYTHON_VERSION: "3.13"
+    image: pymasc:build-py313
+    container_name: pymasc-build-py313
+    volumes:
+      - .:/workspace:ro  # Mount source as read-only
+    environment:
+      - PYTHON_VERSION=3.13
+      - PYTHON_MAJOR_MINOR=313
+      - CYTHON_VERSION_SUFFIX=_313
+      - BUILD_MODE=versioned

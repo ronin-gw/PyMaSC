@@ -1,0 +1,68 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the following paper."
+title: "PyMaSC"
+
+preferred-citation:
+  type: article
+  title: "Theoretical characterisation of strand cross-correlation in ChIP-seq"
+  authors:
+    - family-names: Anzawa
+      given-names: Hayato
+      affiliation: "Graduate School of Information Sciences, Tohoku University, Sendai, Miyagi, Japan"
+      orcid: "https://orcid.org/0000-0002-9446-1291"
+      email: "anzawa@tohoku.ac.jp"
+    - family-names: Yamagata
+      given-names: Hitoshi
+      affiliation: "Advanced Research Laboratory, Canon Medical Systems Corporation, Otawara, Tochigi, Japan"
+    - family-names: Kinoshita
+      given-names: Kengo
+      orcid: "https://orcid.org/0000-0003-3453-2171"
+      email: "kengo@tohoku.ac.jp"
+      affiliation: |
+        Graduate School of Information Sciences, Tohoku University, Sendai, Miyagi, Japan;
+        Advanced Research Laboratory, Canon Medical Systems Corporation, Otawara, Tochigi, Japan;
+        Tohoku Medical Megabank Organization, Sendai, Miyagi, Japan;
+        Institute of Development, Aging and Cancer, Tohoku University, Sendai, Miyagi, Japan
+  journal: "BMC Bioinformatics"
+  volume: 21
+  issue: 1
+  start: 417
+  year: 2020
+  doi: 10.1186/s12859-020-03729-6
+  date-released: 2020-09-22
+  url: "https://bmcbioinformatics.biomedcentral.com/articles/10.1186/s12859-020-03729-6"
+  pmcid: PMC7510163
+  abstract: >
+    BACKGROUND: Strand cross-correlation profiles are used for both peak calling
+    pre-analysis and quality control (QC) in chromatin immunoprecipitation followed
+    by sequencing (ChIP-seq) analysis. Despite its potential for robust and accurate
+    assessments of signal-to-noise ratio (S/N) because of its peak calling independence,
+    it remains unclear what aspects of quality such strand cross-correlation profiles
+    actually measure.
+    RESULTS: We introduced a simple model to simulate the mapped read-density of ChIP-seq
+    and then derived the theoretical maximum and minimum of cross-correlation coefficients
+    between strands. The results suggest that the maximum coefficient of typical ChIP-seq
+    samples is directly proportional to the number of total mapped reads and the square
+    of the ratio of signal reads, and inversely proportional to the number of peaks
+    and the length of read-enriched regions. Simulation analysis supported our results
+    and evaluation using 790 ChIP-seq data obtained from the public database demonstrated
+    high consistency between calculated cross-correlation coefficients and estimated
+    coefficients based on the theoretical relations and peak calling results.
+    In addition, we found that the mappability-bias-correction improved sensitivity,
+    enabling differentiation of maximum coefficients from the noise level.
+    Based on these insights, we proposed virtual S/N (VSN), a novel peak call-free
+    metric for S/N assessment. We also developed PyMaSC, a tool to calculate strand
+    cross-correlation and VSN efficiently. VSN achieved most consistent S/N estimation
+    for various ChIP targets and sequencing read depths. Furthermore, we demonstrated
+    that a combination of VSN and pre-existing peak calling results enable the estimation
+    of the numbers of detectable peaks for posterior experiments and assess peak
+    calling results.
+    CONCLUSIONS: We present the first theoretical insights into the strand cross-correlation,
+    and the results reveal the potential and the limitations of strand cross-correlation
+    analysis. Our quality assessment framework using VSN provides peak call-independent
+    QC and will help in the evaluation of peak call analysis in ChIP-seq experiments.
+  keywords:
+    - ChIP-seq
+    - Mappability
+    - Quality control
+    - Strand cross-correlation

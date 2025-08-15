@@ -5,7 +5,12 @@ PyMaSC
 
 [![PyPI version](https://badge.fury.io/py/PyMaSC.svg)](https://badge.fury.io/py/PyMaSC)
 [![PyPI pyversions](https://img.shields.io/pypi/pyversions/PyMaSC.svg)](https://pypi.python.org/pypi/PyMaSC/)
-[![Build Status](https://travis-ci.org/ronin-gw/PyMaSC.svg?branch=master)](https://travis-ci.org/ronin-gw/PyMaSC)
+
+[![Build Check](https://github.com/ronin-gw/PyMaSC/actions/workflows/build-check.yml/badge.svg)](https://github.com/ronin-gw/PyMaSC/actions/workflows/build-check.yml)
+[![Build Check](https://github.com/ronin-gw/PyMaSC/actions/workflows/test-prebuild.yml/badge.svg)](https://github.com/ronin-gw/PyMaSC/actions/workflows/test-prebuild.yml)
+[![Build Check](https://github.com/ronin-gw/PyMaSC/actions/workflows/test.yml/badge.svg)](https://github.com/ronin-gw/PyMaSC/actions/workflows/test.yml)
+[![Build Check](https://github.com/ronin-gw/PyMaSC/actions/workflows/test-matrix.yml/badge.svg)](https://github.com/ronin-gw/PyMaSC/actions/workflows/test-matrix.yml)
+[![Build Check](https://github.com/ronin-gw/PyMaSC/actions/workflows/build-wheels.yml/badge.svg)](https://github.com/ronin-gw/PyMaSC/actions/workflows/build-wheels.yml)
 
 Python implementation to calc mappability-sensitive cross-correlation
 for fragment length estimation and quality control for ChIP-Seq.
@@ -22,11 +27,11 @@ this approach is _phantom_ peak, which is the occasionally observed peak corresp
 to the read length. In the ChIP-Seq guidelines by ENCODE consortia, cross-correlation
 at fragment length and read length are used for quality control metrics. Additionally,
 library length itself is one of the important parameters for analysises. However,
-estimating correct flagment length is not a easy task because of _phantom_ peak occurrence.  
+estimating correct flagment length is not a easy task because of _phantom_ peak occurrence.
 P Ramachandran _et al._ proposed __MaSC__, mappability-sensitive cross-correlation to
 remove the bias caused from ununiformity of mappability throughout the genome. This
 method provides cross-correlation landscape without _phantom_ peak and much accurate
-mean fragment length estimation.  
+mean fragment length estimation.
 __PyMaSC__ is a tool implemented by python and cython to visualize (mappability-sensitive)
 cross-correlation and estimate ChIP-Seq quality metrics and mean fragment length with
 MaSC algorithm.
@@ -38,9 +43,9 @@ Python version 3.8 or higher is recommended (Python 3.8-3.13 officially supporte
 C compiler needs to build C sources (recommend GCC).
 
 ### Install using pip
-1. `numpy`, `pysam>=0.22.0`, and `pyBigWig>=0.3.18` must be installed ___before___ installing PyMaSC
+1. `numpy`, `pysam>=0.23.2`, and `pyBigWig>=0.3.18` must be installed ___before___ installing PyMaSC
 
-    $ pip install numpy "pysam>=0.22.0" "pyBigWig>=0.3.18"
+    $ pip install numpy "pysam>=0.23.2" "pyBigWig>=0.3.18"
 
 2. Install PyMaSC from PyPI
 
@@ -50,7 +55,7 @@ C compiler needs to build C sources (recommend GCC).
 
 Usage
 -----
-After installation, PyMaSC provides `pymasc`, `pymasc-precalc` and `pymasc-plot` command.  
+After installation, PyMaSC provides `pymasc`, `pymasc-precalc` and `pymasc-plot` command.
 Note that `pymasc-precalc` is not essential to calculate mappability-sensitive
 cross-correlation.
 
@@ -85,14 +90,14 @@ cross-correlation.
 
 #### Usage example
 
-Calculate only naïve cross-correlation for `ENCFF000VPI.bam` with max shift size = 1000.  
+Calculate only naïve cross-correlation for `ENCFF000VPI.bam` with max shift size = 1000.
 Output files are `ENCFF000VPI_stats.tab`, `ENCFF000VPI_nreads.tab`, `ENCFF000VPI_cc.tab`
 and `ENCFF000VPI.pdf`.
 
     $ pymasc -d 1000 ENCFF000VPI.bam
 
 
-Calculate both naïve and mappability-sensitive cross-correlation by 4 worker processes.  
+Calculate both naïve and mappability-sensitive cross-correlation by 4 worker processes.
 Output `ENCFF000VPI_mscc.tab` Additionally.
 
     $ pymasc -p 4 -d 1000 -m wgEncodeCrgMapabilityAlign36mer.bigWig ENCFF000VPI.bam
@@ -100,10 +105,10 @@ Output `ENCFF000VPI_mscc.tab` Additionally.
 
 #### Main input file
 SAM and BAM file format are acceptable.
-* Input alignment file must be sorted.  
- * Additionally, for parallel processing, input file must be BAM format and indexed.  
-* If multiple files specified, PyMaSC processes each file with common parameters.  
-* Unmapped or duplicated reads will be discarded.  
+* Input alignment file must be sorted.
+ * Additionally, for parallel processing, input file must be BAM format and indexed.
+* If multiple files specified, PyMaSC processes each file with common parameters.
+* Unmapped or duplicated reads will be discarded.
 * If input file contains paired-end reads, the last (second) segment read will be discarded.
 
 
@@ -112,10 +117,10 @@ SAM and BAM file format are acceptable.
 #### General options
 
 ##### -v / --log-level {DEBUG,INFO,WARNING,ERROR,CRITICAL}
-Set logging message level. (Default: info)  
+Set logging message level. (Default: info)
 
 ##### --disable-progress
-Disable progress bars.  
+Disable progress bars.
 Note that progress bar will be disabled automatically if stderr is not connected to terminal.
 
 ##### --color {TRUE,FALSE}
@@ -128,12 +133,12 @@ Show program's version number and exit
 #### Processing settings
 
 ##### -p / --process [int]
-Set number of worker process. (Default: 1)  
+Set number of worker process. (Default: 1)
 For indexed BAM file, PyMaSC parallel process each reference (chromosome).
 
 #### --successive
 Calc with successive algorithm instead of bitarray implementation (Default: false)
-Bitarray implementation is recommended　in most situation. See `Computation details`
+Bitarray implementation is recommended in most situation. See `Computation details`
 for more information.
 
 ##### --skip-ncc
@@ -147,18 +152,18 @@ Skip output figures. (Default: False)
 #### Input alignment file settings
 
 ##### -r / --read-length [int]
-Specify read length explicitly. (Default: get representative by scanning)  
+Specify read length explicitly. (Default: get representative by scanning)
 PyMaSC needs representative value of read length to plot figures and to calc
 mappability-sensitive cross-correlation. By default, PyMaSC scans input file
 read length to get representative read length. If read length is specified, PyMaSC
-skips this step.  
+skips this step.
 Note that this option must be specified to treat unseekable input (like stdin).
 
 ##### --readlen-estimator {MEAN,MEDIAN,MODE,MIN,MAX}
 Specify how to get representative value of read length. (Default: median)
 
 ##### -l / --library-length
-Specify expected fragment length. (Default: None)  
+Specify expected fragment length. (Default: None)
 PyMaSC supplies additional NSC and RSC values calculated from this value.
 
 
@@ -166,17 +171,17 @@ PyMaSC supplies additional NSC and RSC values calculated from this value.
 
 ##### -m / --mappability [BigWig file]
 Specify mappability (alignability, uniqueness) track to calculate mappability-sensitive
-cross-correlation.  
+cross-correlation.
 Input file must be BigWig format and each track's score should indicate mappability
-in [0, 1] (1 means uniquely mappable position).  
+in [0, 1] (1 means uniquely mappable position).
 If BigWig file is not supplied, PyMaSC will calculate only naïve cross-correlation.
 
 ##### --mappability-stats [json file]
-Read and save path to the json file which contains mappability region statistics.  
-(Default: same place, same base name as the mappability BigWig file)  
+Read and save path to the json file which contains mappability region statistics.
+(Default: same place, same base name as the mappability BigWig file)
 If there is no statistics file for specified BigWig file, PyMaSC calculate total
 length of doubly mappable region for each shift size automatically and save them
-to reuse for next calculation and faster computing.  
+to reuse for next calculation and faster computing.
 `pymasc-precalc` performs this calculation for specified BigWig file (this is not
 necessary, of course).
 
@@ -184,7 +189,7 @@ necessary, of course).
 #### Input file filtering arguments
 
 ##### -q / --mapq [int]
-Input reads which mapping quality less than specified score will be discarded. (Default: 1)  
+Input reads which mapping quality less than specified score will be discarded. (Default: 1)
 MAPQ >= 1 is recommended because MAPQ=0 contains multiple hit reads.
 
 #####  -i / --include-chrom [pattern ...]
@@ -204,7 +209,7 @@ a just before -i/--include-chrom option.
 PyMaSC calculate cross-correlation with shift size from 0 to this value. (Default: 1000)
 
 ##### --chi2-pval [float]
-P-value threshold to check strand specificity. (Default: 0.05)  
+P-value threshold to check strand specificity. (Default: 0.05)
 PyMaSC performs chi-square test between number of reads mapped to positive- and negative-strand.
 
 ##### -w / --smooth-window [int]
@@ -247,13 +252,13 @@ overwrite output file base name.
                    [-r MAX_READLEN]
 
 #### Usage example
-Calculate total length of doubly mappable region.  
+Calculate total length of doubly mappable region.
 `wgEncodeCrgMapabilityAlign36mer_mappability.json` will be write.
 
     $ pymasc -p 4 -r 50 -d 1000 -m wgEncodeCrgMapabilityAlign36mer.bigWig
 
 #### Options
-Almost same as `pymasc` command.  
+Almost same as `pymasc` command.
 Note that actual max shift size is,
 - 0 to `read_length` (if `max_shift` < `read_len` * 2)
 - 0 to `max_shift` - `read_len` + 1 (if `max_shift` => `read_len` * 2)
@@ -286,7 +291,7 @@ Note that actual max shift size is,
 
 #### Usage example
 (Re)plot figures from `pymasc` outputs `output/ENCFF000VPI_*` with the specified
-smoothing window size and library length.  
+smoothing window size and library length.
 Note that you need to specify a tab delimited file or a SAM/BAM format file to
 obtain chromosome lengths, and/or, specify a mappability stats (JSON) file which
 was generated for a mappability BigWig file by PyMaSC to obtain mappable region lengths.
@@ -297,7 +302,7 @@ was generated for a mappability BigWig file by PyMaSC to obtain mappable region 
 Specify a prefix to `pymasc` output files. For example, set `output/ENCFF000VPI`
 to plot figures from `output/ENCFF000VPI_stats.tab`, `output/ENCFF000VPI_nreads.tab`
 and `output/ENCFF000VPI_cc.tab` (and/or `output/ENCFF000VPI_masc.tab`). `*_stats.tab`
-and either or both of `*_cc.tab` and `*_mscc.tab` must be exist.  
+and either or both of `*_cc.tab` and `*_mscc.tab` must be exist.
 To specify these files individually, use `--stats`, `--nreads`, `--cc` and `--masc`
 options.
 
@@ -312,7 +317,7 @@ PyMaSC provides two algorithms for calculation.
 BitArray approach is based on
 allocated binary arrays with length of references and computation time mostly
 depends on the size of reference genome and the maximum shift size. Typically
-(hg19, chr1), PyMaSC consumes about 250MB RAM per worker.  
+(hg19, chr1), PyMaSC consumes about 250MB RAM per worker.
 
 #### Successive implementation
 Successive implementation is based on buffer with length of maximum shift size

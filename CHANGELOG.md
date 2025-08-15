@@ -1,5 +1,28 @@
 # Change Log
 
+## v1.0.0 (2025-08-15)
+Major modernization release focused on Python upgrades, dependency cleanup, and architectural refactoring to improve reliability, portability, and test coverage.
+
+**Highlights:**
+- Python 3.8-3.13 support; refresh packaging with `pyproject.toml` and updated build tooling.
+- Replace `bx-python` with `pyBigWig`.
+- Unify results/statistics model and simplify handler/factory design.
+- Stabilize multiprocessing: use spawn start method.
+- Introduce tests.
+
+**Breaking changes:**
+- Drop Python2 and <3.8 support.
+- Default multiprocessing start method set to spawn.
+
+**Architecture and refactoring:**
+- Move to factory-centric design; remove redundant strategy layer and clarify service/handler responsibilities.
+- Migrate from `os.path` to `pathlib`; add comprehensive type hints and mypy checks.
+- Remove obsolete Python 2 compatibility.
+
+**CI/CD and distribution:**
+- Adopt `cibuildwheel` and stabilize matrix builds; optimize resource usage.
+- Improve BitArray build/link flags for macOS/ARM64 and Linux.
+
 ## v0.3.1 (2019-11-01)
 **Implemented enhancements:**
 - Support VSN calculation

@@ -4,7 +4,7 @@ requires = [
     "wheel",
     "Cython>=0.29.0",
     "numpy>=1.21.0",
-    "pysam>=0.22.0",
+    "pysam>=0.23.2",
     "pyBigWig>=0.3.18",
 ]
 build-backend = "setuptools.build_meta"
@@ -44,15 +44,14 @@ classifiers = [
 ]
 dependencies = [
     "numpy>=1.21.0",
-    "pysam>=0.22.0",
+    "pysam>=0.23.2",
     "pyBigWig>=0.3.18",
+    "scipy>=1.7.0",
+    "matplotlib>=3.5.0",
+    "typing_extensions",
 ]
 
 [project.optional-dependencies]
-plot = [
-    "matplotlib>=3.5.0",
-    "scipy>=1.7.0",
-]
 test = [
     "pytest>=6.0",
     "pytest-cov",
@@ -60,14 +59,20 @@ test = [
     "psutil>=5.8.0",
 ]
 dev = [
-    "PyMaSC[plot,test]",
+    "PyMaSC[test]",
     "Cython>=0.29.0",
     "build",
     "twine",
     "mypy>=1.0.0",
     "flake8",
     "autopep8",
-    "typing-extensions>=4.0.0; python_version < '3.10'",
+]
+
+# Minimal toolchain for packaging/release (use with Python 3.11+)
+release = [
+    "cibuildwheel>=2.17.0",
+    "build>=1.0.0",
+    "twine>=4.0.0",
 ]
 
 [project.urls]
@@ -91,29 +96,32 @@ include = ["PyMaSC*"]
 "*" = ["*.ps"]
 
 [tool.cibuildwheel]
-build = "cp38-* cp39-* cp310-* cp311-* cp312-*"
+# Build CPython 3.8–3.13 wheels
+build = "cp38-* cp39-* cp310-* cp311-* cp312-* cp313-*"
 # Note: Windows builds temporarily excluded - use WSL2, Docker, or VM for Windows users
 skip = "*-win32 *-manylinux_i686 *-win_amd64 pp*"
 
 [tool.cibuildwheel.linux]
 before-build = [
-    "yum install -y gcc-c++ make",
+    "yum install -y gcc-c++ make bzip2-devel xz-devel zlib-devel curl-devel openssl-devel",
     "pip install numpy cython",
-    "pip install 'pysam>=0.22.0' 'pyBigWig>=0.3.18'",
+    "pip install 'pysam>=0.23.2' 'pyBigWig>=0.3.18'",
     "cd external/BitArray && make clean && make CC='gcc -fPIC' libbitarr.a && cd ../..",
 ]
 
 [tool.cibuildwheel.macos]
+# Build universal2 wheels on macOS (x86_64 + arm64)
+archs = ["universal2"]
 before-build = [
     "pip install numpy cython",
-    "pip install 'pysam>=0.22.0' 'pyBigWig>=0.3.18'",
+    "pip install 'pysam>=0.23.2' 'pyBigWig>=0.3.18'",
     "cd external/BitArray && make clean && make CC='gcc -arch x86_64 -arch arm64' libbitarr.a && cd ../..",
 ]
 
 [tool.cibuildwheel.windows]
 before-build = [
     "pip install numpy cython",
-    "pip install 'pysam>=0.22.0' 'pyBigWig>=0.3.18'",
+    "pip install 'pysam>=0.23.2' 'pyBigWig>=0.3.18'",
 ]
 
 [tool.pytest.ini_options]

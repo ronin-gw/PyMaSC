@@ -160,12 +160,5 @@ jobs:
 
         echo "✅ All CLI commands working on Python ${{ matrix.python-version }}"
 
-    - name: Upload test results
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: test-results-source-build-${{ matrix.os }}-${{ matrix.python-version }}
-        path: |
-          pytest-report.xml
-          coverage.xml
-        retention-days: 30
+    # Note: No artifacts are uploaded in matrix runs because
+    # junitxml/coverage files are not generated in these jobs.

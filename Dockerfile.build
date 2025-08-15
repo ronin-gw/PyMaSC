@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y \
 # Install Python dependencies
 RUN pip install --upgrade pip && \
     pip install setuptools wheel && \
-    pip install numpy cython "pysam>=0.22.0" "bx-python>=0.10.0"
+    pip install numpy cython "pysam>=0.23.2" "bx-python>=0.10.0"
 
 # Special handling for Python 3.9 - use numpy 1.x
 ARG PYTHON_VERSION
@@ -29,7 +29,7 @@ RUN mkdir -p /build /output
 # Build command that:
 # 1. Copies mounted source to isolated build directory
 # 2. Builds BitArray
-# 3. Generates C sources 
+# 3. Generates C sources
 # 4. Copies only the generated C files to /output
 CMD ["bash", "-c", "\
     set -e && \

@@ -58,7 +58,7 @@ jobs:
         else
           pip install numpy cython
         fi
-        pip install "pysam>=0.22.0" "pyBigWig>=0.3.18"
+        pip install "pysam>=0.23.2" "pyBigWig>=0.3.18"
 
     - name: Build BitArray library
       run: |

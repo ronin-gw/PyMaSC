@@ -102,7 +102,7 @@ jobs:
         echo "📁 Deploying pre-built C sources for wheel building..."
 
         # Deploy all version-specific C files to their correct locations
-        for version in 38 39 310 311 312; do
+        for version in 38 39 310 311 312 313; do
           echo "Deploying Python ${version} C sources..."
           for file in prebuilt-c-sources/*_${version}.c; do
             if [ -f "$file" ]; then
@@ -124,8 +124,8 @@ jobs:
     - name: Build wheels
       uses: pypa/cibuildwheel@v2.21.2
       env:
-        # Build Python 3.8-3.12
-        CIBW_BUILD: cp38-* cp39-* cp310-* cp311-* cp312-*
+        # Build Python 3.8-3.13
+        CIBW_BUILD: cp38-* cp39-* cp310-* cp311-* cp312-* cp313-*
         # Skip 32-bit builds and PyPy
         CIBW_SKIP: "*-win32 *-manylinux_i686 pp*"
 
@@ -133,7 +133,7 @@ jobs:
         CIBW_BEFORE_BUILD: >
           pip install setuptools wheel &&
           pip install numpy &&
-          pip install "pysam>=0.22.0" "pyBigWig>=0.3.18"
+          pip install "pysam>=0.23.2" "pyBigWig>=0.3.18"
 
         # Build BitArray library before Python build
         CIBW_BEFORE_BUILD_LINUX: >
@@ -141,14 +141,14 @@ jobs:
           python -c "import sys; print('Python version:', sys.version)" &&
           pip install setuptools wheel &&
           if python -c "import sys; sys.exit(0 if sys.version_info[:2] == (3, 9) else 1)"; then pip install 'numpy<2.0'; else pip install numpy; fi &&
-          pip install "pysam>=0.22.0" "pyBigWig>=0.3.18" &&
+          pip install "pysam>=0.23.2" "pyBigWig>=0.3.18" &&
           cd external/BitArray && make clean && make CC="gcc -fPIC" libbitarr.a && cd ../..
 
         CIBW_BEFORE_BUILD_MACOS: >
           python -c "import sys; print('Python version:', sys.version)" &&
           pip install setuptools wheel &&
           if python -c "import sys; sys.exit(0 if sys.version_info[:2] == (3, 9) else 1)"; then pip install 'numpy<2.0'; else pip install numpy; fi &&
-          pip install "pysam>=0.22.0" "pyBigWig>=0.3.18" &&
+          pip install "pysam>=0.23.2" "pyBigWig>=0.3.18" &&
           cd external/BitArray && make clean && make CC="gcc -arch x86_64 -arch arm64" libbitarr.a && cd ../..
 
         # Windows build configuration temporarily disabled
@@ -156,7 +156,7 @@ jobs:
         #   python -c "import sys; print('Python version:', sys.version)" &&
         #   if python -c "import sys; sys.exit(0 if sys.version_info[:2] >= (3, 12) else 1)"; then pip install setuptools wheel; fi &&
         #   if python -c "import sys; sys.exit(0 if sys.version_info[:2] == (3, 9) else 1)"; then pip install 'numpy<2.0'; else pip install numpy; fi &&
-        #   pip install "pysam>=0.22.0" "bx-python>=0.10.0"
+        #   pip install "pysam>=0.23.2" "bx-python>=0.10.0"
 
         # Test requirements
         CIBW_TEST_REQUIRES: scipy
@@ -199,7 +199,7 @@ jobs:
     - name: Install build dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install build numpy cython "pysam>=0.22.0" "pyBigWig>=0.3.18"
+        pip install build numpy cython "pysam>=0.23.2" "pyBigWig>=0.3.18"
 
     - name: Build BitArray library
       run: |

@@ -135,21 +135,21 @@ clean: bitarray-clean
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 	find . -type f -name "*.pyc" -delete 2>/dev/null || true
 	find . -type f -name "*.pyo" -delete 2>/dev/null || true
-	
+
 	# Remove build directories
 	rm -rf build/ dist/ *.egg-info
-	
+
 	# Remove coverage data
 	rm -rf htmlcov/ .coverage .coverage.*
-	
+
 	# Remove pytest cache
 	rm -rf .pytest_cache/
-	
+
 	# Remove compiled Cython extensions
 	find PyMaSC -name "*.so" -delete 2>/dev/null || true
 	# Remove C files but preserve version-specific ones (*_38.c, *_39.c, *_310.c, *_311.c, *_312.c, *_313.c)
 	find PyMaSC -name "*.c" ! -name "*_38.c" ! -name "*_39.c" ! -name "*_310.c" ! -name "*_311.c" ! -name "*_312.c" ! -name "*_313.c" -delete 2>/dev/null || true
-	
+
 	@echo "Clean complete."
 
 # Generate C sources from Cython files

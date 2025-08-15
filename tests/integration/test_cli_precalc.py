@@ -5,6 +5,7 @@ import tempfile
 import pytest
 import json
 from pathlib import Path
+from PyMaSC import VERSION
 
 
 class TestPymascPrecalcBasics:
@@ -19,7 +20,7 @@ class TestPymascPrecalcBasics:
         )
         assert result.returncode == 0
         assert 'PyMaSC' in result.stdout
-        assert '0.3.1' in result.stdout
+        assert VERSION in result.stdout
 
     def test_pymasc_precalc_help(self):
         """Test that pymasc-precalc --help works correctly."""

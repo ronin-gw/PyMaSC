@@ -2,6 +2,7 @@
 
 import subprocess
 import pytest
+from PyMaSC import VERSION
 
 
 class TestCLIBasics:
@@ -16,7 +17,7 @@ class TestCLIBasics:
         )
         assert result.returncode == 0
         assert 'PyMaSC' in result.stdout
-        assert '0.3.1' in result.stdout
+        assert VERSION in result.stdout
 
     def test_pymasc_help(self):
         """Test that pymasc --help works correctly."""
@@ -38,7 +39,7 @@ class TestCLIBasics:
         )
         assert result.returncode == 0
         assert 'PyMaSC' in result.stdout
-        assert '0.3.1' in result.stdout
+        assert VERSION in result.stdout
 
     @pytest.mark.plot
     def test_pymasc_plot_version_may_fail(self):
@@ -52,7 +53,7 @@ class TestCLIBasics:
         # We test both success and expected failure cases
         if result.returncode == 0:
             assert 'PyMaSC' in result.stdout
-            assert '0.3.1' in result.stdout
+            assert VERSION in result.stdout
         else:
             # Expected failure due to matplotlib import issues
             assert 'matplotlib' in result.stderr or 'NDArray' in result.stderr

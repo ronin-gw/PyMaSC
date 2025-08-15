@@ -6,6 +6,7 @@ import pytest
 from pathlib import Path
 import csv
 import json
+from PyMaSC import VERSION
 
 
 class TestPymascPlotBasics:
@@ -22,7 +23,7 @@ class TestPymascPlotBasics:
         # May fail due to matplotlib import issues
         if result.returncode == 0:
             assert 'PyMaSC' in result.stdout
-            assert '0.3.1' in result.stdout
+            assert VERSION in result.stdout
         else:
             # Expected failure due to matplotlib import issues
             assert 'matplotlib' in result.stderr or 'NDArray' in result.stderr

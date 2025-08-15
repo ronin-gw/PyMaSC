@@ -10,7 +10,7 @@ test*.log
 
 # Generated C files
 c_extracted/
-PyMaSC/**/*[a-z].c
+PyMaSC/**/*.c
 
 # Output files
 *.pdf

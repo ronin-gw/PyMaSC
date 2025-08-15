@@ -1,0 +1,50 @@
+# PyMaSC Release Makefile (Python 3.11+ runner recommended)
+# Purpose: Build and publish distribution artifacts independently from dev Makefile
+
+.PHONY: help sdist wheels-all wheels-linux wheels-macos check upload
+
+# Python interpreter used to run cibuildwheel/build/twine
+# Override as needed, e.g. `make -f Makefile.release RUNPY=python3.11 wheels-all`
+RUNPY ?= python
+
+# Common cibuildwheel matrix (CPython 3.8–3.13)
+CIBW_BUILD_MATRIX = "cp38-* cp39-* cp310-* cp311-* cp312-* cp313-*"
+
+# Output directory for release artifacts (sdist and wheels)
+OUTDIR ?= dist
+
+help:
+	@echo "PyMaSC Release Commands (Python 3.11+ recommended):"
+	@echo "  make -f Makefile.release sdist        - Build source distribution"
+	@echo "  make -f Makefile.release wheels-linux - Build manylinux wheels (Docker required)"
+	@echo "  make -f Makefile.release wheels-macos - Build macOS universal2 wheels"
+	@echo "  make -f Makefile.release wheels-all   - Build both Linux and macOS wheels"
+	@echo "  make -f Makefile.release check        - List dist/ contents"
+
+sdist:
+	$(RUNPY) -m build --sdist --outdir $(OUTDIR)
+
+wheels-linux:
+	@echo "Building manylinux wheels into dist/ ..."
+	CIBW_OUTPUT_DIR=$(OUTDIR) \
+	CIBW_BUILD=$(CIBW_BUILD_MATRIX) \
+	CIBW_SKIP="*-musllinux_*" \
+	$(RUNPY) -m cibuildwheel --platform linux
+
+wheels-macos:
+	@echo "Building macOS universal2 wheels into dist/ ..."
+	CIBW_OUTPUT_DIR=$(OUTDIR) \
+	CIBW_BUILD=$(CIBW_BUILD_MATRIX) \
+	CIBW_ARCHS_MACOS=universal2 \
+	$(RUNPY) -m cibuildwheel --platform macos
+
+wheels-all: wheels-linux wheels-macos
+
+check:
+	@echo "Dist artifacts:"
+	@ls -lh $(OUTDIR) || true
+
+upload:
+	@echo "Uploading artifacts in $(OUTDIR)/ to PyPI..."
+	$(RUNPY) -m twine upload $(OUTDIR)/*
+	@echo "Done."

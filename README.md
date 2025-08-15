@@ -43,15 +43,11 @@ Python version 3.8 or higher is recommended (Python 3.8-3.13 officially supporte
 C compiler needs to build C sources (recommend GCC).
 
 ### Install using pip
-1. `numpy`, `pysam>=0.23.2`, and `pyBigWig>=0.3.18` must be installed ___before___ installing PyMaSC
+Install PyMaSC from PyPI
 
-    $ pip install numpy "pysam>=0.23.2" "pyBigWig>=0.3.18"
+$ pip install pymasc
 
-2. Install PyMaSC from PyPI
-
-    $ pip install pymasc
-
-    If cython is installed, PyMaSC will be built with Cython native compiled sources instead of pre-compiled C sources.
+If cython is installed, PyMaSC will be built with Cython native compiled sources.
 
 Usage
 -----

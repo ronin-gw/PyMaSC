@@ -1,4 +1,6 @@
-![PyMaSC](https://raw.githubusercontent.com/ronin-gw/PyMaSC/master/pymasc.png)
+<div align="center">
+  <img src="https://raw.githubusercontent.com/ronin-gw/PyMaSC/master/pymasc.png" alt="PyMaSC Logo">
+</div>
 
 PyMaSC
 ======
@@ -15,7 +17,28 @@ PyMaSC
 Python implementation to calc mappability-sensitive cross-correlation
 for fragment length estimation and quality control for ChIP-Seq.
 
-Visit [PyMaSC web site](https://pymasc.sb.ecei.tohoku.ac.jp/) for more information and to get human genome mappability tracks.
+🐾 Visit [PyMaSC web site](https://pymasc.sb.ecei.tohoku.ac.jp/) for more information and to get human genome mappability tracks.
+
+📃 If you use this software in your work, please cite the following paper.
+
+> Anzawa, Hayato, Hitoshi Yamagata, and Kengo Kinoshita. "Theoretical characterisation of strand cross-correlation in ChIP-seq." BMC bioinformatics 21.1 (2020): 417. https://doi.org/10.1186/s12859-020-03729-6
+
+* * *
+
+<ol>
+  <li><a href="#introduction">Introduction</a></li>
+  <li><a href="#install">Install</a></li>
+  <li>
+    <a href="#usage">Usage</a>
+    <ul>
+      <li><a href="#pymasc-command">pymasc command</a></li>
+      <li><a href="#pymasc-precalc-command">pymasc-precalc command</a></li>
+      <li><a href="#pymasc-plot-command">pymasc-plot command</a></li>
+    </ul>
+  </li>
+  <li><a href="#computation-details">Computation details</a></li>
+  <li><a href="#references">References</a></li>
+</ol>
 
 * * *
 
@@ -110,129 +133,75 @@ SAM and BAM file format are acceptable.
 
 #### Output files
 
+| Name             | Description |
+|------------------|-------------|
+| `*_stats.tab`    | Tab-delimited run summary includes statistics like NSC (normalized strand coefficient), RSC (relative strand coefficient) and VSN (virtual S/N ratio).|
+| `*.pdf`          | A multipage figure summarizing the run: cross-correlation curves (naïve and MaSC) versus shift, with the inferred fragment length highlighted.|
+| `*_cc.tab`       | Naïve strand cross-correlation coefficients by shift (rows). Columns are `shift` (in bp), `whole` (all chromosomes), followed by per-chromosome values. |
+| `*_mscc.tab`     | Mappability-sensitive cross-correlation (MSCC) coefficients by shift with the same layout as `*_cc.tab`. Produced only when a mappability BigWig is supplied. |
+| `*_nreads.tab`   | Positive/negative strand read counts reported as `pos-neg` pairs for `whole` and per chromosome. The `raw` row reports number of reads. If mappability is supplied, numbers of reads in doubly mappable positions at each shift are also reported. |
+
+Additionaly, PyMaSC generates a JSON file as cache for mappability analyses. See the `--mappability-stats` option for details.
+
 #### General options
 
-##### -v / --log-level {DEBUG,INFO,WARNING,ERROR,CRITICAL}
-Set logging message level. (Default: info)
-
-##### --disable-progress
-Disable progress bars.
-Note that progress bar will be disabled automatically if stderr is not connected to terminal.
-
-##### --color {TRUE,FALSE}
-Switch coloring log output. (Default: auto; enable if stderr is connected to terminal)
-
-#### --version
-Show program's version number and exit
-
+| Option & Argument      | Description | Default |
+|------------------------|-------------|---------|
+| `-v, --log-level {DEBUG,INFO,WARNING,ERROR,CRITICAL}` | Set logging message level. | `INFO` |
+| `--disable-progress`   | Disable progress bars. Note that progress bar will be disabled automatically if stderr is not connected to terminal. | auto |
+| `--color {TRUE,FALSE}` | Switch coloring log output. | auto (enable if stderr is connected to terminal) |
+| `--version`            | Show program's version number and exit | |
 
 #### Processing settings
 
-##### -p / --process [int]
-Set number of worker process. (Default: 1)
-For indexed BAM file, PyMaSC parallel process each reference (chromosome).
-
-#### --successive
-Calc with successive algorithm instead of bitarray implementation (Default: false)
-Bitarray implementation is recommended in most situation. See `Computation details`
-for more information.
-
-##### --skip-ncc
-Both `-m/--mappability` and `--skip-ncc` specified, PyMaSC skips calculate naïve cross-correlation
-and calculates only mappability-sensitive cross-correlation. (Default: False)
-
-##### --skip-plots
-Skip output figures. (Default: False)
-
+| Option & Argument    | Description | Default |
+|----------------------|-------------|---------|
+| `-p/--process [int]` | Set number of worker process. For indexed BAM file, PyMaSC parallel process each reference (chromosome). | 1 |
+| `--successive`       | Calc with successive algorithm instead of bitarray implementation Bitarray implementation is recommended in most situation. See `Computation details` for more information. | off (use bit array implementation) |
+| `--skip-ncc`         | Both `-m/--mappability` and `--skip-ncc` specified, PyMaSC skips calculate naïve cross-correlation and calculates only mappability-sensitive cross-correlation. | off |
+| `--skip-plots`       | Skip output figures. | off |
 
 #### Input alignment file settings
 
-##### -r / --read-length [int]
-Specify read length explicitly. (Default: get representative by scanning)
-PyMaSC needs representative value of read length to plot figures and to calc
-mappability-sensitive cross-correlation. By default, PyMaSC scans input file
-read length to get representative read length. If read length is specified, PyMaSC
-skips this step.
-Note that this option must be specified to treat unseekable input (like stdin).
-
-##### --readlen-estimator {MEAN,MEDIAN,MODE,MIN,MAX}
-Specify how to get representative value of read length. (Default: median)
-
-##### -l / --library-length
-Specify expected fragment length. (Default: None)
-PyMaSC supplies additional NSC and RSC values calculated from this value.
-
+| Option & Argument         | Description | Default |
+|---------------------------|-------------|---------|
+| `-r, --read-length [int]` | Specify read length explicitly (Default: get representative by scanning). PyMaSC needs representative value of read length to plot figures and to calc mappability-sensitive cross-correlation. By default, PyMaSC scans input file read length to get representative read length. If read length is specified, PyMaSC skips this step. Note that this option must be specified to treat unseekable input (like stdin). | auto |
+| `--readlen-estimator {MEAN,MEDIAN,MODE,MIN,MAX}` | Specify how to get representative value of read length.| median |
+| `-l, --library-length`    | Specify expected fragment length. PyMaSC supplies additional NSC and RSC values calculated from this value. | None |
 
 #### Input mappability file settings
 
-##### -m / --mappability [BigWig file]
-Specify mappability (alignability, uniqueness) track to calculate mappability-sensitive
-cross-correlation.
-Input file must be BigWig format and each track's score should indicate mappability
-in [0, 1] (1 means uniquely mappable position).
-If BigWig file is not supplied, PyMaSC will calculate only naïve cross-correlation.
-
-##### --mappability-stats [json file]
-Read and save path to the json file which contains mappability region statistics.
-(Default: same place, same base name as the mappability BigWig file)
-If there is no statistics file for specified BigWig file, PyMaSC calculate total
-length of doubly mappable region for each shift size automatically and save them
-to reuse for next calculation and faster computing.
-`pymasc-precalc` performs this calculation for specified BigWig file (this is not
-necessary, of course).
-
+| Option & Argument                 | Description | Default |
+|-----------------------------------|-------------|---------|
+| `-m, --mappability [BigWig file]` | Specify mappability (alignability, uniqueness) track to calculate mappability-sensitive cross-correlation. Input file must be BigWig format and each track's score should indicate mappability in [0, 1] (1 means uniquely mappable position). If BigWig file is not supplied, PyMaSC will calculate only naïve cross-correlation. | |
+| `--mappability-stats [json file]` | Read and save path to the json file which contains mappability region statistics. If there is no statistics file for specified BigWig file, PyMaSC calculate total length of doubly mappable region for each shift size automatically and save them to reuse for next calculation and faster computing. `pymasc-precalc` performs this calculation for specified BigWig file (this is not necessary, of course). | auto (same place, same base name as the mappability BigWig file) |
 
 #### Input file filtering arguments
 
-##### -q / --mapq [int]
-Input reads which mapping quality less than specified score will be discarded. (Default: 1)
-MAPQ >= 1 is recommended because MAPQ=0 contains multiple hit reads.
-
-#####  -i / --include-chrom [pattern ...]
-Specify chromosomes to calculate. Unix shell-style wildcards (`.`, `*`, `[]` and `[!]`)
-are acceptable. This option can be declared multiple times to re-include chromosomes
-specified in a just before -e/--exclude-chrom option. Note that this option is case-sensitive.
-
-#####  -e / --exclude-chrom [pattern ...]
-As same as the -i/--include-chrom option, specify chromosomes to exclude from calculation.
-This option can be declared multiple times to re-exclude chromosomes specified in
-a just before -i/--include-chrom option.
-
+| Option & Argument                   | Description | Default |
+|-------------------------------------|-------------|---------|
+| `-q, --mapq [int]`                  | Input reads which mapping quality less than specified score will be discarded. MAPQ >= 1 is recommended because MAPQ=0 contains multiple hit reads. | 1 |
+| `-i, --include-chrom [pattern ...]` | Specify chromosomes to calculate. Unix shell-style wildcards (`.`, `*`, `[]` and `[!]`) are acceptable. This option can be declared multiple times to re-include chromosomes specified in a just before `-e/--exclude-chrom` option. Note that this option is case-sensitive. | |
+| `-e, --exclude-chrom [pattern ...]` | As same as the `-i/--include-chrom` option, specify chromosomes to exclude from calculation. This option can be declared multiple times to re-exclude chromosomes specified in a just before `-i/--include-chrom` option. | |
 
 #### Analysis Parameters
 
-##### -d / --max-shift [int]
-PyMaSC calculate cross-correlation with shift size from 0 to this value. (Default: 1000)
-
-##### --chi2-pval [float]
-P-value threshold to check strand specificity. (Default: 0.05)
-PyMaSC performs chi-square test between number of reads mapped to positive- and negative-strand.
-
-##### -w / --smooth-window [int]
-Before mean fragment length estimation, PyMaSC applies moving average filter to
-mappability-sensitive cross-correlation. This option specify filter's window size.
-(Default: 15)
-
-##### --mask-size [int]
-If difference between a read length and the estimated library length is equal or
-less than the length specified by this option, PyMaSC masks correlation coefficients
-in the read length +/- specified length and try to estimate mean library length again.
-(Default: 5, Specify < 1 to disable)
-
-##### --bg-avr-width [int]
-To obtain the minimum coefficients of cross-correlation, PyMaSC gets the median
-of the end of specified bases from calculated cross-correlation coefficients.
-(Default: 50bp)
+| Option & Argument           | Description | Default |
+|-----------------------------|-------------|---------|
+| `-d, --max-shift [int]`     | PyMaSC calculate cross-correlation with shift size from 0 to this value. | 1000 |
+| `--chi2-pval [float]`       | P-value threshold to check strand specificity. PyMaSC performs chi-square test between number of reads mapped to positive- and negative-strand. | 0.05 |
+| `-w, --smooth-window [int]` | Before mean fragment length estimation, PyMaSC applies moving average filter to mappability-sensitive cross-correlation. This option specify filter's window size. | 15 |
+| `--mask-size [int]`         | If difference between a read length and the estimated library length is equal or less than the length specified by this option, PyMaSC masks correlation coefficients in the read length +/- specified length and try to estimate mean library length again. Specify < 1 to disable. | 5 |
+| `--bg-avr-width [int]`      | To obtain the minimum coefficients of cross-correlation, PyMaSC gets the median of the end of specified bases from calculated cross-correlation coefficients. | 50 |
 
 #### Output options
 
-##### -o / --outdir [path]
-Specify output directory. (Default: current directory)
+| Option & Argument      | Description | Default |
+|------------------------|-------------|---------|
+| `-o, --outdir [path]`  | Specify output directory. | (current directory) |
+| `-n, --name [NAME...]` | By default, output files are written to `outdir/input_file_base_name`. This option overwrite output file base name. | (input_file_base_name) |
 
-##### -n / --name [NAME...]
-By default, output files are written to `outdir/input_file_base_name`. This option
-overwrite output file base name.
-
+---
 
 ### `pymasc-precalc` command
 
@@ -248,7 +217,7 @@ overwrite output file base name.
                    [-r MAX_READLEN]
 
 #### Usage example
-Calculate total length of doubly mappable region.
+Calculate total length of doubly mappable regions.
 `wgEncodeCrgMapabilityAlign36mer_mappability.json` will be write.
 
     $ pymasc -p 4 -r 50 -d 1000 -m wgEncodeCrgMapabilityAlign36mer.bigWig
@@ -259,6 +228,7 @@ Note that actual max shift size is,
 - 0 to `read_length` (if `max_shift` < `read_len` * 2)
 - 0 to `max_shift` - `read_len` + 1 (if `max_shift` => `read_len` * 2)
 
+---
 
 ### `pymasc-plot` command
 
@@ -297,7 +267,7 @@ was generated for a mappability BigWig file by PyMaSC to obtain mappable region 
 #### Input argument
 Specify a prefix to `pymasc` output files. For example, set `output/ENCFF000VPI`
 to plot figures from `output/ENCFF000VPI_stats.tab`, `output/ENCFF000VPI_nreads.tab`
-and `output/ENCFF000VPI_cc.tab` (and/or `output/ENCFF000VPI_masc.tab`). `*_stats.tab`
+and `output/ENCFF000VPI_cc.tab` (and/or `output/ENCFF000VPI_mscc.tab`). `*_stats.tab`
 and either or both of `*_cc.tab` and `*_mscc.tab` must be exist.
 To specify these files individually, use `--stats`, `--nreads`, `--cc` and `--masc`
 options.
@@ -326,6 +296,12 @@ efficiency and robustness for shift size.
 
 References
 ----------
-* Ramachandran, Parameswaran, et al. "MaSC: mappability-sensitive cross-correlation
-  for estimating mean fragment length of single-end short-read sequencing data."
-  Bioinformatics 29.4 (2013): 444-450.
+* PyMaSC paper
+  * Anzawa, Hayato, Hitoshi Yamagata, and Kengo Kinoshita.
+    "Theoretical characterisation of strand cross-correlation in ChIP-seq."
+    BMC bioinformatics 21.1 (2020): 417.
+* Original paper on the MaSC algorithm
+  * Ramachandran, Parameswaran, et al.
+    "MaSC: mappability-sensitive cross-correlation for estimating
+     mean fragment length of single-end short-read sequencing data."
+    Bioinformatics 29.4 (2013): 444-450.

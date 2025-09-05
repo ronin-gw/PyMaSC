@@ -16,9 +16,6 @@ on:
         required: false
         default: 'Manual testing'
         type: string
-  # Weekly scheduled build for testing purposes
-  schedule:
-    - cron: '0 2 * * 1'  # Weekly build on Monday at 2 AM UTC for testing
 
 jobs:
   # Check if we should build wheels based on commit message or event type
@@ -81,9 +78,6 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        # Note: Windows support temporarily excluded due to shell compatibility issues
-        # Windows users can use WSL2, Docker, or virtual machines to run PyMaSC
-        # Windows support may be reconsidered in future phases after core improvements
         os: [ubuntu-latest, macos-13, macos-latest]
 
     steps:
@@ -151,13 +145,6 @@ jobs:
           pip install "pysam>=0.23.2" "pyBigWig>=0.3.18" &&
           cd external/BitArray && make clean && make CC="gcc -arch x86_64 -arch arm64" libbitarr.a && cd ../..
 
-        # Windows build configuration temporarily disabled
-        # CIBW_BEFORE_BUILD_WINDOWS: >
-        #   python -c "import sys; print('Python version:', sys.version)" &&
-        #   if python -c "import sys; sys.exit(0 if sys.version_info[:2] >= (3, 12) else 1)"; then pip install setuptools wheel; fi &&
-        #   if python -c "import sys; sys.exit(0 if sys.version_info[:2] == (3, 9) else 1)"; then pip install 'numpy<2.0'; else pip install numpy; fi &&
-        #   pip install "pysam>=0.23.2" "bx-python>=0.10.0"
-
         # Test requirements
         CIBW_TEST_REQUIRES: scipy
 
@@ -215,24 +202,6 @@ jobs:
       with:
         name: cibw-sdist
         path: dist/*.tar.gz
-
-  upload_pypi:
-    needs: [check_build_condition, build_wheels, build_sdist]
-    runs-on: ubuntu-latest
-    # Only upload to PyPI on release
-    if: github.event_name == 'release' && github.event.action == 'published'
-    steps:
-    - uses: actions/download-artifact@v4
-      with:
-        # unpacks default artifact into dist/
-        # if `name: artifact` is omitted, the action will create extra parent dir
-        pattern: cibw-*
-        path: dist
-        merge-multiple: true
-
-    - uses: pypa/gh-action-pypi-publish@v1.8.14
-      with:
-        password: ${{ secrets.PYPI_API_TOKEN }}
 
   build_summary:
     needs: [check_build_condition, build_wheels, build_sdist]

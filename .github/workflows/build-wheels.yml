@@ -155,7 +155,6 @@ jobs:
 
         # Environment variables for build (enable versioned C source mode)
         CIBW_ENVIRONMENT: >
-          SETUPTOOLS_USE_DISTUTILS=stdlib
           BUILD_MODE=versioned
 
         # Repair wheel settings for different platforms
